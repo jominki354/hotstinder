@@ -1,0 +1,37 @@
+{
+  "name": "hots-matchmaking-server",
+  "version": "1.0.0",
+  "description": "히어로즈 오브 더 스톰 사설 매칭 서비스 백엔드",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.18.1",
+    "jsonwebtoken": "^9.0.2",
+    "memorystore": "^1.6.7",
+    "mongodb": "^6.16.0",
+    "mongoose": "^8.15.0",
+    "nedb": "^1.8.0",
+    "passport": "^0.6.0",
+    "passport-bnet": "^2.0.0",
+    "socket.io": "^4.7.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}

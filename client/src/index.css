@@ -1,0 +1,228 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 스크롤바 디자인 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.6);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.8);
+}
+
+/* 페이지 트랜지션 */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* 배경 효과 */
+body {
+  font-family: 'Noto Sans KR', 'Roboto', sans-serif;
+  color: #f8fafc;
+  background-color: #0f172a;
+  background-image: url('./assets/images/background.jpg');
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(15, 23, 42, 0.92);
+  z-index: -1;
+}
+
+/* 배틀넷 버튼 스타일 */
+.battlenet-button {
+  @apply bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-md transition-all duration-200 flex items-center justify-center;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+}
+
+.battlenet-button:hover {
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+  transform: translateY(-2px);
+}
+
+.battlenet-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+}
+
+/* 카드 스타일 */
+.card {
+  @apply bg-slate-800/90 backdrop-blur-sm rounded-lg shadow-lg p-6 border border-slate-700/50;
+}
+
+/* 커스텀 컴포넌트 스타일 */
+.btn {
+  @apply px-4 py-2 rounded font-medium focus:outline-none transition-colors duration-300;
+}
+
+.btn-primary {
+  @apply bg-indigo-600 text-white hover:bg-indigo-700;
+}
+
+.btn-secondary {
+  @apply bg-slate-700 text-gray-200 hover:bg-slate-600;
+}
+
+.btn-success {
+  @apply bg-green-600 text-white hover:bg-green-700;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700;
+}
+
+.input {
+  @apply w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2 focus:outline-none focus:border-indigo-500;
+}
+
+.badge {
+  @apply inline-block px-2 py-1 text-xs font-medium rounded-full;
+}
+
+.badge-success {
+  @apply bg-green-900/70 text-green-300;
+}
+
+.badge-warning {
+  @apply bg-yellow-900/70 text-yellow-300;
+}
+
+.badge-danger {
+  @apply bg-red-900/70 text-red-300;
+}
+
+.badge-info {
+  @apply bg-indigo-900/70 text-indigo-300;
+}
+
+/* 하이라이트 */
+.text-accent {
+  @apply text-indigo-400;
+}
+
+/* 애니메이션 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* 매치 찾음 애니메이션 */
+@keyframes matchFound {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.match-found-animation {
+  animation: matchFound 0.5s ease-out forwards;
+  animation-fill-mode: both;
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.5s ease-out;
+}
+
+/* 미디어 쿼리 */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  h1 {
+    font-size: 1.75rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+  
+  .card {
+    @apply p-4;
+  }
+  
+  .btn {
+    @apply w-full mb-2 flex justify-center;
+  }
+}
+
+/* 모바일 최적화 */
+@media (max-width: 480px) {
+  .battlenet-button {
+    @apply py-2 px-4;
+  }
+  
+  .card {
+    @apply p-3;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  h2 {
+    font-size: 1.25rem;
+  }
+} 

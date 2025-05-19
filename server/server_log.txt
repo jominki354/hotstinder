@@ -1,0 +1,10 @@
+?쒕쾭媛 5001 ?ы듃?먯꽌 ?ㅽ뻾 以묒엯?덈떎
+硫붾え由?湲곕컲 ?꾩떆 ??μ냼瑜??ъ슜 以묒엯?덈떎. ?쒕쾭 ?ъ떆?????곗씠?곌? 珥덇린?붾맗?덈떎.
+MongoDB ?놁씠 硫붾え由???μ냼瑜? ?ъ슜?⑸땲??
+MongoDB Atlas ?곌껐 ?ㅽ뙣: Error: querySrv ENOTFOUND _mongodb._tcp.cluster0.mongodb.net
+    at QueryReqWrap.onresolve [as oncomplete] (node:internal/dns/promises:293:17) {
+  errno: undefined,
+  code: 'ENOTFOUND',
+  syscall: 'querySrv',
+  hostname: '_mongodb._tcp.cluster0.mongodb.net'
+}
