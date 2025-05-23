@@ -1,0 +1,749 @@
+.queue-status-container {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  z-index: 40;
+  background-color: rgba(15, 23, 42, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  width: 300px;
+  max-width: 90vw;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.queue-status-container.expanded {
+  max-height: 300px;
+}
+
+.queue-status-container.collapsed {
+  max-height: 50px;
+}
+
+/* 매치 진행 중 상태 스타일 */
+.queue-status-container.match-in-progress {
+  background-color: rgba(13, 36, 21, 0.95);
+  animation: pulse-green 2s infinite;
+  border-color: rgba(74, 222, 128, 0.2);
+}
+
+.queue-status-container.match-in-progress .queue-status-header {
+  background-color: rgba(4, 108, 70, 0.8);
+}
+
+.queue-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: rgba(30, 41, 59, 0.8);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.queue-status-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.toggle-button {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.queue-status-content {
+  padding: 15px;
+}
+
+.queue-info {
+  margin-bottom: 15px;
+}
+
+.queue-info p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+/* 매치 진행 중 정보 스타일 */
+.match-progress-info {
+  margin-bottom: 15px;
+}
+
+.match-progress-info p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+.match-progress-info .match-id {
+  font-family: monospace;
+  font-size: 12px;
+  color: #a3e635;
+  word-break: break-all;
+  margin-bottom: 15px;
+}
+
+.progress-bar {
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  margin-bottom: 15px;
+  overflow: hidden;
+}
+
+.progress {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.leave-queue-button {
+  width: 100%;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.leave-queue-button:hover {
+  background-color: #dc2626;
+}
+
+/* 버튼 그리드 레이아웃 */
+.match-buttons-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* 리플레이 제출 버튼 스타일 */
+.submit-replay-button {
+  width: 100%;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.submit-replay-button:hover {
+  background-color: #059669;
+}
+
+/* 매치 정보 보기 버튼 스타일 */
+.view-match-button {
+  width: 100%;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.view-match-button:hover {
+  background-color: #2563eb;
+}
+
+/* 관리자 호출 버튼 스타일 */
+.call-admin-button {
+  width: 100%;
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.call-admin-button:hover {
+  background-color: #d97706;
+}
+
+/* 매치 취소 버튼 스타일 */
+.cancel-match-button {
+  width: 100%;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-match-button:hover {
+  background-color: #b91c1c;
+}
+
+.submit-replay-button.disabled,
+.leave-queue-button.disabled,
+.call-admin-button.disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes pulse-green {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.queue-status-container.in-queue {
+  animation: pulse 2s infinite;
+}
+
+@media (max-width: 640px) {
+  .queue-status-container {
+    top: 60px;
+    right: 10px;
+    width: calc(100% - 20px);
+    max-width: calc(100% - 20px);
+  }
+}
+
+/* 팝업 스타일 대기열 상태 */
+.queue-status-popup {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  width: 320px;
+  max-width: 90vw;
+  background-color: rgba(15, 23, 42, 0.98);
+  border-radius: 14px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(30px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  will-change: transform, opacity;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transform-origin: right top;
+}
+
+.queue-status-popup.active {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+  animation: popup-entrance 0.3s cubic-bezier(0.17, 0.67, 0.38, 1.04);
+}
+
+@keyframes popup-entrance {
+  0% {
+    transform: translateX(30px) scale(0.95);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* 모바일 화면에서의 애니메이션 충돌 해결 */
+@media (max-width: 640px) {
+  .queue-status-popup {
+    top: 60px;
+    right: 10px;
+    width: calc(100% - 20px);
+    max-width: calc(100% - 20px);
+    transform: translateX(20px);
+    border-radius: 12px;
+  }
+  
+  .queue-status-popup.active {
+    transform: translateX(0);
+  }
+  
+  .queue-status-time {
+    font-size: 20px;
+  }
+}
+
+/* 최소화 상태 전환 애니메이션 개선 */
+.queue-status-popup.minimized {
+  width: auto;
+  min-width: 120px;
+  height: 44px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.queue-status-minimized-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.queue-status-mini-time {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* QueueStatus 미니 아이콘의 깜박임 애니메이션 조정 */
+.queue-status-mini-icon {
+  width: 12px;
+  height: 12px;
+  background-color: #10b981;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  will-change: box-shadow;
+  position: relative;
+}
+
+/* 아이콘에 글로우 효과 추가 */
+.queue-status-mini-icon::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  background: transparent;
+  z-index: -1;
+  animation: pulse-outer 2s infinite;
+}
+
+/* 깜박임 애니메이션 정의 (개선된 버전) */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes pulse-outer {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes pulseGreen {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* 매치 진행 중일 때 추가 스타일 */
+.queue-status-popup.match-active {
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 5px 20px rgba(16, 185, 129, 0.2), 0 0 0 1px rgba(16, 185, 129, 0.1);
+}
+
+.queue-status-popup.match-active .queue-status-title::before {
+  background-color: #10b981;
+  animation: pulseGreen 2s infinite;
+}
+
+/* 최소화 버튼 추가 및 스타일링 */
+.queue-status-minimize-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.queue-status-minimize-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 팝업 내부 패딩 조정 */
+.queue-status-content {
+  padding: 18px;
+  padding-top: 12px;
+  position: relative;
+}
+
+.queue-status-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.queue-status-title::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #10b981;
+  animation: pulse 1.5s infinite;
+}
+
+.queue-status-time {
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 8px;
+  padding: 12px 10px;
+  font-size: 26px;
+  color: #f8fafc;
+  font-weight: 700;
+  text-align: center;
+  margin: 10px 0;
+  letter-spacing: 2px;
+  font-family: 'Courier New', monospace;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.queue-status-info {
+  display: flex;
+  flex-direction: column;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  margin-bottom: 12px;
+  border: 1px solid rgba(60, 80, 130, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.queue-status-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, transparent 50%, rgba(79, 70, 229, 0.05) 100%);
+  pointer-events: none;
+}
+
+.queue-status-info-progress {
+  height: 6px;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 3px;
+  margin: 8px 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.queue-status-info-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+.queue-status-info-numbers {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 2px;
+  margin-bottom: 2px;
+}
+
+.queue-status-info-player-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f8fafc;
+  display: flex;
+  align-items: baseline;
+}
+
+.queue-status-info-slash {
+  font-size: 16px;
+  color: #94a3b8;
+  margin: 0 4px;
+}
+
+.queue-status-info-label {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-right: 4px;
+  font-weight: 500;
+}
+
+.queue-status-info-estimated {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 6px;
+  text-align: right;
+  font-style: italic;
+}
+
+.queue-status-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.queue-status-view-btn {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.queue-status-view-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.queue-status-cancel-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.queue-status-cancel-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.queue-status-match-id {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #f8fafc;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 6px 8px;
+  border-radius: 4px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  margin-bottom: 8px;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+}
+
+/* 매치 찾음 알림 스타일 */
+.queue-status-match-found {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(16, 24, 39, 0.95);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 14px;
+}
+
+.queue-status-match-found.visible {
+  transform: translateY(0);
+}
+
+.queue-status-match-found-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin-bottom: 12px;
+  text-align: center;
+  animation: pulse-text 2s infinite;
+}
+
+.queue-status-match-found-icon {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.queue-status-match-found-icon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #3b82f6;
+  border-radius: 50%;
+  animation: pulse-match-found 2s infinite;
+}
+
+.queue-status-match-found-icon::after {
+  content: '✓';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 30px;
+  font-weight: bold;
+}
+
+.queue-status-match-found-message {
+  font-size: 14px;
+  color: #94a3b8;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.queue-status-match-found-button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.queue-status-match-found-button:hover {
+  background: #2563eb;
+}
+
+@keyframes pulse-match-found {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    transform: scale(0.95);
+  }
+  50% {
+    box-shadow: 0 0 0 15px rgba(59, 130, 246, 0.2);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    transform: scale(0.95);
+  }
+}
+
+@keyframes pulse-text {
+  0% {
+    text-shadow: 0 0 5px rgba(59, 130, 246, 0.7);
+  }
+  50% {
+    text-shadow: 0 0 15px rgba(59, 130, 246, 0.9), 0 0 5px rgba(59, 130, 246, 0.4);
+  }
+  100% {
+    text-shadow: 0 0 5px rgba(59, 130, 246, 0.7);
+  }
+}
+
+/* 매치 찾음 시 배경 깜박임 효과 */
+.queue-status-content.match-found {
+  animation: background-pulse 2s infinite;
+}
+
+@keyframes background-pulse {
+  0% {
+    background-color: rgba(15, 23, 42, 0.98);
+  }
+  50% {
+    background-color: rgba(30, 64, 175, 0.3);
+  }
+  100% {
+    background-color: rgba(15, 23, 42, 0.98);
+  }
+} 

@@ -1,0 +1,44 @@
+=== 데이터베이스 조회 결과 (2025. 5. 19. 오후 11:29:29) ===
+
+총 사용자 수: 102명
+더미 유저 수: 100명
+
+첫 번째 더미 유저 샘플:
+{
+  "bnetId": 10126399,
+  "battletag": "더미유저#1001",
+  "nickname": "노력가1",
+  "email": "dummy1@test.com",
+  "accessToken": "dummy-token",
+  "isAdmin": false,
+  "isDummy": true,
+  "isProfileComplete": true,
+  "mmr": 1393,
+  "wins": 33,
+  "losses": 52,
+  "preferredRoles": [
+    "암살자",
+    "전문가"
+  ],
+  "favoriteHeroes": [
+    "실바나스",
+    "안두인",
+    "자가라"
+  ],
+  "lastLoginAt": "2025-05-19T13:57:50.913Z",
+  "createdAt": "2025-05-19T13:57:50.913Z",
+  "updatedAt": "2025-05-19T13:57:52.667Z",
+  "_id": "07EpVLyrlZT8o4rN"
+}
+
+승리 기록이 있는 더미 유저: 100명
+패배 기록이 있는 더미 유저: 100명
+MMR이 있는 더미 유저: 100명
+
+일반 유저 수: 2명
+
+일반 유저 목록:
+1. 전부못함#3518 - MMR: 1493, 승: 20, 패: 39
+2. admin#0000 - MMR: 1635, 승: 26, 패: 31
+
+=== 조회 완료 ===
