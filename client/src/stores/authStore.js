@@ -123,15 +123,15 @@ export const useAuthStore = create((set, get) => ({
       normalizedUser.previousTier = 'placement';
     }
     
-    // isProfileComplete 필드 처리 - profileComplete 혹은 isProfileComplete 둘 중 하나라도 true이면 true로 설정
+    // isProfileComplete 필드 처리 - 서버 데이터를 우선시
     if (normalizedUser.profileComplete === true || normalizedUser.isProfileComplete === true) {
       normalizedUser.isProfileComplete = true;
-    }
-    
-    // 로컬 스토리지에 'profileComplete' 값이 있으면 그 값에 따라 isProfileComplete 설정
-    const localProfileComplete = localStorage.getItem('profileComplete');
-    if (localProfileComplete === 'true') {
-      normalizedUser.isProfileComplete = true;
+      // 서버에서 프로필 완료 상태가 true이면 localStorage에도 저장
+      localStorage.setItem('profileComplete', 'true');
+    } else {
+      // 서버에서 프로필 완료 상태가 false이면 localStorage도 제거
+      localStorage.removeItem('profileComplete');
+      normalizedUser.isProfileComplete = false;
     }
     
     console.log('표준화된 사용자 정보:', normalizedUser);

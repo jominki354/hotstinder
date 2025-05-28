@@ -7,74 +7,22 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import QueueStatus from '../components/queue/QueueStatus';
 import ReplayUploadModal from '../components/common/ReplayUploadModal'; // 리플레이 업로드 모달 추가
 
-// 대기 시간을 전역적으로 관리하기 위한 상태 객체
-const queueTimeState = {
-  time: 0,
-  listeners: new Set(),
-  startTime: null,
-  
-  // 대기 시간 시작
-  start() {
-    this.startTime = Date.now();
-    this.time = 0;
-    this.notify();
-    
-    if (this.intervalId) clearInterval(this.intervalId);
-    
-    this.intervalId = setInterval(() => {
-      if (this.startTime) {
-        // 시작 시간 기준으로 초 단위 계산
-        const elapsedSeconds = Math.floor((Date.now() - this.startTime) / 1000);
-        if (this.time !== elapsedSeconds) {
-          this.time = elapsedSeconds;
-          this.notify();
-        }
-      }
-    }, 1000);
-  },
-  
-  // 대기 시간 초기화
-  reset() {
-    this.time = 0;
-    this.startTime = null;
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
-    this.notify();
-  },
-  
-  // 수동으로 시간 설정 (초 단위)
-  setTime(seconds) {
-    if (seconds === 0) {
-      this.reset();
-      return;
-    }
-    
-    if (!this.startTime) {
-      this.startTime = Date.now() - (seconds * 1000);
-      if (!this.intervalId) {
-        this.start();
-      }
-    }
-    this.time = seconds;
-    this.notify();
-  },
-  
-  // 리스너 추가
-  subscribe(callback) {
-    this.listeners.add(callback);
-    return () => this.listeners.delete(callback);
-  },
-  
-  // 모든 리스너에게 변경 알림
-  notify() {
-    this.listeners.forEach(callback => callback(this.time));
+// QueueStatus 컴포넌트의 전역 queueTimeState를 가져오기 위한 함수
+const getGlobalQueueTimeState = () => {
+  if (window.queueTimeState) {
+    return window.queueTimeState;
   }
+  
+  // QueueStatus 컴포넌트가 로드되기 전에는 기본 객체 반환
+  return {
+    time: 0,
+    setServerTime: () => {},
+    start: () => {},
+    reset: () => {},
+    setTime: () => {},
+    subscribe: () => () => {}
+  };
 };
-
-// 전역 접근을 위해 window 객체에 할당
-window.queueTimeState = queueTimeState;
 
 const FindMatchPage = () => {
   const { isAuthenticated, user, setQueueStatus: setGlobalQueueStatus, inQueue: globalInQueue, matchInProgress: globalMatchInProgress, setMatchProgress, currentMatchId } = useAuthStore();
@@ -108,7 +56,7 @@ const FindMatchPage = () => {
   const [submittingReplay, setSubmittingReplay] = useState(false);
   
   // 대기열 시간 (전역 상태에서 가져옴)
-  const [queueTimeSeconds, setQueueTimeSeconds] = useState(queueTimeState.time);
+  const [queueTimeSeconds, setQueueTimeSeconds] = useState(getGlobalQueueTimeState().time);
   // 우주 입자 상태
   const [particles, setParticles] = useState([]);
   
@@ -145,10 +93,10 @@ const FindMatchPage = () => {
     };
     
     // 현재 시간 즉시 반영
-    updateTime(queueTimeState.time);
+    updateTime(getGlobalQueueTimeState().time);
     
     // 구독
-    const unsubscribe = queueTimeState.subscribe(updateTime);
+    const unsubscribe = getGlobalQueueTimeState().subscribe(updateTime);
     
     return () => {
       unsubscribe(); // 구독 해제
@@ -172,17 +120,96 @@ const FindMatchPage = () => {
       fetchQueueStatus();
       
       // 타이머 시작 (아직 시작되지 않은 경우)
-      if (!queueTimeState.startTime) {
-        queueTimeState.start();
+      if (!getGlobalQueueTimeState().startTime) {
+        getGlobalQueueTimeState().start();
       }
     }
   }, [globalInQueue, inQueue]);
+
+  // 페이지 로드 시 서버 상태 확인 및 동기화
+  useEffect(() => {
+    const initializePageStatus = async () => {
+      if (!isAuthenticated || !user) return;
+      
+      try {
+        console.log('[FindMatchPage] 페이지 초기화 - 서버 상태 확인');
+        const res = await axios.get('/api/matchmaking/status');
+        
+        // 서버 상태로 로컬 상태 동기화
+        setQueueStatus(res.data);
+        
+        // 서버에서 대기열에 있다고 하면 로컬 상태도 업데이트
+        if (res.data.inQueue && !inQueue) {
+          console.log('[FindMatchPage] 서버에서 대기열 상태 감지, 로컬 상태 동기화');
+          setInQueue(true);
+          setGlobalQueueStatus(true);
+          localStorage.setItem('inQueue', 'true');
+        } else if (!res.data.inQueue && inQueue) {
+          console.log('[FindMatchPage] 서버에서 대기열 해제 상태 감지, 로컬 상태 동기화');
+          setInQueue(false);
+          setGlobalQueueStatus(false);
+          localStorage.removeItem('inQueue');
+        }
+        
+        // 서버에서 받은 대기 시간 정보로 동기화
+        if (res.data.inQueue && res.data.waitTime !== undefined) {
+          console.log('[FindMatchPage] 초기화 시 서버 대기 시간 동기화:', {
+            waitTime: res.data.waitTime,
+            joinedAt: res.data.joinedAt,
+            serverTime: res.data.serverTime
+          });
+          
+          // 서버 시간 기준으로 대기 시간 설정
+          getGlobalQueueTimeState().setServerTime(
+            res.data.waitTime,
+            res.data.joinedAt,
+            res.data.serverTime
+          );
+        } else if (!res.data.inQueue) {
+          // 대기열에 없으면 타이머 초기화
+          getGlobalQueueTimeState().reset();
+        }
+        
+      } catch (error) {
+        console.error('[FindMatchPage] 초기 상태 확인 중 오류:', error);
+        
+        // 인증 오류인 경우 대기열 상태 초기화
+        if (error.response && error.response.status === 401) {
+          localStorage.removeItem('inQueue');
+          setGlobalQueueStatus(false);
+          getGlobalQueueTimeState().reset();
+        }
+      }
+    };
+    
+    // 페이지 로드 시 한 번만 실행
+    initializePageStatus();
+  }, [isAuthenticated, user]); // isAuthenticated와 user가 변경될 때만 재실행
 
   // 대기열 상태 가져오기 함수
   const fetchQueueStatus = async () => {
     try {
       const res = await axios.get('/api/matchmaking/status');
       setQueueStatus(res.data);
+      
+      // 서버에서 받은 대기 시간 정보로 동기화
+      if (res.data.inQueue && res.data.waitTime !== undefined) {
+        console.log('[FindMatchPage] 서버 대기 시간 동기화:', {
+          waitTime: res.data.waitTime,
+          joinedAt: res.data.joinedAt,
+          serverTime: res.data.serverTime
+        });
+        
+        // 서버 시간 기준으로 대기 시간 설정
+        getGlobalQueueTimeState().setServerTime(
+          res.data.waitTime,
+          res.data.joinedAt,
+          res.data.serverTime
+        );
+      } else if (!res.data.inQueue) {
+        // 대기열에 없으면 타이머 초기화
+        getGlobalQueueTimeState().reset();
+      }
       
       // 10명이 모이면 매치 찾음 처리
       if (res.data.currentPlayers === res.data.requiredPlayers) {
@@ -191,6 +218,13 @@ const FindMatchPage = () => {
       }
     } catch (err) {
       console.error('대기열 상태 가져오기 오류:', err);
+      
+      // 인증 오류(401)인 경우 대기열 상태 초기화
+      if (err.response && err.response.status === 401) {
+        localStorage.removeItem('inQueue');
+        setGlobalQueueStatus(false);
+        getGlobalQueueTimeState().reset();
+      }
     }
   };
   
@@ -663,8 +697,23 @@ const FindMatchPage = () => {
         // 배경 애니메이션 활성화를 위해 body에 클래스 추가
         document.body.classList.add('queue-active');
         
-        // 타이머 시작 또는 재설정
-        queueTimeState.start();
+        // 서버에서 받은 대기 시간 정보로 동기화
+        if (response.data.waitTime !== undefined && response.data.joinedAt) {
+          console.log('서버 대기 시간 정보로 동기화:', {
+            waitTime: response.data.waitTime,
+            joinedAt: response.data.joinedAt
+          });
+          
+          // 서버 시간 기준으로 대기 시간 설정 (서버 시간은 현재 시간으로 추정)
+          getGlobalQueueTimeState().setServerTime(
+            response.data.waitTime,
+            response.data.joinedAt,
+            new Date().toISOString() // 현재 클라이언트 시간을 서버 시간으로 사용
+          );
+        } else {
+          // 서버 정보가 없으면 클라이언트 타이머 시작
+          getGlobalQueueTimeState().start();
+        }
       } else {
         console.error('대기열 참가 실패:', response.data);
         setError(response.data.message || '대기열 참가에 실패했습니다.');
@@ -725,7 +774,7 @@ const FindMatchPage = () => {
       window.isSimulationRunning = false;
       
       // 타이머 및 배경 효과 초기화
-      queueTimeState.reset();
+      getGlobalQueueTimeState().reset();
       document.body.classList.remove('queue-active');
       console.log('시뮬레이션 중단 완료');
       return;
@@ -740,8 +789,8 @@ const FindMatchPage = () => {
     }
     
     // 전역 queueTimeState 초기화 및 시작 (타이머 시작 먼저)
-    queueTimeState.reset();
-    queueTimeState.start();
+    getGlobalQueueTimeState().reset();
+    getGlobalQueueTimeState().start();
     
     // 시뮬레이션 상태 활성화 (직접 설정)
     setIsSimulating(true);
@@ -766,7 +815,7 @@ const FindMatchPage = () => {
     setQueueStatus({
       currentPlayers: 1,
       requiredPlayers: 10,
-      estimatedTime: '00:30'
+      estimatedTime: '00:15'
     });
     
     // 로컬 변수로 시뮬레이션 활성화 상태 추적
@@ -801,8 +850,8 @@ const FindMatchPage = () => {
     // 시뮬레이션 시간 경과 계산 - 페이지 이동 후에도 상태 유지하기 위함
     const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
     
-    // 시간 경과에 따른 플레이어 수 계산 (1초에 1명씩 증가, 최대 10명)
-    let expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 1));
+    // 시간 경과에 따른 플레이어 수 계산 (0.5초에 1명씩 증가, 최대 10명)
+    let expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 0.5));
     
     // localStorage에 저장된 플레이어 수 확인
     const storedPlayers = parseInt(localStorage.getItem('simulatedPlayers') || '1');
@@ -815,7 +864,7 @@ const FindMatchPage = () => {
     setQueueStatus({
       currentPlayers: currentPlayers,
       requiredPlayers: 10,
-      estimatedTime: currentPlayers >= 10 ? '00:00' : '00:30'
+      estimatedTime: currentPlayers >= 10 ? '00:00' : '00:15'
     });
     
     // 이미 10명이 모였으면 바로 매치 처리 (자동 이동하지 않음)
@@ -847,7 +896,7 @@ const FindMatchPage = () => {
       return;
     }
     
-    // 1초마다 플레이어 증가 (더 안정적인 간격)
+    // 0.5초마다 플레이어 증가 (두 배 빠른 속도)
     simulationTimerRef.current = setInterval(function() {
       // 시뮬레이션이 중단되었는지 확인 (전역 변수 사용)
       if (!window.isSimulationRunning) {
@@ -871,7 +920,7 @@ const FindMatchPage = () => {
       setQueueStatus(prev => ({
         ...prev,
         currentPlayers: currentPlayers,
-        estimatedTime: currentPlayers >= 10 ? '00:00' : '00:30'
+        estimatedTime: currentPlayers >= 10 ? '00:00' : '00:15'
       }));
       
       // 10명 도달 시 매치 찾음 처리 (자동 이동하지 않음)
@@ -906,7 +955,7 @@ const FindMatchPage = () => {
         // 매치 찾음 플래그 설정
         localStorage.setItem('justFoundMatch', 'true');
       }
-    }, 1000); // 1초마다 업데이트 (더 안정적)
+    }, 500); // 0.5초마다 업데이트 (두 배 빠른 속도)
   };
 
   // 매치 정보 생성 및 저장 함수 (코드 정리)
@@ -925,6 +974,12 @@ const FindMatchPage = () => {
     if (generatedMatchInfo) {
       console.log('[FindMatchPage] 매치 정보 저장:', generatedMatchInfo.matchId);
       
+      // 시뮬레이션 플래그 추가
+      if (isSimulating || window.isSimulationRunning) {
+        generatedMatchInfo.isSimulation = true;
+        console.log('[FindMatchPage] 시뮬레이션 매치로 표시');
+      }
+      
       // 매치 정보를 JSON 문자열로 변환하여 저장
       const matchInfoStr = JSON.stringify(generatedMatchInfo);
       
@@ -933,6 +988,11 @@ const FindMatchPage = () => {
       localStorage.setItem('matchInProgress', 'true');
       localStorage.setItem('currentMatchId', generatedMatchInfo.matchId);
       localStorage.setItem('justFoundMatch', 'true'); // 매치 찾음 플래그 설정
+      
+      // 시뮬레이션 매치인 경우 추가 플래그 저장
+      if (generatedMatchInfo.isSimulation) {
+        localStorage.setItem('isSimulationRunning', 'true');
+      }
       
       // 매치 정보 상태 업데이트
       setMatchInfo(generatedMatchInfo);
@@ -976,12 +1036,12 @@ const FindMatchPage = () => {
       setQueueStatus({
         currentPlayers: simulatedPlayers,
         requiredPlayers: 10,
-        estimatedTime: simulatedPlayers >= 10 ? '00:00' : '00:30'
+        estimatedTime: simulatedPlayers >= 10 ? '00:00' : '00:15'
       });
       
       // 타이머 시작
-      if (!queueTimeState.startTime) {
-        queueTimeState.start();
+      if (!getGlobalQueueTimeState().startTime) {
+        getGlobalQueueTimeState().start();
       }
       
       // 배경 효과 적용
@@ -1048,7 +1108,7 @@ const FindMatchPage = () => {
         setGlobalQueueStatus(false);
         
         // 타이머 및 배경 효과 초기화
-        queueTimeState.reset();
+        getGlobalQueueTimeState().reset();
         document.body.classList.remove('queue-active');
         
         console.log('대기열 취소: 시뮬레이션 중단 완료');
@@ -1069,7 +1129,7 @@ const FindMatchPage = () => {
         setError('');
         
         // 타이머 초기화
-        queueTimeState.reset();
+        getGlobalQueueTimeState().reset();
         
         // 배경 애니메이션 비활성화
         document.body.classList.remove('queue-active');
@@ -1095,7 +1155,7 @@ const FindMatchPage = () => {
       localStorage.setItem('inQueue', 'false');
       setGlobalQueueStatus(false);
       setInQueue(false);
-      queueTimeState.reset();
+      getGlobalQueueTimeState().reset();
       document.body.classList.remove('queue-active');
     } finally {
       setIsLoading(false);
@@ -1246,6 +1306,7 @@ const FindMatchPage = () => {
     localStorage.removeItem('matchInProgress');
     localStorage.removeItem('currentMatchId');
     localStorage.removeItem('lastMatchInfo');
+    localStorage.removeItem('isSimulationRunning'); // 시뮬레이션 플래그 정리
     
     // 알림 메시지 삭제
     // alert('매치가 취소되었습니다.');
@@ -1354,7 +1415,7 @@ const FindMatchPage = () => {
           {/* 대기 시간 - 전역 타이머 값 사용 */}
           <div className="queue-time-counter">
             <div className="queue-time-label">대기 시간</div>
-            <div className="queue-ui-time">{formatTime(queueTimeState.time)}</div>
+            <div className="queue-ui-time">{formatTime(getGlobalQueueTimeState().time)}</div>
           </div>
           
           {/* 버튼 그룹 */}

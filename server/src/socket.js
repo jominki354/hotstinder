@@ -29,7 +29,33 @@ const authenticateSocket = async (socket, next) => {
 const setupSocketIO = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL,
+      origin: function (origin, callback) {
+        // 허용할 도메인 목록
+        const allowedOrigins = [
+          process.env.FRONTEND_URL || 'http://localhost:3000',
+          'http://localhost:3000'
+        ];
+        
+        // origin이 없는 경우 허용
+        if (!origin) return callback(null, true);
+        
+        // 허용된 도메인인지 확인
+        const isAllowed = allowedOrigins.some(allowedOrigin => {
+          if (typeof allowedOrigin === 'string') {
+            return origin === allowedOrigin;
+          } else if (allowedOrigin instanceof RegExp) {
+            return allowedOrigin.test(origin);
+          }
+          return false;
+        });
+        
+        if (isAllowed) {
+          callback(null, true);
+        } else {
+          console.log('Socket CORS 차단된 도메인:', origin);
+          callback(new Error('Socket CORS 정책에 의해 차단되었습니다.'));
+        }
+      },
       credentials: true
     }
   });

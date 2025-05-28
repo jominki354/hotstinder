@@ -102,6 +102,28 @@ const DashboardPage = () => {
     <div className="max-w-6xl mx-auto px-4">
       <h1 className="text-3xl font-bold text-indigo-400 mb-8">대시보드</h1>
       
+      {/* 프로필 설정 권장 배너 */}
+      {!user.isProfileComplete && (
+        <div className="bg-indigo-900/50 border border-indigo-500 text-white px-6 py-4 rounded-lg mb-6">
+          <div className="flex items-start">
+            <div className="flex-1">
+              <h3 className="font-bold text-lg mb-1">프로필 설정을 완료해보세요!</h3>
+              <p className="text-indigo-200">
+                선호하는 역할과 이전 시즌 티어를 설정하면 더 공정한 매치메이킹에 도움이 됩니다.
+              </p>
+            </div>
+            <div className="ml-4 flex-shrink-0">
+              <Link 
+                to="/profile/setup" 
+                className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition"
+              >
+                프로필 설정하기
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* 프로필 카드 */}
       <div className={`rounded-xl p-6 mb-8 border border-indigo-900/50 ${tier.bgColor}`}>
         <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">

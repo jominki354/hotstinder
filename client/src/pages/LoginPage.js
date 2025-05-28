@@ -7,7 +7,6 @@ const LoginPage = () => {
   
   const handleBattleNetLogin = (e) => {
     e.preventDefault();
-    console.log('배틀넷 로그인 시도...');
     
     // 새 창이나 현재 창에서 직접 URL 열기
     window.location.href = `${API_URL}/api/auth/bnet`;
@@ -15,7 +14,6 @@ const LoginPage = () => {
 
   const handleDevLogin = (e) => {
     e.preventDefault();
-    console.log('개발자 모드 로그인 시도...');
     
     // 개발자 모드 로그인 URL 직접 열기
     window.location.href = `${API_URL}/api/auth/dev-login`;

@@ -2,42 +2,28 @@ const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
 // MongoDB 연결 설정
-const connectDB = async () => {
+const connectMongoDB = async () => {
   try {
-    // MongoDB 연결 URI
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/hotstinder';
+    logger.info('MongoDB를 사용하도록 설정되어 있습니다. 연결을 시도합니다...');
     
-    // 연결 옵션
-    const options = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000, // 서버 선택 타임아웃
-      socketTimeoutMS: 45000, // 소켓 타임아웃
-    };
+    // deprecated 옵션 제거
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hotstinder');
     
-    // MongoDB 연결
-    const conn = await mongoose.connect(mongoURI, options);
+    logger.info(`MongoDB 데이터베이스 연결 성공: ${mongoose.connection.host}`);
     
-    logger.info(`MongoDB 데이터베이스 연결 성공: ${conn.connection.host}`);
-    
-    // 연결 오류 이벤트 핸들러
+    // 연결 이벤트 리스너
     mongoose.connection.on('error', (err) => {
       logger.error('MongoDB 연결 오류:', err);
     });
     
-    // 연결 종료 이벤트 핸들러
     mongoose.connection.on('disconnected', () => {
-      logger.warn('MongoDB 연결이 종료되었습니다. 재연결을 시도합니다.');
-      setTimeout(connectDB, 5000); // 5초 후 재연결 시도
+      logger.warn('MongoDB 연결이 끊어졌습니다.');
     });
     
-    return conn;
+    return mongoose.connection;
   } catch (error) {
     logger.error('MongoDB 연결 실패:', error);
-    // 3초 후 재연결 시도
-    logger.info('3초 후 MongoDB 재연결을 시도합니다...');
-    setTimeout(connectDB, 3000);
-    return null;
+    throw error;
   }
 };
 
@@ -106,6 +92,6 @@ const addDummyData = async (UserModel) => {
 };
 
 module.exports = {
-  connectDB,
+  connectMongoDB,
   addDummyData
 }; 

@@ -8,12 +8,70 @@ import './QueueStatus.css';
 const queueTimeState = {
   time: 0,
   listeners: new Set(),
-  startTime: null,
-  intervalId: null, // intervalId 명시적 선언
-  isNotifying: false, // 알림 중복 실행 방지 플래그 추가
+  serverStartTime: null, // 서버에서 받은 대기 시작 시간
+  serverWaitTime: 0, // 서버에서 받은 대기 시간
+  serverTimeOffset: 0, // 서버와 클라이언트 시간 차이
+  intervalId: null,
+  isNotifying: false,
   
-  // 대기 시간 시작
+  // 서버 시간 기준으로 대기 시간 설정
+  setServerTime(serverWaitTime, serverJoinedAt, serverTime) {
+    // 이전 타이머 정리
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    
+    if (serverWaitTime === 0 && !serverJoinedAt) {
+      // 대기열에 없는 상태
+      this.reset();
+      return;
+    }
+    
+    // 서버 시간과 클라이언트 시간 차이 계산
+    const clientTime = Date.now();
+    const serverTimeMs = new Date(serverTime).getTime();
+    this.serverTimeOffset = serverTimeMs - clientTime;
+    
+    // 서버에서 받은 정보 저장
+    this.serverWaitTime = serverWaitTime;
+    this.serverStartTime = serverJoinedAt ? new Date(serverJoinedAt) : null;
+    this.time = serverWaitTime;
+    
+    console.log('[QueueTimeState] 서버 시간 동기화:', {
+      serverWaitTime,
+      serverJoinedAt,
+      serverTime,
+      clientTime: new Date(clientTime).toISOString(),
+      timeOffset: this.serverTimeOffset
+    });
+    
+    // 타이머 시작
+    this.intervalId = setInterval(() => {
+      if (this.serverStartTime) {
+        // 서버 시간 기준으로 경과 시간 계산
+        const adjustedClientTime = Date.now() + this.serverTimeOffset;
+        const elapsedMs = adjustedClientTime - this.serverStartTime.getTime();
+        const elapsedSeconds = Math.floor(elapsedMs / 1000);
+        
+        if (this.time !== elapsedSeconds && elapsedSeconds >= 0) {
+          this.time = elapsedSeconds;
+          this.notify();
+        }
+      }
+    }, 1000);
+    
+    // 초기 알림
+    this.notify();
+  },
+  
+  // 대기 시간 시작 (레거시 지원)
   start() {
+    // 서버 동기화가 없는 경우에만 클라이언트 타이머 시작
+    if (this.serverStartTime) {
+      return; // 서버 동기화가 있으면 무시
+    }
+    
     // 이미 시작된 경우 중복 실행 방지
     if (this.intervalId) {
       return;
@@ -37,10 +95,10 @@ const queueTimeState = {
     this.notify();
   },
   
-  // 대기 시간 초기화 - 무한 루프 방지를 위해 전면 수정
+  // 대기 시간 초기화
   reset() {
     // 타이머가 이미 중지된 상태면 불필요한 작업 방지
-    if (this.intervalId === null && this.startTime === null && this.time === 0) {
+    if (this.intervalId === null && this.startTime === null && this.serverStartTime === null && this.time === 0) {
       return;
     }
     
@@ -54,6 +112,9 @@ const queueTimeState = {
     const prevTime = this.time;
     this.time = 0;
     this.startTime = null;
+    this.serverStartTime = null;
+    this.serverWaitTime = 0;
+    this.serverTimeOffset = 0;
     
     // 실제로 상태가 변경된 경우에만 notify 호출
     if (prevTime !== 0) {
@@ -64,8 +125,13 @@ const queueTimeState = {
     }
   },
   
-  // 수동으로 시간 설정 (초 단위)
+  // 수동으로 시간 설정 (초 단위) - 레거시 지원
   setTime(seconds) {
+    // 서버 동기화가 있는 경우 무시
+    if (this.serverStartTime) {
+      return;
+    }
+    
     // 이미 초기화 상태에서 0으로 설정하려는 경우 무시
     if (seconds === 0 && this.time === 0 && !this.startTime) {
       return;
@@ -155,6 +221,21 @@ const QueueStatus = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // 전역 queueTimeState를 window 객체에 노출
+  useEffect(() => {
+    window.queueTimeState = queueTimeState;
+    if (window.setGlobalQueueTimeState) {
+      window.setGlobalQueueTimeState(queueTimeState);
+    }
+    
+    return () => {
+      // 컴포넌트 언마운트 시 정리
+      if (window.queueTimeState === queueTimeState) {
+        window.queueTimeState = null;
+      }
+    };
+  }, []);
+  
   // useRef를 사용하여 불필요한 리렌더링 방지
   const queueStatusRef = useRef({
     currentPlayers: 0,
@@ -197,7 +278,33 @@ const QueueStatus = () => {
   }, []);
 
   // 매치메이킹 페이지로 이동하는 함수
-  const goToMatchmaking = useCallback(() => {
+  const goToMatchmaking = useCallback(async () => {
+    try {
+      // 매치메이킹 페이지로 이동하기 전에 서버 상태 동기화
+      console.log('[QueueStatus] 매치메이킹 페이지 이동 전 서버 상태 동기화');
+      const res = await axios.get('/api/matchmaking/status');
+      
+      // 서버에서 받은 대기 시간 정보로 동기화
+      if (res.data.inQueue && res.data.waitTime !== undefined) {
+        console.log('[QueueStatus] 매치메이킹 이동 시 서버 대기 시간 동기화:', {
+          waitTime: res.data.waitTime,
+          joinedAt: res.data.joinedAt,
+          serverTime: res.data.serverTime
+        });
+        
+        // 서버 시간 기준으로 대기 시간 설정
+        queueTimeState.setServerTime(
+          res.data.waitTime,
+          res.data.joinedAt,
+          res.data.serverTime
+        );
+      }
+    } catch (error) {
+      console.error('[QueueStatus] 매치메이킹 이동 전 상태 동기화 오류:', error);
+      // 오류가 발생해도 페이지 이동은 계속 진행
+    }
+    
+    // 매치메이킹 페이지로 이동
     navigate('/matchmaking');
   }, [navigate]);
 
@@ -281,7 +388,7 @@ const QueueStatus = () => {
     
     if (inQueue) {
       // 이미 시작된 타이머가 있으면 그대로 사용, 없으면 시작
-      if (!queueTimeState.startTime) {
+      if (!queueTimeState.serverStartTime) {
         // 동일한 렌더 사이클에서 여러 상태 업데이트가 충돌하지 않도록 지연 시작
         timerRef.current = setTimeout(() => {
           queueTimeState.start();
@@ -368,8 +475,8 @@ const QueueStatus = () => {
       // 시뮬레이션 시간 경과 계산
       const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
       
-      // 시간 경과에 따른 플레이어 수 계산 (1초에 1명씩 증가, 최대 10명)
-      const expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 1));
+      // 시간 경과에 따른 플레이어 수 계산 (0.5초에 1명씩 증가, 최대 10명)
+      const expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 0.5));
       
       // localStorage에 저장된 플레이어 수 확인
       const storedPlayers = parseInt(localStorage.getItem('simulatedPlayers') || '1');
@@ -384,9 +491,14 @@ const QueueStatus = () => {
       queueStatusRef.current = {
         currentPlayers: currentPlayers,
         requiredPlayers: 10,
-        estimatedTime: currentPlayers >= 10 ? '00:00' : '00:30'
+        estimatedTime: currentPlayers >= 10 ? '00:00' : '00:15'
       };
       setQueueState(queueStatusRef.current);
+      
+      // 시뮬레이션에서는 클라이언트 기준 시간 사용 (서버 동기화 없음)
+      if (!queueTimeState.serverStartTime) {
+        queueTimeState.setTime(timeElapsed);
+      }
       
       // 플레이어가 10명 모이면 매치 찾음 처리 및 알림 표시
       if (currentPlayers >= 10) {
@@ -440,6 +552,25 @@ const QueueStatus = () => {
       queueStatusRef.current = res.data;
       setQueueState(res.data);
       
+      // 서버에서 받은 대기 시간 정보로 동기화
+      if (res.data.inQueue && res.data.waitTime !== undefined) {
+        console.log('[QueueStatus] 서버 대기 시간 동기화:', {
+          waitTime: res.data.waitTime,
+          joinedAt: res.data.joinedAt,
+          serverTime: res.data.serverTime
+        });
+        
+        // 서버 시간 기준으로 대기 시간 설정
+        queueTimeState.setServerTime(
+          res.data.waitTime,
+          res.data.joinedAt,
+          res.data.serverTime
+        );
+      } else if (!res.data.inQueue) {
+        // 대기열에 없으면 타이머 초기화
+        queueTimeState.reset();
+      }
+      
       // 10명이 모이면 매치 찾음 처리 -> 대기열 해제
       if (res.data.currentPlayers === res.data.requiredPlayers) {
         console.log('[QueueStatus] 10명 모임 - 매치 찾음 알림 표시');
@@ -480,6 +611,7 @@ const QueueStatus = () => {
       if (err.response && err.response.status === 401) {
         localStorage.removeItem('inQueue');
         setQueueStatus(false);
+        queueTimeState.reset();
       }
     }
   }, [isAuthenticated, inQueue, isMatchActive, setQueueStatus, setMatchProgress]);
@@ -601,7 +733,7 @@ const QueueStatus = () => {
       // 시간 기반 계산
       const startTime = parseInt(localStorage.getItem('simulationStartTime') || Date.now().toString());
       const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-      const expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 1));
+      const expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 0.5));
       
       displayPlayers = Math.max(displayPlayers, storedPlayers, expectedPlayers);
     }
@@ -769,6 +901,58 @@ const QueueStatus = () => {
     );
   }, [isMinimized, toggleMinimize, currentMatchId, viewMatchDetails, cancelMatch]);
 
+  // 컴포넌트 마운트 시 서버 상태 확인 및 동기화
+  useEffect(() => {
+    const initializeQueueStatus = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        console.log('[QueueStatus] 컴포넌트 초기화 - 서버 상태 확인');
+        const res = await axios.get('/api/matchmaking/status');
+        
+        // 서버 상태로 로컬 상태 업데이트
+        queueStatusRef.current = res.data;
+        setQueueState(res.data);
+        
+        // 서버에서 대기열에 있다고 하면 로컬 상태도 업데이트
+        if (res.data.inQueue && !inQueue) {
+          console.log('[QueueStatus] 서버에서 대기열 상태 감지, 로컬 상태 동기화');
+          setQueueStatus(true);
+          localStorage.setItem('inQueue', 'true');
+        } else if (!res.data.inQueue && inQueue) {
+          console.log('[QueueStatus] 서버에서 대기열 해제 상태 감지, 로컬 상태 동기화');
+          setQueueStatus(false);
+          localStorage.removeItem('inQueue');
+        }
+        
+        // 서버에서 받은 대기 시간 정보로 동기화
+        if (res.data.inQueue && res.data.waitTime !== undefined) {
+          console.log('[QueueStatus] 초기화 시 서버 대기 시간 동기화:', {
+            waitTime: res.data.waitTime,
+            joinedAt: res.data.joinedAt,
+            serverTime: res.data.serverTime
+          });
+          
+          // 서버 시간 기준으로 대기 시간 설정
+          queueTimeState.setServerTime(
+            res.data.waitTime,
+            res.data.joinedAt,
+            res.data.serverTime
+          );
+        } else if (!res.data.inQueue) {
+          // 대기열에 없으면 타이머 초기화
+          queueTimeState.reset();
+        }
+        
+      } catch (error) {
+        console.error('[QueueStatus] 초기 상태 확인 중 오류:', error);
+      }
+    };
+    
+    // 컴포넌트 마운트 시 한 번만 실행
+    initializeQueueStatus();
+  }, [isAuthenticated]); // isAuthenticated가 변경될 때만 재실행
+  
   // 대기열에 없거나 매치 중이 아니거나 로그인 상태가 아니거나 매치메이킹 페이지인 경우 아무것도 보여주지 않음
   if (!isVisible || !isAuthenticated) return null;
 

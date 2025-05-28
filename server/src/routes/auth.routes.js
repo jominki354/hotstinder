@@ -210,10 +210,7 @@ async function initializeAdminAccount() {
         await adminExists.save();
         logger.debug('최고관리자 속성 추가 완료:', adminExists._id);
       }
-      
-      return;
-    }
-    
+    } else {
     // 비밀번호 해싱
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('674512@Alsrl', salt);
@@ -231,6 +228,33 @@ async function initializeAdminAccount() {
     
     await adminUser.save();
     logger.info('초기 관리자 계정이 생성되었습니다 (MongoDB):', adminUser._id);
+    }
+    
+    // 추가 관리자 계정 (admin/1231) 확인 및 생성
+    const adminAccount = await User.findOne({ adminUsername: 'admin', isAdmin: true });
+    
+    if (!adminAccount) {
+      // 비밀번호 해싱
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash('1231', salt);
+      
+      // admin 계정 생성
+      const newAdminUser = new User({
+        bnetId: 'admin-user-2', // 필수 필드
+        battletag: 'admin#0001', // 필수 필드 
+        nickname: '관리자2',
+        isAdmin: true,
+        isSuperAdmin: false,  // 일반 관리자
+        adminUsername: 'admin',
+        adminPassword: hashedPassword
+      });
+      
+      await newAdminUser.save();
+      logger.info('추가 관리자 계정(admin)이 생성되었습니다 (MongoDB):', newAdminUser._id);
+    } else {
+      logger.debug('admin 관리자 계정이 이미 존재합니다');
+    }
+    
   } catch (err) {
     logger.error('관리자 계정 초기화 중 오류', err);
   }

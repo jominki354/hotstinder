@@ -7,8 +7,12 @@
     "client": "cd client && npm start",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
-    "setup": "node -e \"const fs=require('fs');const path=require('path');const dir=path.join('server','data');if(!fs.existsSync(dir)){fs.mkdirSync(dir,{recursive:true});console.log('데이터 디렉토리 생성됨:',dir);}else{console.log('데이터 디렉토리가 이미 존재함:',dir);}\"",
-    "start": "npm run setup && npm run dev"
+    "setup": "mkdir -p server/data server/uploads server/logs",
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "cd client && npm run build",
+    "build:server": "cd server && npm install --production",
+    "railway:build": "npm run build && npm run build:server",
+    "railway:start": "cd server && npm start"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

@@ -65,6 +65,54 @@ const matchSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  originalMatchId: {
+    type: String,
+    index: true
+  },
+  replayData: {
+    type: mongoose.Schema.Types.Mixed, // 리플레이 분석 결과 데이터
+    default: null
+  },
+  playerStats: {
+    type: [{
+      userId: String,
+      battletag: String,
+      team: {
+        type: String,
+        enum: ['blue', 'red']
+      },
+      hero: String,
+      kills: {
+        type: Number,
+        default: 0
+      },
+      deaths: {
+        type: Number,
+        default: 0
+      },
+      assists: {
+        type: Number,
+        default: 0
+      },
+      heroDamage: {
+        type: Number,
+        default: 0
+      },
+      siegeDamage: {
+        type: Number,
+        default: 0
+      },
+      healing: {
+        type: Number,
+        default: 0
+      },
+      experienceContribution: {
+        type: Number,
+        default: 0
+      }
+    }],
+    default: []
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -193,6 +241,28 @@ const MatchModel = {
     }
   },
 
+  // 조건에 따른 매치 조회
+  find: async (query = {}) => {
+    try {
+      const matches = await Match.find(query);
+      return matches;
+    } catch (err) {
+      logger.error('MongoMatch: 조건부 매치 조회 오류', err);
+      throw err;
+    }
+  },
+
+  // 조건에 따른 단일 매치 조회
+  findOne: async (query = {}) => {
+    try {
+      const match = await Match.findOne(query);
+      return match;
+    } catch (err) {
+      logger.error('MongoMatch: 단일 매치 조회 오류', err);
+      throw err;
+    }
+  },
+
   // 상태별 매치 조회
   findByStatus: async (status) => {
     try {
@@ -246,6 +316,11 @@ const MatchModel = {
       logger.error(`MongoMatch: 매치 업데이트 오류 (${id})`, err);
       throw err;
     }
+  },
+
+  // ID로 매치 업데이트 (별칭)
+  updateById: async (id, updateData) => {
+    return MatchModel.update(id, updateData);
   },
 
   // 매치 삭제

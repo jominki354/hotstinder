@@ -1553,6 +1553,78 @@ router.post('/create-test-matches', authenticateAdmin, async (req, res) => {
 });
 
 /**
+ * @route   DELETE /api/admin/matches/:id
+ * @desc    개별 매치 삭제
+ * @access  Admin
+ */
+router.delete('/matches/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const matchId = req.params.id;
+    
+    // 매치 ID 유효성 검사
+    if (!mongoose.Types.ObjectId.isValid(matchId)) {
+      return res.status(400).json({ message: '유효하지 않은 매치 ID입니다.' });
+    }
+    
+    // 매치 삭제
+    const deletedMatch = await Match.findByIdAndDelete(matchId);
+    
+    if (!deletedMatch) {
+      return res.status(404).json({ message: '매치를 찾을 수 없습니다.' });
+    }
+    
+    res.json({
+      message: '매치가 성공적으로 삭제되었습니다.',
+      deletedMatch: {
+        id: deletedMatch._id,
+        title: deletedMatch.title,
+        map: deletedMatch.map
+      }
+    });
+  } catch (err) {
+    console.error('매치 삭제 오류:', err);
+    res.status(500).json({ message: '매치 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
+ * @route   POST /api/admin/matches/delete
+ * @desc    다중 매치 삭제
+ * @access  Admin
+ */
+router.post('/matches/delete', authenticateAdmin, async (req, res) => {
+  try {
+    const { matchIds } = req.body;
+    
+    // 매치 ID 배열 유효성 검사
+    if (!Array.isArray(matchIds) || matchIds.length === 0) {
+      return res.status(400).json({ message: '삭제할 매치 ID 배열이 필요합니다.' });
+    }
+    
+    // 모든 매치 ID가 유효한지 확인
+    const invalidIds = matchIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({ 
+        message: '유효하지 않은 매치 ID가 포함되어 있습니다.',
+        invalidIds 
+      });
+    }
+    
+    // 다중 매치 삭제
+    const result = await Match.deleteMany({ _id: { $in: matchIds } });
+    
+    res.json({
+      message: `${result.deletedCount}개의 매치가 성공적으로 삭제되었습니다.`,
+      deletedCount: result.deletedCount,
+      requestedCount: matchIds.length
+    });
+  } catch (err) {
+    console.error('다중 매치 삭제 오류:', err);
+    res.status(500).json({ message: '매치 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
  * @route   DELETE /api/admin/delete-all-matches
  * @desc    모든 매치 데이터 삭제
  * @access  Admin
@@ -1587,6 +1659,85 @@ router.delete('/delete-all-users', authenticateAdmin, async (req, res) => {
   } catch (err) {
     console.error('사용자 데이터 삭제 오류:', err);
     res.status(500).json({ message: '사용자 데이터 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
+ * @route   POST /api/admin/matches/:id/invalidate
+ * @desc    개별 매치 무효화
+ * @access  Admin
+ */
+router.post('/matches/:id/invalidate', authenticateAdmin, async (req, res) => {
+  try {
+    const matchId = req.params.id;
+    
+    // 매치 ID 유효성 검사
+    if (!mongoose.Types.ObjectId.isValid(matchId)) {
+      return res.status(400).json({ message: '유효하지 않은 매치 ID입니다.' });
+    }
+    
+    // 매치 무효화 (상태를 '무효'로 변경)
+    const updatedMatch = await Match.findByIdAndUpdate(
+      matchId,
+      { status: '무효' },
+      { new: true }
+    );
+    
+    if (!updatedMatch) {
+      return res.status(404).json({ message: '매치를 찾을 수 없습니다.' });
+    }
+    
+    res.json({
+      message: '매치가 성공적으로 무효화되었습니다.',
+      match: {
+        id: updatedMatch._id,
+        title: updatedMatch.title,
+        status: updatedMatch.status
+      }
+    });
+  } catch (err) {
+    console.error('매치 무효화 오류:', err);
+    res.status(500).json({ message: '매치 무효화 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
+ * @route   POST /api/admin/matches/invalidate
+ * @desc    다중 매치 무효화
+ * @access  Admin
+ */
+router.post('/matches/invalidate', authenticateAdmin, async (req, res) => {
+  try {
+    const { matchIds } = req.body;
+    
+    // 매치 ID 배열 유효성 검사
+    if (!Array.isArray(matchIds) || matchIds.length === 0) {
+      return res.status(400).json({ message: '무효화할 매치 ID 배열이 필요합니다.' });
+    }
+    
+    // 모든 매치 ID가 유효한지 확인
+    const invalidIds = matchIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({ 
+        message: '유효하지 않은 매치 ID가 포함되어 있습니다.',
+        invalidIds 
+      });
+    }
+    
+    // 다중 매치 무효화
+    const result = await Match.updateMany(
+      { _id: { $in: matchIds } },
+      { status: '무효' }
+    );
+    
+    res.json({
+      message: `${result.modifiedCount}개의 매치가 성공적으로 무효화되었습니다.`,
+      modifiedCount: result.modifiedCount,
+      requestedCount: matchIds.length
+    });
+  } catch (err) {
+    console.error('다중 매치 무효화 오류:', err);
+    res.status(500).json({ message: '매치 무효화 중 오류가 발생했습니다.' });
   }
 });
 

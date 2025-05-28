@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
 const Header = () => {
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user, logout, matchInProgress, currentMatchId, matchInfo } = useAuthStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -75,6 +75,33 @@ const Header = () => {
     return user.battletag || user.battleTag || user.battleNetTag || user.nickname || '';
   };
 
+  // 매치 찾기 버튼 클릭 핸들러
+  const handleMatchFindingClick = () => {
+    // 매치 진행 중이면 매치 상세 페이지로 이동
+    if (matchInProgress && currentMatchId) {
+      // 저장된 매치 정보가 있으면 함께 전달
+      let savedMatchInfo = null;
+      try {
+        const savedMatchInfoStr = localStorage.getItem('lastMatchInfo');
+        if (savedMatchInfoStr) {
+          savedMatchInfo = JSON.parse(savedMatchInfoStr);
+        }
+      } catch (err) {
+        console.error('저장된 매치 정보 파싱 오류:', err);
+      }
+      
+      // 매치 상세 페이지로 이동
+      navigate('/match-details', { 
+        state: { 
+          matchInfo: savedMatchInfo || matchInfo || { matchId: currentMatchId }
+        } 
+      });
+    } else {
+      // 매치 진행 중이 아니면 매치메이킹 페이지로 이동
+      navigate('/matchmaking');
+    }
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 bg-slate-800/90 backdrop-blur shadow-md py-4 px-6 z-50 h-16 flex items-center">
       <div className="grid grid-cols-3 items-center max-w-6xl mx-auto w-full">
@@ -133,7 +160,12 @@ const Header = () => {
             
             {/* 관리자가 아닐 때만 매치 찾기 링크 활성화 */}
             {isAuthenticated && !isAdmin ? (
-              <Link to="/matchmaking" className="text-slate-300 hover:text-white">매치 찾기</Link>
+              <button 
+                onClick={handleMatchFindingClick}
+                className="text-slate-300 hover:text-white transition-colors"
+              >
+                {matchInProgress ? '진행 중인 매치' : '매치 찾기'}
+              </button>
             ) : isAuthenticated && isAdmin ? (
               <span className="text-slate-500 cursor-not-allowed">매치 찾기</span>
             ) : (
@@ -219,7 +251,12 @@ const Header = () => {
           
           {/* 관리자가 아닐 때만 매치 찾기 링크 활성화 */}
           {isAuthenticated && !isAdmin ? (
-            <Link to="/matchmaking" className="block py-2 text-slate-300 hover:text-white">매치 찾기</Link>
+            <button 
+              onClick={handleMatchFindingClick}
+              className="block w-full text-left py-2 text-slate-300 hover:text-white transition-colors"
+            >
+              {matchInProgress ? '진행 중인 매치' : '매치 찾기'}
+            </button>
           ) : isAuthenticated && isAdmin ? (
             <span className="block py-2 text-slate-500 cursor-not-allowed">매치 찾기</span>
           ) : (

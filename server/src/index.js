@@ -12,7 +12,7 @@ const uuid = require('uuid').v4;
 const morgan = require('morgan');
 
 // MongoDB 관련 모듈 추가
-const { connectDB, addDummyData } = require('./db/mongodb');
+const { connectMongoDB, addDummyData } = require('./db/mongodb');
 const MongoUser = require('./models/MongoUser');
 const MongoMatch = require('./models/MongoMatch');
 const MongoMatchmaking = require('./models/MongoMatchmaking');
@@ -37,30 +37,32 @@ global.useMongoDB = true; // MongoDB만 사용하도록 강제 설정
 global.useNeDB = false; // NeDB 사용 안함
 global.dbDir = path.join(__dirname, '../data');
 
-// MongoDB 연결
-(async () => {
-  logger.info('MongoDB를 사용하도록 설정되어 있습니다. 연결을 시도합니다...');
-  const conn = await connectDB();
-  
-  if (conn) {
-    global.mongoConnected = true;
-    logger.info('MongoDB 연결 성공. MongoDB를 기본 데이터베이스로 사용합니다.');
-    
-    // 모델 설정
-    global.db = {
-      users: MongoUser,
-      matches: MongoMatch,
-      matchmaking: MongoMatchmaking,
-      userLogs: MongoUserLog
-    };
-    
-    // 더미 데이터 추가
-    await addDummyData(MongoUser);
-  } else {
-    logger.error('MongoDB 연결 실패. 애플리케이션을 실행할 수 없습니다.');
-    process.exit(1); // MongoDB 연결 실패 시 애플리케이션 종료
-  }
-})();
+// MongoDB 연결 시도
+if (process.env.USE_MONGODB === 'true') {
+  connectMongoDB()
+    .then(() => {
+      logger.info('MongoDB 연결 성공. MongoDB를 기본 데이터베이스로 사용합니다.');
+      global.isMongoDBConnected = true;
+      
+      // 모델 설정
+      global.db = {
+        users: MongoUser,
+        matches: MongoMatch,
+        matchmaking: MongoMatchmaking,
+        userLogs: MongoUserLog
+      };
+      
+      // 더미 데이터 추가
+      addDummyData(MongoUser);
+    })
+    .catch((error) => {
+      logger.error('MongoDB 연결 실패. NeDB를 사용합니다:', error);
+      global.isMongoDBConnected = false;
+    });
+} else {
+  logger.info('NeDB를 사용하도록 설정되어 있습니다.');
+  global.isMongoDBConnected = false;
+}
 
 // 앱 초기화
 const app = express();
@@ -68,7 +70,33 @@ const httpServer = createServer(app);
 
 // CORS 설정
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // 허용할 도메인 목록
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000'
+    ];
+    
+    // origin이 없는 경우 (모바일 앱, Postman 등) 허용
+    if (!origin) return callback(null, true);
+    
+    // 허용된 도메인인지 확인
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return origin === allowedOrigin;
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('CORS 차단된 도메인:', origin);
+      callback(new Error('CORS 정책에 의해 차단되었습니다.'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -134,7 +162,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
   logger.info(`서버가 ${PORT} 포트에서 실행 중입니다`);
-  if (global.mongoConnected) {
+  if (global.isMongoDBConnected) {
     logger.info('MongoDB를 사용하여 데이터를 저장하고 있습니다');
   } else {
     logger.error('MongoDB 연결이 활성화되지 않았습니다. 서버가 제대로 작동하지 않을 수 있습니다.');

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import ReplayUploadModal from '../components/common/ReplayUploadModal';
-import './FindMatchPage.css'; // 같은 CSS 파일 사용
+import './MatchDetailsPage.css'; // 새로운 CSS 파일
 
 const MatchDetailsPage = () => {
   const location = useLocation();
@@ -25,6 +25,7 @@ const MatchDetailsPage = () => {
   const [callingAdmin, setCallingAdmin] = useState(false);
   const [submittingReplay, setSubmittingReplay] = useState(false);
   const [showReplayModal, setShowReplayModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // 컴포넌트 마운트 시 매치 정보 로드
   useEffect(() => {
@@ -58,22 +59,27 @@ const MatchDetailsPage = () => {
   }, [location.state, navigate, currentMatchId]);
 
   // 관리자 호출 처리
-  const callAdmin = () => {
+  const callAdmin = async () => {
     setCallingAdmin(true);
     
     // 매치 ID 확인
     const matchId = matchInfo?.matchId || currentMatchId;
     if (!matchId) {
-      console.error('매치 정보가 없습니다. 관리자에게 문의해주세요.');
+      alert('매치 정보가 없습니다. 관리자에게 문의해주세요.');
       setCallingAdmin(false);
       return;
     }
     
-    // 임시 구현 (API 없이)
-    setTimeout(() => {
-      console.log('관리자에게 도움 요청이 전송되었습니다. 잠시만 기다려주세요.');
+    try {
+      // 실제 관리자 호출 API (임시 구현)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      alert('관리자에게 도움 요청이 전송되었습니다. 잠시만 기다려주세요.');
+    } catch (error) {
+      console.error('관리자 호출 오류:', error);
+      alert('관리자 호출 중 오류가 발생했습니다.');
+    } finally {
       setCallingAdmin(false);
-    }, 1500);
+    }
   };
 
   // 매치 취소 기능
@@ -91,9 +97,6 @@ const MatchDetailsPage = () => {
     localStorage.removeItem('lastMatchInfo');
     localStorage.removeItem('redirectedToMatch'); // 리디렉션 플래그도 초기화
     
-    // 알림 표시 제거
-    console.log('매치가 취소되었습니다.');
-    
     // 메인 페이지로 이동
     navigate('/');
   };
@@ -105,7 +108,7 @@ const MatchDetailsPage = () => {
     // 매치 ID가 있는지 확인
     const matchId = matchInfo?.matchId || currentMatchId;
     if (!matchId) {
-      console.error('매치 정보가 없습니다. 관리자에게 문의해주세요.');
+      alert('매치 정보가 없습니다. 관리자에게 문의해주세요.');
       setSubmittingReplay(false);
       return;
     }
@@ -130,150 +133,245 @@ const MatchDetailsPage = () => {
       localStorage.removeItem('currentMatchId');
       localStorage.removeItem('redirectedToMatch'); // 리디렉션 플래그도 초기화
       
-      // 메인 페이지로 이동
-      navigate('/');
+      // 성공 메시지와 함께 대시보드로 이동
+      alert('리플레이가 성공적으로 제출되었습니다! 매치 기록이 저장되었습니다.');
+      navigate('/dashboard');
     }
   };
 
+  // MMR 차이에 따른 밸런스 상태 계산
+  const getBalanceStatus = () => {
+    const mmrDiff = Math.abs(matchInfo.blueTeamAvgMmr - matchInfo.redTeamAvgMmr);
+    if (mmrDiff <= 50) return { status: '완벽', color: 'text-green-400', bgColor: 'bg-green-500/20' };
+    if (mmrDiff <= 100) return { status: '양호', color: 'text-yellow-400', bgColor: 'bg-yellow-500/20' };
+    return { status: '불균형', color: 'text-red-400', bgColor: 'bg-red-500/20' };
+  };
+
+  const balanceStatus = getBalanceStatus();
+
   return (
-    <div className="matchmaking-container min-h-screen bg-slate-900">
-      <div className="max-w-4xl mx-auto px-4 py-8 pt-12">
-        <div className="bg-slate-800 p-6 rounded-lg max-w-4xl w-full match-found-animation relative">
-          <h2 className="text-3xl font-bold text-indigo-400 mb-4 text-center">매치 정보</h2>
-          <p className="text-white text-xl mb-6 text-center">진행 중인 게임 정보입니다</p>
+    <div className="match-details-container">
+      {/* 배경 그라데이션 */}
+      <div className="match-details-background"></div>
+      
+      {/* 메인 컨텐츠 */}
+      <div className="match-details-content">
+        {/* 헤더 */}
+        <div className="match-details-header">
+          <button 
+            onClick={() => navigate('/findmatch')}
+            className="match-details-back-btn"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m12 19-7-7 7-7"/>
+              <path d="M19 12H5"/>
+            </svg>
+            돌아가기
+          </button>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* 전장 정보 */}
-            <div className="bg-indigo-900/30 p-4 rounded-lg text-center flex flex-col justify-center relative">
-              <div className="absolute top-0 left-0 right-0 bg-indigo-900/60 py-1 px-3 rounded-t-lg">
-                <h3 className="text-lg font-semibold text-indigo-300 text-center">전장</h3>
-              </div>
-              <div className="mt-6">
-                <p className="text-white text-2xl font-bold mb-4">{matchInfo.map}</p>
-              </div>
+          <div className="match-details-title-section">
+            <h1 className="match-details-title">매치 정보</h1>
+            <p className="match-details-subtitle">진행 중인 게임의 상세 정보입니다</p>
+          </div>
+          
+          <div className="match-details-id">
+            <span className="match-details-id-label">매치 ID</span>
+            <span className="match-details-id-value">{matchInfo.matchId || currentMatchId}</span>
+          </div>
+        </div>
+
+        {/* 게임 정보 카드 */}
+        <div className="match-details-game-info">
+          <div className="match-details-card match-details-map-card">
+            <div className="match-details-card-header">
+              <div className="match-details-card-icon">🗺️</div>
+              <h3>전장</h3>
             </div>
-            
-            {/* 채널 정보 */}
-            <div className="bg-indigo-900/30 p-4 rounded-lg text-center flex flex-col justify-center relative">
-              <div className="absolute top-0 left-0 right-0 bg-indigo-900/60 py-1 px-3 rounded-t-lg">
-                <h3 className="text-lg font-semibold text-indigo-300 text-center">채널 정보</h3>
-              </div>
-              <div className="mt-6">
-                <p className="text-white mb-2">
-                  <span className="text-gray-400">채널위치:</span> HotsTinder
-                </p>
-                <p className="text-white flex items-center justify-center">
-                  <span className="text-gray-400 mr-1">게임 개설자:</span>
-                  <span className="text-yellow-300 flex items-center ml-1">
-                    <span className="text-yellow-500 mr-1">👑</span>
+            <div className="match-details-card-content">
+              <div className="match-details-map-name">{matchInfo.map}</div>
+            </div>
+          </div>
+
+          <div className="match-details-card match-details-channel-card">
+            <div className="match-details-card-header">
+              <div className="match-details-card-icon">🎮</div>
+              <h3>채널 정보</h3>
+            </div>
+            <div className="match-details-card-content">
+              <div className="match-details-channel-info">
+                <div className="match-details-channel-location">
+                  <span>채널위치:</span>
+                  <span>HotsTinder</span>
+                </div>
+                <div className="match-details-channel-creator">
+                  <span>게임 개설자:</span>
+                  <span className="match-details-creator-name">
+                    <span className="match-details-crown">👑</span>
                     {matchInfo.channelCreator}
                   </span>
-                </p>
+                </div>
               </div>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* 레드 팀 (왼쪽) */}
-            <div className="bg-red-900/20 p-4 rounded-lg border-2 border-red-800 shadow-lg">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-red-400">레드 팀</h3>
-                <div className="text-red-300">평균 MMR: <span className="font-bold">{matchInfo.redTeamAvgMmr}</span></div>
+
+          <div className="match-details-card match-details-balance-card">
+            <div className="match-details-card-header">
+              <div className="match-details-card-icon">⚖️</div>
+              <h3>팀 밸런스</h3>
+            </div>
+            <div className="match-details-card-content">
+              <div className={`match-details-balance-status ${balanceStatus.bgColor}`}>
+                <span className={`match-details-balance-text ${balanceStatus.color}`}>
+                  {balanceStatus.status}
+                </span>
+                <span className="match-details-balance-diff">
+                  차이: {Math.abs(matchInfo.blueTeamAvgMmr - matchInfo.redTeamAvgMmr)} MMR
+                </span>
               </div>
-              <ul className="space-y-2">
-                {matchInfo.redTeam.map((player, index) => (
-                  <li 
-                    key={player.id || index} 
-                    className={`${index === 0 ? 'bg-red-900/40' : 'bg-red-900/30'} p-2 rounded flex justify-between items-center ${index === 0 ? 'border border-yellow-500/50' : ''}`}
-                  >
-                    <div className="flex items-center">
-                      {index === 0 && <span className="text-yellow-500 mr-1">👑</span>}
-                      <div>
-                        <span className="text-white font-medium">{player.battletag}</span>
-                        <span className="text-red-300 text-sm ml-2">({player.role})</span>
-                      </div>
-                    </div>
-                    <div className="text-red-200 font-semibold">{player.mmr}</div>
-                  </li>
-                ))}
-              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* 팀 정보 */}
+        <div className="match-details-teams">
+          {/* 레드 팀 */}
+          <div className="match-details-team match-details-team-red">
+            <div className="match-details-team-header">
+              <div className="match-details-team-title">
+                <div className="match-details-team-icon">🔴</div>
+                <h3>레드 팀</h3>
+              </div>
+              <div className="match-details-team-mmr">
+                평균 MMR: <span>{matchInfo.redTeamAvgMmr}</span>
+              </div>
             </div>
             
-            {/* 블루 팀 (오른쪽) */}
-            <div className="bg-blue-900/20 p-4 rounded-lg border-2 border-blue-800 shadow-lg">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-blue-400">블루 팀</h3>
-                <div className="text-blue-300">평균 MMR: <span className="font-bold">{matchInfo.blueTeamAvgMmr}</span></div>
-              </div>
-              <ul className="space-y-2">
-                {matchInfo.blueTeam.map((player, index) => (
-                  <li 
-                    key={player.id || index} 
-                    className={`${index === 0 ? 'bg-blue-900/40' : 'bg-blue-900/30'} p-2 rounded flex justify-between items-center ${index === 0 ? 'border border-yellow-500/50' : ''}`}
-                  >
-                    <div className="flex items-center">
-                      {index === 0 && <span className="text-yellow-500 mr-1">👑</span>}
-                      <div>
-                        <span className="text-white font-medium">{player.battletag}</span>
-                        <span className="text-blue-300 text-sm ml-2">({player.role})</span>
+            <div className="match-details-team-players">
+              {matchInfo.redTeam.map((player, index) => (
+                <div 
+                  key={player.id || index} 
+                  className={`match-details-player ${index === 0 ? 'match-details-player-leader' : ''}`}
+                >
+                  <div className="match-details-player-info">
+                    <div className="match-details-player-avatar">
+                      {index === 0 && <span className="match-details-player-crown">👑</span>}
+                      <div className="match-details-player-initial">
+                        {player.battletag?.charAt(0) || 'P'}
                       </div>
                     </div>
-                    <div className="text-blue-200 font-semibold">{player.mmr}</div>
-                  </li>
-                ))}
-              </ul>
+                    <div className="match-details-player-details">
+                      <div className="match-details-player-name">{player.battletag}</div>
+                      <div className="match-details-player-role">{player.role}</div>
+                    </div>
+                  </div>
+                  <div className="match-details-player-mmr">{player.mmr}</div>
+                </div>
+              ))}
             </div>
           </div>
-          
-          {/* MMR 계산식 요약 */}
-          <div className="bg-slate-700/50 p-4 rounded-lg mb-6">
-            <h3 className="text-lg font-semibold text-white mb-2 text-center">팀 밸런스 정보</h3>
-            <div className="flex justify-between items-center">
-              <div className="text-red-300">레드 팀: {matchInfo.redTeamAvgMmr} MMR</div>
-              <div className="text-gray-400">차이: {Math.abs(matchInfo.blueTeamAvgMmr - matchInfo.redTeamAvgMmr)} MMR</div>
-              <div className="text-blue-300">블루 팀: {matchInfo.blueTeamAvgMmr} MMR</div>
-            </div>
-            <div className="text-center text-gray-300 mt-2 text-sm">
-              👑이 각 팀의 밴픽을 담당합니다.
+
+          {/* VS 구분선 */}
+          <div className="match-details-vs">
+            <div className="match-details-vs-circle">
+              <span>VS</span>
             </div>
           </div>
-          
-          {/* 버튼 영역 */}
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <button 
-              onClick={submitReplay}
-              disabled={submittingReplay}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition disabled:opacity-50"
-            >
-              {submittingReplay ? '처리 중...' : '리플레이 제출'}
-            </button>
-            <button 
-              onClick={callAdmin}
-              disabled={callingAdmin}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-4 rounded transition disabled:opacity-50"
-            >
-              {callingAdmin ? '요청 중...' : '관리자 호출'}
-            </button>
-            <button
-              onClick={() => navigate('/findmatch')}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition"
-            >
-              매치메이킹 화면으로
-            </button>
-            <button 
-              onClick={cancelMatch}
-              className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition"
-            >
-              매치 취소
-            </button>
+
+          {/* 블루 팀 */}
+          <div className="match-details-team match-details-team-blue">
+            <div className="match-details-team-header">
+              <div className="match-details-team-title">
+                <div className="match-details-team-icon">🔵</div>
+                <h3>블루 팀</h3>
+              </div>
+              <div className="match-details-team-mmr">
+                평균 MMR: <span>{matchInfo.blueTeamAvgMmr}</span>
+              </div>
+            </div>
+            
+            <div className="match-details-team-players">
+              {matchInfo.blueTeam.map((player, index) => (
+                <div 
+                  key={player.id || index} 
+                  className={`match-details-player ${index === 0 ? 'match-details-player-leader' : ''}`}
+                >
+                  <div className="match-details-player-info">
+                    <div className="match-details-player-avatar">
+                      {index === 0 && <span className="match-details-player-crown">👑</span>}
+                      <div className="match-details-player-initial">
+                        {player.battletag?.charAt(0) || 'P'}
+                      </div>
+                    </div>
+                    <div className="match-details-player-details">
+                      <div className="match-details-player-name">{player.battletag}</div>
+                      <div className="match-details-player-role">{player.role}</div>
+                    </div>
+                  </div>
+                  <div className="match-details-player-mmr">{player.mmr}</div>
+                </div>
+              ))}
+            </div>
           </div>
-          
-          {/* 매치 ID 우측 하단에 작게 표시 */}
-          <div className="text-right mt-4">
-            <span className="text-gray-500/70 text-xs font-mono">
-              매치 ID: {matchInfo.matchId || currentMatchId}
-            </span>
+        </div>
+
+        {/* 게임 규칙 안내 */}
+        <div className="match-details-rules">
+          <div className="match-details-rules-header">
+            <div className="match-details-rules-icon">📋</div>
+            <h3>게임 규칙</h3>
           </div>
+          <div className="match-details-rules-content">
+            <div className="match-details-rule">
+              <span className="match-details-rule-icon">👑</span>
+              <span>각 팀의 리더(👑)가 밴픽을 담당합니다</span>
+            </div>
+            <div className="match-details-rule">
+              <span className="match-details-rule-icon">🎯</span>
+              <span>게임 종료 후 반드시 리플레이 파일을 제출해주세요</span>
+            </div>
+            <div className="match-details-rule">
+              <span className="match-details-rule-icon">⚡</span>
+              <span>문제 발생 시 관리자 호출 버튼을 이용해주세요</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 액션 버튼들 */}
+        <div className="match-details-actions">
+          <button 
+            onClick={submitReplay}
+            disabled={submittingReplay}
+            className="match-details-btn match-details-btn-primary"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            {submittingReplay ? '처리 중...' : '리플레이 제출'}
+          </button>
+          
+          <button 
+            onClick={callAdmin}
+            disabled={callingAdmin}
+            className="match-details-btn match-details-btn-warning"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            {callingAdmin ? '요청 중...' : '관리자 호출'}
+          </button>
+          
+          <button 
+            onClick={cancelMatch}
+            className="match-details-btn match-details-btn-danger"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18"/>
+              <path d="m6 6 12 12"/>
+            </svg>
+            매치 취소
+          </button>
         </div>
       </div>
       

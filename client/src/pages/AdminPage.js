@@ -5,7 +5,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 
 const AdminPage = () => {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, token } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -20,6 +20,13 @@ const AdminPage = () => {
   const [lastAction, setLastAction] = useState('');
   const [lastActionStatus, setLastActionStatus] = useState('');
   const [lastActionMessage, setLastActionMessage] = useState('');
+  
+  // 리플레이 분석 관련 상태
+  const [replayFile, setReplayFile] = useState(null);
+  const [replayAnalyzing, setReplayAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [analysisError, setAnalysisError] = useState(null);
+  const [analysisLogs, setAnalysisLogs] = useState([]);
 
   useEffect(() => {
     // 관리자 확인
@@ -111,6 +118,155 @@ const AdminPage = () => {
     }
   };
 
+  // 리플레이 파일 선택 핸들러
+  const handleReplayFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // .StormReplay 파일인지 확인
+      if (!file.name.toLowerCase().endsWith('.stormreplay')) {
+        toast.error('Heroes of the Storm 리플레이 파일(.StormReplay)만 업로드 가능합니다.');
+        return;
+      }
+      setReplayFile(file);
+      setAnalysisResult(null); // 이전 분석 결과 초기화
+    }
+  };
+
+  // 리플레이 분석 함수
+  const analyzeReplay = async () => {
+    if (!replayFile || replayAnalyzing) return;
+
+    try {
+      setReplayAnalyzing(true);
+      setLastAction('리플레이 분석');
+      setLastActionStatus('진행 중');
+      setLastActionMessage('리플레이 파일을 분석 중입니다...');
+      
+      // 이전 결과 및 오류 초기화
+      setAnalysisResult(null);
+      setAnalysisError(null);
+      setAnalysisLogs([]);
+
+      const formData = new FormData();
+      formData.append('replayFile', replayFile);
+
+      const response = await axios.post('/api/replay/analyze', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      setAnalysisResult(response.data.analysisResult);
+      setLastActionStatus('성공');
+      setLastActionMessage('리플레이 분석이 완료되었습니다.');
+      toast.success('리플레이 분석이 완료되었습니다!');
+
+    } catch (err) {
+      console.error('리플레이 분석 오류:', err);
+      const errorData = err.response?.data;
+      const errorMsg = errorData?.message || '리플레이 분석 중 오류가 발생했습니다.';
+      
+      // 오류 정보 설정
+      setAnalysisError(errorMsg);
+      
+      // 로그 정보가 있다면 설정
+      if (errorData?.logs && Array.isArray(errorData.logs)) {
+        setAnalysisLogs(errorData.logs);
+      } else if (errorData?.error) {
+        setAnalysisLogs([errorData.error]);
+      }
+      
+      setLastActionStatus('실패');
+      setLastActionMessage(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setReplayAnalyzing(false);
+    }
+  };
+
+  // 분석 결과 초기화
+  const clearAnalysis = () => {
+    setReplayFile(null);
+    setAnalysisResult(null);
+    setAnalysisError(null);
+    setAnalysisLogs([]);
+    // 파일 입력 초기화
+    const fileInput = document.getElementById('replayFileInput');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  // 시간 포맷팅 함수
+  const formatDuration = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}분 ${remainingSeconds}초`;
+  };
+
+  // 전장명 한글 변환 함수
+  const getKoreanMapName = (mapName) => {
+    const mapTranslations = {
+      'Cursed Hollow': '저주받은 골짜기',
+      'Dragon Shire': '용의 둥지',
+      'Blackheart\'s Bay': '검은심장 만',
+      'Garden of Terror': '공포의 정원',
+      'Haunted Mines': '유령 광산',
+      'Sky Temple': '하늘 사원',
+      'Tomb of the Spider Queen': '거미 여왕의 무덤',
+      'Battlefield of Eternity': '영원의 전쟁터',
+      'Infernal Shrines': '지옥의 사당',
+      'Towers of Doom': '파멸의 탑',
+      'Braxis Holdout': '브락시스 항전',
+      'Warhead Junction': '핵탄두 격전지',
+      'Hanamura Temple': '하나무라 사원',
+      'Volskaya Foundry': '볼스카야 공장',
+      'Alterac Pass': '알터랙 고개'
+    };
+    return mapTranslations[mapName] || mapName;
+  };
+
+  // 시뮬레이션 매치 여부 판별 함수
+  const isSimulationMatch = (analysisResult, replayFile) => {
+    // 1. 메타데이터에 시뮬레이션 플래그가 있는 경우
+    if (analysisResult.metadata?.isSimulation) {
+      return true;
+    }
+    
+    // 2. 플레이어 이름이 시뮬레이션 패턴인 경우 (sim_team_playername)
+    const allPlayers = [
+      ...(analysisResult.teams?.blue || []),
+      ...(analysisResult.teams?.red || [])
+    ];
+    
+    const hasSimulationPlayers = allPlayers.some(player => 
+      player.name && player.name.includes('sim_')
+    );
+    
+    if (hasSimulationPlayers) {
+      return true;
+    }
+    
+    // 3. 파일명이 시뮬레이션 패턴인 경우
+    if (replayFile && replayFile.name) {
+      const simulationFilePattern = /simulation|sim_|test_/i;
+      if (simulationFilePattern.test(replayFile.name)) {
+        return true;
+      }
+    }
+    
+    // 4. localStorage에서 시뮬레이션 관련 정보 확인
+    const isSimulating = localStorage.getItem('isSimulationRunning') === 'true';
+    const simulatedPlayers = localStorage.getItem('simulatedPlayers');
+    
+    if (isSimulating || simulatedPlayers) {
+      return true;
+    }
+    
+    return false;
+  };
+
   // 로딩 중 표시
   if (loading) {
     return (
@@ -170,7 +326,7 @@ const AdminPage = () => {
               </h3>
               <p>{lastActionMessage}</p>
             </div>
-            {processing && (
+            {(processing || replayAnalyzing) && (
               <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-current"></div>
             )}
           </div>
@@ -197,6 +353,224 @@ const AdminPage = () => {
           <p className="text-3xl font-bold text-white">{stats.recentMatches}</p>
           <p className="text-xs text-gray-500">최근 24시간</p>
         </div>
+      </div>
+
+      {/* 리플레이 분석 섹션 */}
+      <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg mb-8">
+        <h2 className="text-xl font-bold text-white mb-4">🎮 리플레이 분석 도구</h2>
+        <p className="text-gray-400 mb-4">Heroes of the Storm 리플레이 파일을 업로드하여 실제 게임 통계를 분석합니다.</p>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              리플레이 파일 선택 (.StormReplay)
+            </label>
+            <input
+              id="replayFileInput"
+              type="file"
+              accept=".StormReplay"
+              onChange={handleReplayFileChange}
+              className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 file:cursor-pointer cursor-pointer"
+            />
+            {replayFile && (
+              <div className="mt-2 text-sm text-gray-400">
+                선택된 파일: <span className="text-white">{replayFile.name}</span> 
+                <span className="ml-2">({(replayFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex space-x-4">
+            <button
+              onClick={analyzeReplay}
+              disabled={!replayFile || replayAnalyzing}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center space-x-2"
+            >
+              {replayAnalyzing && (
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+              )}
+              <span>{replayAnalyzing ? '분석 중...' : '분석 시작'}</span>
+            </button>
+            
+            {(replayFile || analysisResult) && (
+              <button
+                onClick={clearAnalysis}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                초기화
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 분석 오류 및 로그 표시 */}
+        {analysisError && (
+          <div className="mt-6 p-4 bg-red-900/50 border border-red-700/50 rounded-lg">
+            <h3 className="text-lg font-semibold text-red-400 mb-4">❌ 분석 실패</h3>
+            
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-red-300 mb-2">오류 메시지:</h4>
+              <p className="text-red-200 bg-red-900/30 p-3 rounded text-sm">{analysisError}</p>
+            </div>
+            
+            {analysisLogs.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-red-300 mb-2">상세 로그:</h4>
+                <div className="bg-black/50 p-3 rounded text-xs font-mono max-h-64 overflow-y-auto">
+                  {analysisLogs.map((log, index) => (
+                    <div key={index} className={`mb-1 ${
+                      log.includes('[ERROR]') ? 'text-red-400' :
+                      log.includes('[WARN]') ? 'text-yellow-400' :
+                      log.includes('[DEBUG]') ? 'text-blue-400' :
+                      'text-gray-300'
+                    }`}>
+                      {log}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-3 text-xs text-gray-400">
+                  <p><strong>문제 해결 방법:</strong></p>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li>리플레이 파일이 손상되지 않았는지 확인</li>
+                    <li>지원되는 게임 버전인지 확인 (최신 패치는 지원 지연 가능)</li>
+                    <li>시스템 리소스가 충분한지 확인</li>
+                    <li>AI 플레이어가 포함된 게임이 아닌지 확인</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 분석 결과 표시 */}
+        {analysisResult && (
+          <div className="mt-6 p-4 bg-slate-700/50 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-4">📊 분석 결과</h3>
+            
+            {/* 기본 게임 정보 */}
+            <div className="bg-slate-600/50 p-4 rounded-lg mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                <div>
+                  <h4 className="text-sm text-gray-400 mb-1">전장</h4>
+                  <p className="text-white font-semibold text-lg">{getKoreanMapName(analysisResult.basic?.map)}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm text-gray-400 mb-1">게임 시간</h4>
+                  <p className="text-white font-semibold text-lg">
+                    {analysisResult.basic?.gameLength ? formatDuration(analysisResult.basic.gameLength) : 'Unknown'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-sm text-gray-400 mb-1">승리 팀</h4>
+                  <p className={`font-semibold text-lg ${analysisResult.basic?.winner === 'blue' ? 'text-blue-400' : 'text-red-400'}`}>
+                    {analysisResult.basic?.winner === 'blue' ? '블루 팀' : '레드 팀'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="text-sm text-gray-400 mb-1">매치 유형</h4>
+                  <p className={`font-semibold text-lg ${isSimulationMatch(analysisResult, replayFile) ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {isSimulationMatch(analysisResult, replayFile) ? '🎮 시뮬레이션' : '⚔️ 실제 매치'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 팀별 통계 */}
+            {analysisResult.teams && (
+              <div className="space-y-6">
+                {/* 레드 팀 */}
+                <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
+                  <h4 className="text-red-400 font-semibold text-lg mb-4">🔴 레드 팀</h4>
+                  
+                  {/* 헤더 */}
+                  <div className="grid grid-cols-9 gap-2 text-sm font-bold text-gray-200 mb-3 px-2 py-2 bg-slate-600/30 rounded">
+                    <div className="col-span-2">플레이어 (영웅)</div>
+                    <div className="text-center">킬</div>
+                    <div className="text-center">데스</div>
+                    <div className="text-center">어시스트</div>
+                    <div className="text-center">공성 피해</div>
+                    <div className="text-center">영웅 피해</div>
+                    <div className="text-center">치유량</div>
+                    <div className="text-center">경험치 기여도</div>
+                  </div>
+                  
+                  {/* 플레이어 데이터 */}
+                  <div className="space-y-2">
+                    {(analysisResult.teams.red || []).map((player, index) => (
+                      <div key={index} className="grid grid-cols-9 gap-2 text-sm bg-slate-700/40 rounded-lg px-3 py-3 hover:bg-slate-700/60 transition-colors items-center border border-slate-600/30">
+                        <div className="col-span-2 text-red-300">
+                          <div className="font-bold text-base truncate" title={player.name || `Player${index + 1}`}>
+                            {player.name || `Player${index + 1}`}
+                          </div>
+                          <div className="text-gray-400 text-sm truncate" title={player.hero || 'Unknown'}>
+                            {player.hero || 'Unknown'}
+                          </div>
+                        </div>
+                        <div className="text-center text-green-400 font-bold text-base">{player.stats?.SoloKill || 0}</div>
+                        <div className="text-center text-red-400 font-bold text-base">{player.stats?.Deaths || 0}</div>
+                        <div className="text-center text-yellow-400 font-bold text-base">{player.stats?.Assists || 0}</div>
+                        <div className="text-center text-cyan-400 font-medium text-sm">{(player.stats?.SiegeDamage || 0).toLocaleString()}</div>
+                        <div className="text-center text-orange-400 font-medium text-sm">{(player.stats?.HeroDamage || 0).toLocaleString()}</div>
+                        <div className="text-center text-green-400 font-medium text-sm">{(player.stats?.Healing || 0).toLocaleString()}</div>
+                        <div className="text-center text-purple-400 font-medium text-sm">{(player.stats?.ExperienceContribution || 0).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 블루 팀 */}
+                <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
+                  <h4 className="text-blue-400 font-semibold text-lg mb-4">🔵 블루 팀</h4>
+                  
+                  {/* 헤더 */}
+                  <div className="grid grid-cols-9 gap-2 text-sm font-bold text-gray-200 mb-3 px-2 py-2 bg-slate-600/30 rounded">
+                    <div className="col-span-2">플레이어 (영웅)</div>
+                    <div className="text-center">킬</div>
+                    <div className="text-center">데스</div>
+                    <div className="text-center">어시스트</div>
+                    <div className="text-center">공성 피해</div>
+                    <div className="text-center">영웅 피해</div>
+                    <div className="text-center">치유량</div>
+                    <div className="text-center">경험치 기여도</div>
+                  </div>
+                  
+                  {/* 플레이어 데이터 */}
+                  <div className="space-y-2">
+                    {(analysisResult.teams.blue || []).map((player, index) => (
+                      <div key={index} className="grid grid-cols-9 gap-2 text-sm bg-slate-700/40 rounded-lg px-3 py-3 hover:bg-slate-700/60 transition-colors items-center border border-slate-600/30">
+                        <div className="col-span-2 text-blue-300">
+                          <div className="font-bold text-base truncate" title={player.name || `Player${index + 1}`}>
+                            {player.name || `Player${index + 1}`}
+                          </div>
+                          <div className="text-gray-400 text-sm truncate" title={player.hero || 'Unknown'}>
+                            {player.hero || 'Unknown'}
+                          </div>
+                        </div>
+                        <div className="text-center text-green-400 font-bold text-base">{player.stats?.SoloKill || 0}</div>
+                        <div className="text-center text-red-400 font-bold text-base">{player.stats?.Deaths || 0}</div>
+                        <div className="text-center text-yellow-400 font-bold text-base">{player.stats?.Assists || 0}</div>
+                        <div className="text-center text-cyan-400 font-medium text-sm">{(player.stats?.SiegeDamage || 0).toLocaleString()}</div>
+                        <div className="text-center text-orange-400 font-medium text-sm">{(player.stats?.HeroDamage || 0).toLocaleString()}</div>
+                        <div className="text-center text-green-400 font-medium text-sm">{(player.stats?.Healing || 0).toLocaleString()}</div>
+                        <div className="text-center text-purple-400 font-medium text-sm">{(player.stats?.ExperienceContribution || 0).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 추가 정보 */}
+            <div className="mt-6 bg-slate-600/30 p-3 rounded">
+              <h4 className="text-sm text-gray-400 mb-2">파일 정보</h4>
+              <div className="text-sm text-gray-300 grid grid-cols-1 md:grid-cols-3 gap-2">
+                <span>파일명: {replayFile ? replayFile.name : 'Unknown'}</span>
+                <span>분석 시간: {analysisResult.basic?.uploadedAt ? new Date(analysisResult.basic.uploadedAt).toLocaleString('ko-KR') : 'Unknown'}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 관리 메뉴 */}

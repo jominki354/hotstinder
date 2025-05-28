@@ -1,0 +1,68 @@
+{
+  "replay_file": "2021-09-04.StormReplay",
+  "total_events": 8867,
+  "events_with_large_numbers": 1389,
+  "events_with_player_data": 97,
+  "events_with_stats_keywords": 96,
+  "sample_raw_events": [
+    "({'m_key': 'PlayerHandle', 'm_value': '3-Hero-1-5045809'},)",
+    "({'m_key': 'SprayID', 'm_value': 'SprayStaticStylizedMaiev'},)",
+    "({'m_key': 'PlayerHandle', 'm_value': '3-Hero-1-5045809'},)",
+    "({'m_key': 'SprayID', 'm_value': 'SprayStaticStylizedMaiev'},)",
+    "({'m_key': 'PlayerHandle', 'm_value': '3-Hero-1-3077644'},)",
+    "({'m_key': 'SprayID', 'm_value': 'SprayAnimatedLunarLanternJaina'},)",
+    "(125,)",
+    "(100,)",
+    "(2,)",
+    "(123,)"
+  ],
+  "sample_large_number_events": [
+    {
+      "index": 0,
+      "numbers": [
+        "5045809"
+      ],
+      "event_str": "({'m_key': 'PlayerHandle', 'm_value': '3-Hero-1-5045809'},)"
+    },
+    {
+      "index": 2,
+      "numbers": [
+        "5045809"
+      ],
+      "event_str": "({'m_key': 'PlayerHandle', 'm_value': '3-Hero-1-5045809'},)"
+    },
+    {
+      "index": 4,
+      "numbers": [
+        "3077644"
+      ],
+      "event_str": "({'m_key': 'PlayerHandle', 'm_value': '3-Hero-1-3077644'},)"
+    },
+    {
+      "index": 163,
+      "numbers": [
+        "6225920"
+      ],
+      "event_str": "({'m_key': 'MinionXP', 'm_value': 6225920},)"
+    },
+    {
+      "index": 166,
+      "numbers": [
+        "1219200"
+      ],
+      "event_str": "({'m_key': 'HeroXP', 'm_value': 1219200},)"
+    }
+  ],
+  "sample_end_events": [
+    "([{'m_time': 1102, 'm_value': 17}],)",
+    "([{'m_time': 1102, 'm_value': 49}],)",
+    "([{'m_time': 1102, 'm_value': 0}],)",
+    "([{'m_time': 1102, 'm_value': 17}],)",
+    "([{'m_time': 1102, 'm_value': 7}],)",
+    "([],)",
+    "([],)",
+    "([],)",
+    "([],)",
+    "([],)"
+  ]
+}

@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -32,7 +31,7 @@ const RecentGamesPage = () => {
     return mapIcons[mapName] || '🗺️'; // 매핑이 없으면 기본 지도 아이콘 사용
   };
 
-  const fetchRecentGames = async (page = 1) => {
+  const fetchRecentGames = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setRefreshing(true);
@@ -90,12 +89,12 @@ const RecentGamesPage = () => {
       setLoading(false);
       setTimeout(() => setRefreshing(false), 500); // 애니메이션 효과를 위한 지연
     }
-  };
+  }, [GAMES_PER_PAGE, totalGames]);
 
   // 페이지 변경 시 데이터 다시 로드
   useEffect(() => {
     fetchRecentGames(currentPage);
-  }, [currentPage]);
+  }, [currentPage, fetchRecentGames]);
 
   // 페이지 이동 함수
   const goToPage = (page) => {
@@ -258,9 +257,14 @@ const RecentGamesPage = () => {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="text-slate-400 border-b border-slate-700/50">
-                              <th className="text-left py-2 px-2 w-1/2 font-medium">플레이어</th>
-                              <th className="text-left py-2 px-2 w-1/4 font-medium">역할</th>
-                              <th className="text-right py-2 px-2 w-1/4 font-medium">MMR 변동</th>
+                              <th className="text-left py-2 px-1 font-medium">플레이어</th>
+                              <th className="text-left py-2 px-1 font-medium">영웅</th>
+                              <th className="text-center py-2 px-1 font-medium">K</th>
+                              <th className="text-center py-2 px-1 font-medium">D</th>
+                              <th className="text-center py-2 px-1 font-medium">A</th>
+                              <th className="text-center py-2 px-1 font-medium">영웅 피해</th>
+                              <th className="text-center py-2 px-1 font-medium">공성 피해</th>
+                              <th className="text-center py-2 px-1 font-medium">치유량</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -273,25 +277,19 @@ const RecentGamesPage = () => {
                               
                               return (
                               <tr key={`blue-${index}`} className="border-b border-slate-700/30 hover:bg-blue-900/10">
-                                <td className="py-2 px-2 text-white">
+                                <td className="py-2 px-1 text-white">
                                   <div className="flex items-center">
                                     {isHighestMmr && <span className="text-yellow-400 mr-1">👑</span>}
-                                    <span className="truncate">{player.nickname}</span>
+                                    <span className="truncate text-xs">{player.nickname}</span>
                                   </div>
                                 </td>
-                                <td className="py-2 px-2 text-blue-300">{player.role}</td>
-                                <td className="py-2 px-2 text-right">
-                                  {player.mmrChange !== undefined && (
-                                    <div className="inline-flex items-center">
-                                      <span className={`${player.mmrChange > 0 ? 'text-green-400' : 'text-red-400'} font-medium`}>
-                                        {player.mmrChange > 0 ? '+' : ''}{player.mmrChange}
-                                      </span>
-                                      {player.mmrAfter && (
-                                        <span className="text-slate-500 ml-1">({player.mmrAfter})</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </td>
+                                <td className="py-2 px-1 text-blue-300 text-xs">{player.hero}</td>
+                                <td className="py-2 px-1 text-center text-green-400 font-bold">{player.kills || 0}</td>
+                                <td className="py-2 px-1 text-center text-red-400 font-bold">{player.deaths || 0}</td>
+                                <td className="py-2 px-1 text-center text-yellow-400 font-bold">{player.assists || 0}</td>
+                                <td className="py-2 px-1 text-center text-orange-400 text-xs">{(player.heroDamage || 0).toLocaleString()}</td>
+                                <td className="py-2 px-1 text-center text-cyan-400 text-xs">{(player.siegeDamage || 0).toLocaleString()}</td>
+                                <td className="py-2 px-1 text-center text-green-400 text-xs">{(player.healing || 0).toLocaleString()}</td>
                               </tr>
                             )})}
                           </tbody>
@@ -309,9 +307,14 @@ const RecentGamesPage = () => {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="text-slate-400 border-b border-slate-700/50">
-                              <th className="text-left py-2 px-2 w-1/2 font-medium">플레이어</th>
-                              <th className="text-left py-2 px-2 w-1/4 font-medium">역할</th>
-                              <th className="text-right py-2 px-2 w-1/4 font-medium">MMR 변동</th>
+                              <th className="text-left py-2 px-1 font-medium">플레이어</th>
+                              <th className="text-left py-2 px-1 font-medium">영웅</th>
+                              <th className="text-center py-2 px-1 font-medium">K</th>
+                              <th className="text-center py-2 px-1 font-medium">D</th>
+                              <th className="text-center py-2 px-1 font-medium">A</th>
+                              <th className="text-center py-2 px-1 font-medium">영웅 피해</th>
+                              <th className="text-center py-2 px-1 font-medium">공성 피해</th>
+                              <th className="text-center py-2 px-1 font-medium">치유량</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -324,25 +327,19 @@ const RecentGamesPage = () => {
                               
                               return (
                               <tr key={`red-${index}`} className="border-b border-slate-700/30 hover:bg-red-900/10">
-                                <td className="py-2 px-2 text-white">
+                                <td className="py-2 px-1 text-white">
                                   <div className="flex items-center">
                                     {isHighestMmr && <span className="text-yellow-400 mr-1">👑</span>}
-                                    <span className="truncate">{player.nickname}</span>
+                                    <span className="truncate text-xs">{player.nickname}</span>
                                   </div>
                                 </td>
-                                <td className="py-2 px-2 text-red-300">{player.role}</td>
-                                <td className="py-2 px-2 text-right">
-                                  {player.mmrChange !== undefined && (
-                                    <div className="inline-flex items-center">
-                                      <span className={`${player.mmrChange > 0 ? 'text-green-400' : 'text-red-400'} font-medium`}>
-                                        {player.mmrChange > 0 ? '+' : ''}{player.mmrChange}
-                                      </span>
-                                      {player.mmrAfter && (
-                                        <span className="text-slate-500 ml-1">({player.mmrAfter})</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </td>
+                                <td className="py-2 px-1 text-red-300 text-xs">{player.hero}</td>
+                                <td className="py-2 px-1 text-center text-green-400 font-bold">{player.kills || 0}</td>
+                                <td className="py-2 px-1 text-center text-red-400 font-bold">{player.deaths || 0}</td>
+                                <td className="py-2 px-1 text-center text-yellow-400 font-bold">{player.assists || 0}</td>
+                                <td className="py-2 px-1 text-center text-orange-400 text-xs">{(player.heroDamage || 0).toLocaleString()}</td>
+                                <td className="py-2 px-1 text-center text-cyan-400 text-xs">{(player.siegeDamage || 0).toLocaleString()}</td>
+                                <td className="py-2 px-1 text-center text-green-400 text-xs">{(player.healing || 0).toLocaleString()}</td>
                               </tr>
                             )})}
                           </tbody>

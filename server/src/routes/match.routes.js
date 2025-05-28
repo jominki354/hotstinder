@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Match = require('../models/match.model');
+const MongoMatch = require('../models/MongoMatch');
 const User = require('../models/user.model');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 // 미들웨어: 인증 확인
 const authenticate = async (req, res, next) => {
@@ -470,6 +472,384 @@ router.post('/:id/chat', authenticate, async (req, res) => {
   } catch (err) {
     console.error('채팅 메시지 추가 오류:', err);
     res.status(500).json({ message: '채팅 메시지 추가에 실패했습니다' });
+  }
+});
+
+/**
+ * @route   POST /api/matches/:id/submit-replay
+ * @desc    리플레이 제출 및 매치 완료 처리
+ * @access  Private
+ */
+router.post('/:id/submit-replay', authenticate, async (req, res) => {
+  try {
+    const { replayData, winningTeam, gameLength, playerStats, isSimulation } = req.body;
+    const matchId = req.params.id;
+    
+    console.log('리플레이 제출 요청:', { 
+      matchId, 
+      winningTeam, 
+      gameLength, 
+      isSimulation: isSimulation || replayData?.isSimulation,
+      playerCount: playerStats?.length || 0
+    });
+    
+    // 플레이어 통계 상세 로그 출력
+    if (playerStats && Array.isArray(playerStats)) {
+      console.log('\n=== 플레이어 통계 상세 ===');
+      playerStats.forEach((player, index) => {
+        console.log(`플레이어 ${index + 1}:`, {
+          userId: player.userId,
+          battletag: player.battletag,
+          team: player.team,
+          hero: player.hero,
+          kills: player.kills,
+          deaths: player.deaths,
+          assists: player.assists,
+          heroDamage: player.heroDamage,
+          siegeDamage: player.siegeDamage,
+          healing: player.healing,
+          experienceContribution: player.experienceContribution
+        });
+      });
+      console.log('=== 플레이어 통계 상세 끝 ===\n');
+    }
+    
+    // 시뮬레이션 매치인지 확인하는 함수 (먼저 정의)
+    const isSimulationMatch = (matchId, playerStats) => {
+      // 0. 클라이언트에서 명시적으로 전달한 플래그 확인
+      if (isSimulation === true || replayData?.isSimulation === true) {
+        return true;
+      }
+      
+      // 1. 매치 ID 패턴으로 판단 (YYYYMMDD-HHMM-XXX 형식)
+      const simulationPattern = /^\d{8}-\d{4}-\d{3}$/;
+      if (simulationPattern.test(matchId)) {
+        return true;
+      }
+      
+      // 2. 매치 ID가 'sim_'로 시작하는 경우
+      if (matchId.startsWith('sim_')) {
+        return true;
+      }
+      
+      // 3. 플레이어 ID가 시뮬레이션 패턴인 경우 (sim_team_playername)
+      const hasSimulationPlayers = playerStats && playerStats.some(player => 
+        player.userId && player.userId.startsWith('sim_')
+      );
+      if (hasSimulationPlayers) {
+        return true;
+      }
+      
+      // 4. 매치 데이터에 시뮬레이션 플래그가 있는 경우
+      if (replayData && replayData.isSimulation) {
+        return true;
+      }
+      
+      return false;
+    };
+    
+    // 매치 정보 조회 또는 생성
+    let match;
+    
+    if (global.useNeDB) {
+      // NeDB 사용 시
+      const findMatchPromise = new Promise((resolve, reject) => {
+        global.db.matches.findOne({ _id: matchId }, (err, doc) => {
+          if (err) reject(err);
+          else resolve(doc);
+        });
+      });
+      
+      match = await findMatchPromise;
+      
+      if (!match) {
+        // 매치가 없으면 새로 생성 (시뮬레이션 매치의 경우)
+        const newMatch = {
+          _id: matchId,
+          createdBy: req.user._id,
+          status: 'completed',
+          gameMode: 'ranked',
+          map: replayData?.basic?.map || '알 수 없음',
+          teams: {
+            blue: replayData?.teams?.blue || [],
+            red: replayData?.teams?.red || []
+          },
+          result: {
+            winningTeam: winningTeam,
+            gameLength: gameLength,
+            completedAt: new Date()
+          },
+          replayData: replayData,
+          playerStats: playerStats || [],
+          createdAt: new Date(),
+          scheduledTime: new Date()
+        };
+        
+        const insertPromise = new Promise((resolve, reject) => {
+          global.db.matches.insert(newMatch, (err, doc) => {
+            if (err) reject(err);
+            else resolve(doc);
+          });
+        });
+        
+        match = await insertPromise;
+        console.log('새 매치 생성됨:', matchId);
+      } else {
+        // 기존 매치 업데이트
+        const updateData = {
+          status: 'completed',
+          result: {
+            winningTeam: winningTeam,
+            gameLength: gameLength,
+            completedAt: new Date()
+          },
+          replayData: replayData,
+          playerStats: playerStats || []
+        };
+        
+        const updatePromise = new Promise((resolve, reject) => {
+          global.db.matches.update(
+            { _id: matchId },
+            { $set: updateData },
+            {},
+            (err, numReplaced) => {
+              if (err) reject(err);
+              else resolve(numReplaced);
+            }
+          );
+        });
+        
+        await updatePromise;
+        console.log('기존 매치 업데이트됨:', matchId);
+      }
+    } else {
+      // MongoDB 사용 시
+      try {
+        // 먼저 ObjectId로 조회 시도
+        if (mongoose.Types.ObjectId.isValid(matchId)) {
+          match = await MongoMatch.findById(matchId);
+        }
+        
+        // ObjectId로 찾지 못했거나 유효하지 않은 경우, originalMatchId로 조회
+        if (!match) {
+          match = await MongoMatch.findOne({ originalMatchId: matchId });
+        }
+        
+        if (!match) {
+          // 매치가 없으면 새로 생성
+          const newMatchData = {
+            title: `리플레이 매치 ${matchId}`,
+            description: `리플레이 업로드를 위해 생성된 매치 (원본 ID: ${matchId})`,
+            createdBy: req.user._id,
+            status: 'completed',
+            map: replayData?.basic?.map || '알 수 없음',
+            teams: {
+              blue: replayData?.teams?.blue || [],
+              red: replayData?.teams?.red || []
+            },
+            result: {
+              winner: winningTeam,
+              blueScore: winningTeam === 'blue' ? 1 : 0,
+              redScore: winningTeam === 'red' ? 1 : 0,
+              duration: gameLength
+            },
+            replayData: replayData,
+            playerStats: playerStats || [],
+            originalMatchId: matchId,
+            // 시뮬레이션 매치 여부를 미리 판별하여 설정
+            isSimulation: isSimulationMatch(matchId, playerStats)
+          };
+          
+          match = await MongoMatch.create(newMatchData);
+          console.log('새 매치 생성됨:', match._id, '(원본 ID:', matchId, ') 시뮬레이션:', newMatchData.isSimulation);
+        } else {
+          // 기존 매치 업데이트
+          const updateData = {
+            status: 'completed',
+            map: replayData?.basic?.map || match.map || '알 수 없음',
+            result: {
+              winner: winningTeam,
+              blueScore: winningTeam === 'blue' ? 1 : 0,
+              redScore: winningTeam === 'red' ? 1 : 0,
+              duration: gameLength
+            },
+            replayData: replayData,
+            playerStats: playerStats || [],
+            updatedAt: new Date(),
+            // 시뮬레이션 매치 여부 업데이트
+            isSimulation: isSimulationMatch(matchId, playerStats)
+          };
+          
+          match = await MongoMatch.updateById(match._id, updateData);
+          console.log('기존 매치 업데이트됨:', match._id, '맵:', updateData.map, '시뮬레이션:', updateData.isSimulation);
+        }
+      } catch (mongoError) {
+        console.error('MongoDB 매치 처리 오류:', mongoError);
+        throw mongoError;
+      }
+    }
+    
+    // 플레이어 통계 업데이트 (승/패 기록)
+    if (playerStats && Array.isArray(playerStats)) {
+      // 시뮬레이션 매치인지 확인 (여러 방법으로 판단)
+      const isSimulation = isSimulationMatch(matchId, playerStats);
+      console.log(`매치 ${matchId} 시뮬레이션 여부:`, isSimulation);
+      
+      // 시뮬레이션 매치인 경우 매치 데이터에 플래그 추가
+      if (isSimulation && match) {
+        const simulationFlag = { isSimulation: true };
+        
+        if (global.useNeDB) {
+          const updatePromise = new Promise((resolve, reject) => {
+            global.db.matches.update(
+              { _id: matchId },
+              { $set: simulationFlag },
+              {},
+              (err, numReplaced) => {
+                if (err) reject(err);
+                else resolve(numReplaced);
+              }
+            );
+          });
+          await updatePromise;
+        } else {
+          await MongoMatch.updateById(match._id, simulationFlag);
+        }
+        console.log(`매치 ${matchId}에 시뮬레이션 플래그 추가됨`);
+      }
+      
+      for (const playerStat of playerStats) {
+        try {
+          const userId = playerStat.userId;
+          const isWinner = playerStat.team === winningTeam;
+          
+          // 시뮬레이션 매치의 경우 가상 사용자 ID 처리
+          if (isSimulation) {
+            // 시뮬레이션 매치는 실제 DB 업데이트 없이 로그만 남김
+            console.log(`[시뮬레이션] 플레이어 ${playerStat.battletag || userId} (${playerStat.team}팀): ${isWinner ? '승리' : '패배'}`);
+            console.log(`[시뮬레이션] - 영웅: ${playerStat.hero}`);
+            console.log(`[시뮬레이션] - KDA: ${playerStat.kills}/${playerStat.deaths}/${playerStat.assists}`);
+            console.log(`[시뮬레이션] - 데미지: 영웅 ${playerStat.heroDamage}, 공성 ${playerStat.siegeDamage}`);
+            console.log(`[시뮬레이션] - 치유량: ${playerStat.healing}, 경험치: ${playerStat.experienceContribution}`);
+            continue; // 실제 DB 업데이트는 건너뜀
+          }
+          
+          // 실제 매치의 경우 기존 로직 사용
+          // userId가 유효한 ObjectId인지 확인
+          if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            console.log(`플레이어 통계 업데이트 건너뜀: 유효하지 않은 사용자 ID (${userId})`);
+            continue;
+          }
+          
+          if (global.useNeDB) {
+            // NeDB에서 사용자 통계 업데이트
+            const updateUserPromise = new Promise((resolve, reject) => {
+              global.db.users.update(
+                { _id: userId },
+                { 
+                  $inc: { 
+                    'playerStats.gamesPlayed': 1,
+                    'playerStats.wins': isWinner ? 1 : 0,
+                    'playerStats.losses': isWinner ? 0 : 1
+                  }
+                },
+                {},
+                (err, numReplaced) => {
+                  if (err) reject(err);
+                  else resolve(numReplaced);
+                }
+              );
+            });
+            
+            await updateUserPromise;
+          } else {
+            // MongoDB에서 사용자 통계 업데이트
+            const updateResult = await User.findByIdAndUpdate(userId, {
+              $inc: {
+                'playerStats.gamesPlayed': 1,
+                'playerStats.wins': isWinner ? 1 : 0,
+                'playerStats.losses': isWinner ? 0 : 1
+              }
+            });
+            
+            if (!updateResult) {
+              console.log(`플레이어 통계 업데이트 실패: 사용자를 찾을 수 없음 (${userId})`);
+              continue;
+            }
+          }
+          
+          console.log(`플레이어 ${userId} 통계 업데이트: ${isWinner ? '승리' : '패배'}`);
+        } catch (userUpdateError) {
+          console.error('플레이어 통계 업데이트 오류:', userUpdateError);
+          // 개별 플레이어 통계 업데이트 실패는 전체 프로세스를 중단하지 않음
+        }
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: '리플레이가 성공적으로 제출되었습니다.',
+      matchId: matchId,
+      match: match
+    });
+    
+  } catch (error) {
+    console.error('리플레이 제출 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '리플레이 제출 중 오류가 발생했습니다.',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   POST /api/matches/create-from-matchmaking
+ * @desc    매치메이킹에서 매치 생성
+ * @access  Private
+ */
+router.post('/create-from-matchmaking', authenticate, async (req, res) => {
+  try {
+    const { matchId, teams, map, gameMode = 'ranked' } = req.body;
+    
+    console.log('매치메이킹에서 매치 생성:', { matchId, map, gameMode });
+    
+    const newMatchData = {
+      _id: matchId,
+      createdBy: req.user._id,
+      status: 'in_progress',
+      gameMode: gameMode,
+      map: map,
+      teams: teams,
+      createdAt: new Date(),
+      scheduledTime: new Date()
+    };
+    
+    if (global.useNeDB) {
+      // NeDB 사용 시
+      const insertPromise = new Promise((resolve, reject) => {
+        global.db.matches.insert(newMatchData, (err, doc) => {
+          if (err) reject(err);
+          else resolve(doc);
+        });
+      });
+      
+      const match = await insertPromise;
+      res.json({ success: true, match });
+    } else {
+      // MongoDB 사용 시
+      const match = new Match(newMatchData);
+      await match.save();
+      res.json({ success: true, match });
+    }
+    
+  } catch (error) {
+    console.error('매치 생성 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '매치 생성 중 오류가 발생했습니다.',
+      error: error.message
+    });
   }
 });
 

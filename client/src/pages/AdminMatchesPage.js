@@ -16,7 +16,6 @@ const AdminMatchesPage = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedMatches, setSelectedMatches] = useState([]);
-  const [confirmAction, setConfirmAction] = useState(null);
   const [processing, setProcessing] = useState(false);
   
   // 필터 상태
@@ -71,7 +70,12 @@ const AdminMatchesPage = () => {
         )
       };
       
-      const response = await axios.get('/api/admin/matches', { params });
+      const response = await axios.get('/api/admin/matches', { 
+        params,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       setMatches(response.data.matches);
       setTotalPages(response.data.totalPages);
       setLoading(false);
@@ -92,7 +96,11 @@ const AdminMatchesPage = () => {
     
     try {
       setProcessing(true);
-      const response = await axios.delete('/api/admin/delete-all-matches');
+      const response = await axios.delete('/api/admin/delete-all-matches', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       toast.success(response.data.message);
       
       // 목록 새로고침
@@ -162,92 +170,102 @@ const AdminMatchesPage = () => {
   // 매치 무효화
   const invalidateMatch = async (matchId) => {
     try {
-      await axios.post(`/api/admin/matches/${matchId}/invalidate`);
+      const response = await axios.post(`/api/admin/matches/${matchId}/invalidate`, {}, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       // 목록 새로고침
       fetchMatches();
-      alert('매치가 성공적으로 무효화되었습니다.');
+      toast.success(response.data.message || '매치가 성공적으로 무효화되었습니다.');
     } catch (err) {
       console.error('매치 무효화 오류:', err);
-      alert('매치 무효화에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || '매치 무효화에 실패했습니다.';
+      toast.error(errorMessage);
     }
   };
   
   // 다중 매치 무효화
   const invalidateSelectedMatches = async () => {
+    if (selectedMatches.length === 0) {
+      toast.warning('무효화할 매치를 선택해주세요.');
+      return;
+    }
+    
     try {
-      await axios.post('/api/admin/matches/invalidate', { matchIds: selectedMatches });
+      const response = await axios.post('/api/admin/matches/invalidate', 
+        { matchIds: selectedMatches },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
       // 목록 새로고침
       fetchMatches();
       setSelectedMatches([]);
-      alert(`${selectedMatches.length}개의 매치가 성공적으로 무효화되었습니다.`);
+      toast.success(response.data.message || `${selectedMatches.length}개의 매치가 성공적으로 무효화되었습니다.`);
     } catch (err) {
       console.error('다중 매치 무효화 오류:', err);
-      alert('매치 무효화에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || '매치 무효화에 실패했습니다.';
+      toast.error(errorMessage);
     }
   };
   
   // 매치 삭제
   const deleteMatch = async (matchId) => {
+    if (!window.confirm('정말로 이 매치를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+    
     try {
-      await axios.delete(`/api/admin/matches/${matchId}`);
+      const response = await axios.delete(`/api/admin/matches/${matchId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
       // 목록에서 삭제된 매치 제거
       setMatches(matches.filter(match => match._id !== matchId));
       setSelectedMatches(selectedMatches.filter(id => id !== matchId));
-      alert('매치가 성공적으로 삭제되었습니다.');
+      toast.success(response.data.message || '매치가 성공적으로 삭제되었습니다.');
     } catch (err) {
       console.error('매치 삭제 오류:', err);
-      alert('매치 삭제에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || '매치 삭제에 실패했습니다.';
+      toast.error(errorMessage);
     }
   };
   
   // 다중 매치 삭제
   const deleteSelectedMatches = async () => {
-    try {
-      await axios.post('/api/admin/matches/delete', { matchIds: selectedMatches });
-      // 목록에서 삭제된 매치들 제거
-      setMatches(matches.filter(match => !selectedMatches.includes(match._id)));
-      setSelectedMatches([]);
-      alert(`${selectedMatches.length}개의 매치가 성공적으로 삭제되었습니다.`);
-    } catch (err) {
-      console.error('다중 매치 삭제 오류:', err);
-      alert('매치 삭제에 실패했습니다.');
-    }
-  };
-  
-  // 확인 모달 표시
-  const showConfirmModal = (action, matchId) => {
-    if ((action === 'delete' || action === 'invalidate') && !matchId && selectedMatches.length === 0) {
-      alert(action === 'delete' ? '삭제할 매치를 선택해주세요.' : '무효화할 매치를 선택해주세요.');
+    if (selectedMatches.length === 0) {
+      toast.warning('삭제할 매치를 선택해주세요.');
       return;
     }
     
-    setConfirmAction({
-      type: action,
-      matchId: matchId || null,
-    });
-  };
-  
-  // 확인 모달 닫기
-  const closeConfirmModal = () => {
-    setConfirmAction(null);
-  };
-  
-  // 확인 액션 실행
-  const executeConfirmAction = () => {
-    if (confirmAction.type === 'delete') {
-      if (confirmAction.isMultiple) {
-        deleteSelectedMatches();
-      } else {
-        deleteMatch(confirmAction.matchId);
-      }
-    } else if (confirmAction.type === 'invalidate') {
-      if (confirmAction.isMultiple) {
-        invalidateSelectedMatches();
-      } else {
-        invalidateMatch(confirmAction.matchId);
-      }
+    if (!window.confirm(`정말로 선택된 ${selectedMatches.length}개의 매치를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+      return;
     }
-    closeConfirmModal();
+    
+    try {
+      const response = await axios.post('/api/admin/matches/delete', 
+        { matchIds: selectedMatches },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      // 목록에서 삭제된 매치들 제거
+      setMatches(matches.filter(match => !selectedMatches.includes(match._id)));
+      setSelectedMatches([]);
+      toast.success(response.data.message || `${selectedMatches.length}개의 매치가 성공적으로 삭제되었습니다.`);
+    } catch (err) {
+      console.error('다중 매치 삭제 오류:', err);
+      const errorMessage = err.response?.data?.message || '매치 삭제에 실패했습니다.';
+      toast.error(errorMessage);
+    }
   };
   
   // 로딩 중 표시
@@ -372,13 +390,13 @@ const AdminMatchesPage = () => {
           </p>
           <div className="flex space-x-2">
             <button
-              onClick={() => showConfirmModal('invalidate')}
+              onClick={() => invalidateSelectedMatches()}
               className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm transition"
             >
               선택 무효화
             </button>
             <button
-              onClick={() => showConfirmModal('delete')}
+              onClick={() => deleteSelectedMatches()}
               className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition"
             >
               선택 삭제
@@ -504,14 +522,14 @@ const AdminMatchesPage = () => {
                     </button>
                     {match.status !== '무효' && (
                       <button
-                        onClick={() => showConfirmModal('invalidate', match._id)}
+                        onClick={() => invalidateMatch(match._id)}
                         className="bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-1 rounded text-xs transition"
                       >
                         무효화
                       </button>
                     )}
                     <button
-                      onClick={() => showConfirmModal('delete', match._id)}
+                      onClick={() => deleteMatch(match._id)}
                       className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition"
                     >
                       삭제
@@ -609,52 +627,6 @@ const AdminMatchesPage = () => {
           </button>
         </div>
       </div>
-      
-      {/* 확인 모달 */}
-      {confirmAction && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-white mb-4">
-              {confirmAction.type === 'delete'
-                ? '매치 삭제 확인'
-                : confirmAction.type === 'invalidate'
-                ? '매치 무효화 확인'
-                : '확인'}
-            </h3>
-            <p className="text-gray-300 mb-6">
-              {confirmAction.type === 'delete' && confirmAction.isMultiple
-                ? `${selectedMatches.length}개의 매치를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
-                : confirmAction.type === 'delete'
-                ? '이 매치를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'
-                : confirmAction.type === 'invalidate' && confirmAction.isMultiple
-                ? `${selectedMatches.length}개의 매치를 무효화하시겠습니까? 무효화된 매치는 MMR 계산에서 제외됩니다.`
-                : '이 매치를 무효화하시겠습니까? 무효화된 매치는 MMR 계산에서 제외됩니다.'}
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={closeConfirmModal}
-                className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded transition"
-              >
-                취소
-              </button>
-              <button
-                onClick={executeConfirmAction}
-                className={`text-white px-4 py-2 rounded transition ${
-                  confirmAction.type === 'delete'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-yellow-600 hover:bg-yellow-700'
-                }`}
-              >
-                {confirmAction.type === 'delete'
-                  ? '삭제'
-                  : confirmAction.type === 'invalidate'
-                  ? '무효화'
-                  : '확인'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

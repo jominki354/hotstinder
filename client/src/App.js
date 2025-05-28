@@ -34,37 +34,6 @@ const PrivateRouteComponent = ({ children }) => {
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
-// 프로필 설정이 완료된 사용자만 접근 가능한 라우트
-const ProfileCompletedRoute = ({ children }) => {
-  const { isAuthenticated, user, isLoading } = useAuthStore();
-
-  if (isLoading) {
-    return <div>로딩 중...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-
-  // 관리자는 대시보드와 프로필 페이지에 접근할 수 없음
-  if (user?.isAdmin) {
-    return <Navigate to="/admin" />;
-  }
-
-  // 프로필 설정 여부 확인 - localStorage도 검사
-  const localProfileComplete = localStorage.getItem('profileComplete');
-  const isProfileComplete = user?.isProfileComplete || localProfileComplete === 'true';
-
-  if (!user || !isProfileComplete) {
-    console.log('프로필 설정이 필요합니다. 프로필 설정 페이지로 이동합니다.');
-    console.log('isProfileComplete (user):', user?.isProfileComplete);
-    console.log('isProfileComplete (localStorage):', localProfileComplete);
-    return <Navigate to="/profile/setup" />;
-  }
-
-  return children;
-};
-
 // 관리자만 접근 가능한 라우트
 const AdminRoute = ({ children }) => {
   const { isAuthenticated, user, isLoading } = useAuthStore();
@@ -256,9 +225,9 @@ function App() {
       if (simulationRunning && isAuthenticated) {
         // 시뮬레이션 시작 시간 가져오기
         const startTime = parseInt(localStorage.getItem('simulationStartTime') || Date.now().toString());
-        // 시간 경과에 따른 플레이어 수 계산 (1초당 1명씩 증가)
+        // 시간 경과에 따른 플레이어 수 계산 (0.5초당 1명씩 증가)
         const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-        const expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 1));
+        const expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 0.5));
         
         // 저장된 플레이어 수 확인
         const storedPlayers = parseInt(localStorage.getItem('simulatedPlayers') || '1');
@@ -398,9 +367,9 @@ function App() {
           
           {/* 인증이 필요한 라우트 */}
           <Route path="/dashboard" element={
-            <ProfileCompletedRoute>
-              <DashboardPage />
-            </ProfileCompletedRoute>
+            <PrivateRoute>
+              {user?.isAdmin ? <Navigate to="/admin" /> : <DashboardPage />}
+            </PrivateRoute>
           } />
           
           {/* 프로필 페이지를 /profile/setup으로 통합 */}

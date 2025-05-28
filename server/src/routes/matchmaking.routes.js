@@ -52,6 +52,18 @@ const matchmakingQueue = {
     return match;
   },
   
+  // 특정 사용자의 대기 시간 계산 (초 단위)
+  getPlayerWaitTime: function(userId) {
+    const player = this.players.find(p => p.userId === userId || p.userId.toString() === userId.toString());
+    if (!player || !player.joinedAt) {
+      return 0;
+    }
+    
+    // 서버 시간 기준으로 대기 시간 계산 (초 단위)
+    const waitTimeMs = Date.now() - player.joinedAt.getTime();
+    return Math.floor(waitTimeMs / 1000);
+  },
+  
   // 매치메이킹 대기열에 플레이어 추가
   addPlayer: async function(userId) {
     try {
@@ -68,9 +80,14 @@ const matchmakingQueue = {
       if (existingPlayer) {
         console.warn('대기열 추가 실패: 이미 대기열에 존재', { 
           userId,
-          joinedAt: existingPlayer.joinedAt
+          joinedAt: existingPlayer.joinedAt,
+          waitTime: this.getPlayerWaitTime(userId)
         });
-        return { success: false, message: '이미 대기열에 등록되어 있습니다.' };
+        return { 
+          success: false, 
+          message: '이미 대기열에 등록되어 있습니다.',
+          waitTime: this.getPlayerWaitTime(userId)
+        };
       }
       
       // 사용자 정보 가져오기
@@ -104,14 +121,15 @@ const matchmakingQueue = {
       const mmr = user.mmr || 1500;
       const battletag = user.battletag || user.battleTag || `unknown#${userId.substring(0, 4)}`;
       
-      // 플레이어 추가
+      // 플레이어 추가 (서버 시간으로 대기 시작 시간 기록)
+      const joinTime = new Date();
       const newPlayer = {
         userId: user._id,
         battletag: battletag,
         nickname: user.nickname || battletag.split('#')[0],
         mmr: mmr,
         mainRole: user.preferredRoles?.[0] || 'flex',
-        joinedAt: new Date()
+        joinedAt: joinTime
       };
       
       this.players.push(newPlayer);
@@ -124,6 +142,7 @@ const matchmakingQueue = {
         userId: newPlayer.userId, 
         battletag: newPlayer.battletag, 
         mmr: newPlayer.mmr,
+        joinedAt: joinTime,
         currentPlayersInQueue: this.currentPlayers
       });
       
@@ -133,7 +152,9 @@ const matchmakingQueue = {
           currentPlayers: this.currentPlayers,
           requiredPlayers: this.requiredPlayers,
           estimatedTime: this.estimatedTime
-        }
+        },
+        waitTime: 0, // 방금 추가되었으므로 0초
+        joinedAt: joinTime.toISOString()
       };
     } catch (error) {
       console.error('대기열 추가 중 예외 발생:', error);
@@ -336,8 +357,33 @@ router.get('/status', authenticateToken, (req, res) => {
       userId: req.user?._id
     });
     
+    const userId = req.user?._id;
     const status = matchmakingQueue.getStatus();
-    res.json(status);
+    
+    // 사용자가 대기열에 있는 경우 대기 시간 추가
+    let waitTime = 0;
+    let joinedAt = null;
+    let inQueue = false;
+    
+    if (userId) {
+      const player = matchmakingQueue.players.find(p => 
+        p.userId === userId || p.userId.toString() === userId.toString()
+      );
+      
+      if (player) {
+        waitTime = matchmakingQueue.getPlayerWaitTime(userId);
+        joinedAt = player.joinedAt.toISOString();
+        inQueue = true;
+      }
+    }
+    
+    res.json({
+      ...status,
+      waitTime,
+      joinedAt,
+      inQueue,
+      serverTime: new Date().toISOString() // 서버 시간 추가
+    });
   } catch (error) {
     console.error('대기열 상태 조회 API 오류:', error);
     res.status(500).json({ 
@@ -407,24 +453,110 @@ router.get('/recent-games', async (req, res) => {
           const blueTeam = Array.isArray(game.teams.blue) ? game.teams.blue : [];
           const redTeam = Array.isArray(game.teams.red) ? game.teams.red : [];
           
+          // playerStats 배열에서 통계 데이터 가져오기
+          const playerStats = Array.isArray(game.playerStats) ? game.playerStats : [];
+          console.log(`[DEBUG] 게임 ${game._id} playerStats 개수:`, playerStats.length);
+          
+          // 플레이어 통계를 battletag로 매핑하는 함수
+          const getPlayerStats = (battletag, team) => {
+            const stats = playerStats.find(stat => 
+              stat.battletag === battletag && stat.team === team
+            );
+            if (stats) {
+              console.log(`[DEBUG] ${battletag} 통계 발견:`, {
+                kills: stats.kills,
+                deaths: stats.deaths,
+                assists: stats.assists,
+                heroDamage: stats.heroDamage,
+                siegeDamage: stats.siegeDamage,
+                healing: stats.healing
+              });
+            }
+            return stats || {};
+          };
+          
+          // 시뮬레이션 매치인지 확인
+          const isSimulationMatch = game.isSimulation || 
+            (playerStats.length > 0 && playerStats.some(p => p.userId && p.userId.startsWith('sim_')));
+          
+          // 시뮬레이션 매치의 경우 playerStats에서 직접 플레이어 정보 생성
+          if (isSimulationMatch && playerStats.length > 0) {
+            console.log(`[DEBUG] 시뮬레이션 매치 감지: ${game._id}, playerStats에서 직접 플레이어 정보 생성`);
+            
+            // playerStats에서 팀별로 플레이어 분리
+            const blueTeamStats = playerStats.filter(p => p.team === 'blue');
+            const redTeamStats = playerStats.filter(p => p.team === 'red');
+            
+            // 팀별 평균 MMR 계산 (시뮬레이션은 기본 1500)
+            const blueTeamAvgMmr = 1500;
+            const redTeamAvgMmr = 1500;
+            
+            // 플레이어 정보 변환 함수 (시뮬레이션용)
+            const formatSimulationPlayers = (teamStats) => {
+              return teamStats.map(player => ({
+                id: player.userId || 'unknown',
+                nickname: player.battletag ? player.battletag.split('#')[0] : '시뮬레이션 플레이어',
+                role: '알 수 없음',
+                hero: player.hero || '알 수 없음',
+                kills: player.kills || 0,
+                deaths: player.deaths || 0,
+                assists: player.assists || 0,
+                heroDamage: player.heroDamage || 0,
+                siegeDamage: player.siegeDamage || 0,
+                healing: player.healing || 0,
+                experienceContribution: player.experienceContribution || 0,
+                mmrBefore: 1500,
+                mmrAfter: 1500,
+                mmrChange: 0
+              }));
+            };
+
+            return {
+              id: game._id,
+              title: game.title || '시뮬레이션 매치',
+              map: game.map || '알 수 없는 맵',
+              gameMode: '시뮬레이션',
+              date: formattedDate,
+              time: formattedTime,
+              duration: formattedDuration,
+              winner: game.result?.winner || 'none',
+              blueTeam: {
+                name: '블루팀 (시뮬레이션)',
+                avgMmr: blueTeamAvgMmr,
+                players: formatSimulationPlayers(blueTeamStats)
+              },
+              redTeam: {
+                name: '레드팀 (시뮬레이션)',
+                avgMmr: redTeamAvgMmr,
+                players: formatSimulationPlayers(redTeamStats)
+              }
+            };
+          }
+          
           // 블루팀과 레드팀 유저 정보 불러오기
           const blueTeamUsers = await Promise.all(blueTeam.map(async (player) => {
             try {
               if (!player || !player.user) return { userInfo: null };
               
               const user = await global.db.users.findOne({ _id: player.user });
+              const userInfo = user ? {
+                _id: user._id,
+                nickname: user.nickname || (user.battletag ? user.battletag.split('#')[0] : '알 수 없음'),
+                battletag: user.battletag,
+                mmr: user.mmr || 1500
+              } : null;
+              
+              // playerStats에서 해당 플레이어의 통계 찾기
+              const stats = userInfo ? getPlayerStats(userInfo.battletag, 'blue') : {};
+              
               return {
                 ...player,
-                userInfo: user ? {
-                  _id: user._id,
-                  nickname: user.nickname || (user.battletag ? user.battletag.split('#')[0] : '알 수 없음'),
-                  battletag: user.battletag,
-                  mmr: user.mmr || 1500
-                } : null
+                userInfo: userInfo,
+                stats: stats
               };
             } catch (err) {
               console.error('플레이어 정보 조회 오류:', err);
-              return { userInfo: null };
+              return { userInfo: null, stats: {} };
             }
           }));
           
@@ -433,18 +565,24 @@ router.get('/recent-games', async (req, res) => {
               if (!player || !player.user) return { userInfo: null };
               
               const user = await global.db.users.findOne({ _id: player.user });
+              const userInfo = user ? {
+                _id: user._id,
+                nickname: user.nickname || (user.battletag ? user.battletag.split('#')[0] : '알 수 없음'),
+                battletag: user.battletag,
+                mmr: user.mmr || 1500
+              } : null;
+              
+              // playerStats에서 해당 플레이어의 통계 찾기
+              const stats = userInfo ? getPlayerStats(userInfo.battletag, 'red') : {};
+              
               return {
                 ...player,
-                userInfo: user ? {
-                  _id: user._id,
-                  nickname: user.nickname || (user.battletag ? user.battletag.split('#')[0] : '알 수 없음'),
-                  battletag: user.battletag,
-                  mmr: user.mmr || 1500
-                } : null
+                userInfo: userInfo,
+                stats: stats
               };
             } catch (err) {
               console.error('플레이어 정보 조회 오류:', err);
-              return { userInfo: null };
+              return { userInfo: null, stats: {} };
             }
           }));
           
@@ -512,10 +650,14 @@ router.get('/recent-games', async (req, res) => {
                 id: player.userInfo?._id,
                 nickname: player.userInfo?.nickname || '알 수 없음',
                 role: player.role || '알 수 없음',
-                hero: player.hero || '알 수 없음',
+                hero: player.stats?.hero || player.hero || '알 수 없음',
                 kills: player.stats?.kills || 0,
                 deaths: player.stats?.deaths || 0,
                 assists: player.stats?.assists || 0,
+                heroDamage: player.stats?.heroDamage || 0,
+                siegeDamage: player.stats?.siegeDamage || 0,
+                healing: player.stats?.healing || 0,
+                experienceContribution: player.stats?.experienceContribution || 0,
                 mmrBefore: player.stats?.mmrBefore || 1500,
                 mmrAfter: player.stats?.mmrAfter || 1500,
                 mmrChange: player.stats?.mmrChange || 0
@@ -528,10 +670,14 @@ router.get('/recent-games', async (req, res) => {
                 id: player.userInfo?._id,
                 nickname: player.userInfo?.nickname || '알 수 없음',
                 role: player.role || '알 수 없음',
-                hero: player.hero || '알 수 없음',
+                hero: player.stats?.hero || player.hero || '알 수 없음',
                 kills: player.stats?.kills || 0,
                 deaths: player.stats?.deaths || 0,
                 assists: player.stats?.assists || 0,
+                heroDamage: player.stats?.heroDamage || 0,
+                siegeDamage: player.stats?.siegeDamage || 0,
+                healing: player.stats?.healing || 0,
+                experienceContribution: player.stats?.experienceContribution || 0,
                 mmrBefore: player.stats?.mmrBefore || 1500,
                 mmrAfter: player.stats?.mmrAfter || 1500,
                 mmrChange: player.stats?.mmrChange || 0
@@ -586,6 +732,28 @@ router.get('/recent-games', async (req, res) => {
           // 팀 구성 확인 및 변환
           const blueTeam = Array.isArray(game.teams?.blue) ? game.teams.blue : [];
           const redTeam = Array.isArray(game.teams?.red) ? game.teams.red : [];
+          
+          // playerStats 배열에서 통계 데이터 가져오기
+          const playerStats = Array.isArray(game.playerStats) ? game.playerStats : [];
+          console.log(`[DEBUG] MongoDB 게임 ${game._id} playerStats 개수:`, playerStats.length);
+          
+          // 플레이어 통계를 battletag로 매핑하는 함수
+          const getPlayerStats = (battletag, team) => {
+            const stats = playerStats.find(stat => 
+              stat.battletag === battletag && stat.team === team
+            );
+            if (stats) {
+              console.log(`[DEBUG] MongoDB ${battletag} 통계 발견:`, {
+                kills: stats.kills,
+                deaths: stats.deaths,
+                assists: stats.assists,
+                heroDamage: stats.heroDamage,
+                siegeDamage: stats.siegeDamage,
+                healing: stats.healing
+              });
+            }
+            return stats || {};
+          };
 
           // 팀별 평균 MMR 계산
           const calcAvgMmr = (players) => {
@@ -609,7 +777,7 @@ router.get('/recent-games', async (req, res) => {
           const redTeamName = '레드팀';
 
           // 플레이어 정보 변환 함수
-          const formatPlayers = (teamPlayers) => {
+          const formatPlayers = (teamPlayers, teamName) => {
             if(!teamPlayers || !Array.isArray(teamPlayers)) return [];
             
             return teamPlayers.map(player => {
@@ -618,20 +786,86 @@ router.get('/recent-games', async (req, res) => {
                 (userInfo?.battletag ? userInfo.battletag.split('#')[0] : 
                 (userInfo?.battleTag ? userInfo.battleTag.split('#')[0] : '알 수 없음'));
               
+              // playerStats에서 해당 플레이어의 통계 찾기
+              const battletag = userInfo?.battletag || userInfo?.battleTag;
+              const stats = battletag ? getPlayerStats(battletag, teamName) : {};
+              
               return {
                 id: userInfo?._id || 'unknown',
                 nickname: nickname,
                 role: player.role || '알 수 없음',
-                hero: player.hero || '알 수 없음',
-                kills: player.stats?.kills || 0,
-                deaths: player.stats?.deaths || 0,
-                assists: player.stats?.assists || 0,
-                mmrBefore: player.stats?.mmrBefore || 1500,
-                mmrAfter: player.stats?.mmrAfter || 1500,
-                mmrChange: player.stats?.mmrChange || 0
+                hero: stats?.hero || player.hero || '알 수 없음',
+                kills: stats?.kills || 0,
+                deaths: stats?.deaths || 0,
+                assists: stats?.assists || 0,
+                heroDamage: stats?.heroDamage || 0,
+                siegeDamage: stats?.siegeDamage || 0,
+                healing: stats?.healing || 0,
+                experienceContribution: stats?.experienceContribution || 0,
+                mmrBefore: stats?.mmrBefore || 1500,
+                mmrAfter: stats?.mmrAfter || 1500,
+                mmrChange: stats?.mmrChange || 0
               };
             });
           };
+
+          // 시뮬레이션 매치인지 확인
+          const isSimulationMatch = game.isSimulation || 
+            (playerStats.length > 0 && playerStats.some(p => p.userId && p.userId.startsWith('sim_')));
+          
+          // 시뮬레이션 매치의 경우 playerStats에서 직접 플레이어 정보 생성
+          if (isSimulationMatch && playerStats.length > 0) {
+            console.log(`[DEBUG] MongoDB 시뮬레이션 매치 감지: ${game._id}, playerStats에서 직접 플레이어 정보 생성`);
+            
+            // playerStats에서 팀별로 플레이어 분리
+            const blueTeamStats = playerStats.filter(p => p.team === 'blue');
+            const redTeamStats = playerStats.filter(p => p.team === 'red');
+            
+            // 팀별 평균 MMR 계산 (시뮬레이션은 기본 1500)
+            const blueTeamAvgMmr = 1500;
+            const redTeamAvgMmr = 1500;
+            
+            // 플레이어 정보 변환 함수 (시뮬레이션용)
+            const formatSimulationPlayers = (teamStats) => {
+              return teamStats.map(player => ({
+                id: player.userId || 'unknown',
+                nickname: player.battletag ? player.battletag.split('#')[0] : '시뮬레이션 플레이어',
+                role: '알 수 없음',
+                hero: player.hero || '알 수 없음',
+                kills: player.kills || 0,
+                deaths: player.deaths || 0,
+                assists: player.assists || 0,
+                heroDamage: player.heroDamage || 0,
+                siegeDamage: player.siegeDamage || 0,
+                healing: player.healing || 0,
+                experienceContribution: player.experienceContribution || 0,
+                mmrBefore: 1500,
+                mmrAfter: 1500,
+                mmrChange: 0
+              }));
+            };
+
+            return {
+              id: game._id,
+              title: game.title || '시뮬레이션 매치',
+              map: game.map || '알 수 없는 맵',
+              gameMode: '시뮬레이션',
+              date: formattedDate,
+              time: formattedTime,
+              duration: formattedDuration,
+              winner: game.result?.winner || 'none',
+              blueTeam: {
+                name: '블루팀 (시뮬레이션)',
+                avgMmr: blueTeamAvgMmr,
+                players: formatSimulationPlayers(blueTeamStats)
+              },
+              redTeam: {
+                name: '레드팀 (시뮬레이션)',
+                avgMmr: redTeamAvgMmr,
+                players: formatSimulationPlayers(redTeamStats)
+              }
+            };
+          }
 
           return {
             id: game._id,
@@ -645,12 +879,12 @@ router.get('/recent-games', async (req, res) => {
             blueTeam: {
               name: blueTeamName,
               avgMmr: calcAvgMmr(blueTeam),
-              players: formatPlayers(blueTeam)
+              players: formatPlayers(blueTeam, 'blue')
             },
             redTeam: {
               name: redTeamName,
               avgMmr: calcAvgMmr(redTeam),
-              players: formatPlayers(redTeam)
+              players: formatPlayers(redTeam, 'red')
             }
           };
         });

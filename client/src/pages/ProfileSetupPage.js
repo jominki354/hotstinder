@@ -362,7 +362,6 @@ const ProfileSetupPage = () => {
             >
               프로필 {isEditMode ? '수정' : '설정'}
             </button>
-            {isEditMode && (
               <button
                 onClick={() => setActiveTab('delete')}
                 className={`flex-1 py-2 px-4 text-center ${
@@ -373,7 +372,6 @@ const ProfileSetupPage = () => {
               >
                 계정 탈퇴
               </button>
-            )}
           </div>
           
           {error && (
