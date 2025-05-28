@@ -7,7 +7,11 @@ import './index.css';
 
 // API 기본 URL 설정
 const getApiBaseURL = () => {
-  // 환경 변수에서 API URL 가져오기, 없으면 로컬 개발 서버 사용
+  // 프로덕션 환경 (Vercel 배포)
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.REACT_APP_API_URL || 'https://hotstinder.vercel.app';
+  }
+  // 개발 환경
   return process.env.REACT_APP_API_URL || 'http://localhost:5000';
 };
 
