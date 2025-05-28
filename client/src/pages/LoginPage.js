@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const LoginPage = () => {
   // API 기본 URL (환경 변수 또는 기본값)
@@ -58,8 +58,8 @@ const LoginPage = () => {
               </li>
             </ul>
 
-            <a 
-              href="#"
+            <button 
+              type="button"
               onClick={handleBattleNetLogin}
               className="battlenet-button w-full mb-4"
             >
@@ -67,11 +67,11 @@ const LoginPage = () => {
                 <path d="M12 2C6.477 2 2 6.477 2 12C2 17.523 6.477 22 12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2ZM16.382 17.5C16.382 17.5 15.164 16.588 14.184 16C14.184 16 14.977 15.043 15.249 14.577C15.522 14.112 14.539 14.332 14.198 14.332C13.857 14.332 12.496 14.332 12.097 14.332C11.698 14.332 10.906 14.332 9.994 14.332C9.083 14.332 8.29 14.332 8.29 14.332C8.29 14.332 7.38 14.332 6.584 14.681C5.788 15.03 5.536 16.152 5.536 16.152C5.536 16.152 5.941 17 6.667 17.444C7.394 17.888 8.364 17.888 8.364 17.888H15.522C15.522 17.888 16.382 17.5 16.382 17.5ZM12.318 13.455C12.318 13.455 13.595 12.542 14.198 12.172C14.801 11.802 15.132 11.506 15.132 11.506C15.132 11.506 15.368 11.321 15.566 10.966C15.764 10.612 15.764 10.185 15.566 9.83C15.368 9.475 15.015 9.069 14.663 8.714C14.311 8.36 13.893 8.147 13.52 7.934C13.148 7.721 11.809 7.314 11.809 7.314C11.809 7.314 11.033 7.277 10.38 7.721C9.728 8.165 9.469 8.714 9.247 9.252C9.025 9.79 9.025 10.363 9.173 10.781C9.321 11.199 9.766 11.728 9.766 11.728C9.766 11.728 10.084 12.061 10.755 12.505C11.427 12.949 12.318 13.455 12.318 13.455Z" />
               </svg>
               배틀넷으로 로그인
-            </a>
+            </button>
             
             {/* 개발 모드 로그인 버튼 */}
-            <a 
-              href="#"
+            <button 
+              type="button"
               onClick={handleDevLogin}
               className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center transition-colors duration-200"
             >
@@ -79,7 +79,7 @@ const LoginPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
               개발자 모드 로그인 (테스트용)
-            </a>
+            </button>
           </div>
         </div>
 

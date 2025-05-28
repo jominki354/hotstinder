@@ -207,15 +207,12 @@ const queueTimeState = {
 const QueueStatus = () => {
   const { 
     inQueue, 
-    user, 
     setQueueStatus, 
     isAuthenticated,
     matchInProgress,
     currentMatchId,
-    matchInfo,
     setMatchProgress,
-    clearMatchInfo,
-    setMatchInfo: setGlobalMatchInfo
+    clearMatchInfo
   } = useAuthStore();
   
   const navigate = useNavigate();
@@ -245,8 +242,6 @@ const QueueStatus = () => {
   const [queueStatusState, setQueueState] = useState(queueStatusRef.current);
   const [isVisible, setIsVisible] = useState(false);
   const [isLeavingQueue, setIsLeavingQueue] = useState(false);
-  const [isSubmittingReplay, setIsSubmittingReplay] = useState(false);
-  const [isCallingAdmin, setIsCallingAdmin] = useState(false);
   const [queueTime, setQueueTime] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
   // 매치 찾음 상태 추가
@@ -324,8 +319,9 @@ const QueueStatus = () => {
       localStorage.removeItem('currentMatchId');
       
       // 전역 상태 업데이트
-      setMatchProgress(false, null);
-      clearMatchInfo();
+      localStorage.removeItem('inQueue');
+      setQueueStatus(false);
+      queueTimeState.reset();
       
     } catch (err) {
       console.error('[QueueStatus] 매치 취소 중 오류:', err);
@@ -333,10 +329,10 @@ const QueueStatus = () => {
       // 오류가 발생해도 UI는 업데이트
       localStorage.removeItem('matchInProgress');
       localStorage.removeItem('currentMatchId');
-      setMatchProgress(false, null);
-      clearMatchInfo();
+      setQueueStatus(false);
+      queueTimeState.reset();
     }
-  }, [currentMatchId, setMatchProgress, clearMatchInfo]);
+  }, [currentMatchId, setQueueStatus]);
 
   // 최소화된 UI 렌더링 함수
   const renderMinimizedUI = useCallback(() => {

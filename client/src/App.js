@@ -6,7 +6,6 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import DashboardPage from './pages/DashboardPage';
-import ProfilePage from './pages/ProfilePage';
 import ProfileSetupPage from './pages/ProfileSetupPage';
 import FindMatchPage from './pages/FindMatchPage';
 import MatchDetailsPage from './pages/MatchDetailsPage';
@@ -22,17 +21,6 @@ import AdminMatchDetailPage from './pages/AdminMatchDetailPage';
 import QueueStatus from './components/queue/QueueStatus';
 import { useAuthStore } from './stores/authStore';
 import PrivateRoute from './components/auth/PrivateRoute';
-
-// 인증이 필요한 라우트를 위한 컴포넌트
-const PrivateRouteComponent = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuthStore();
-
-  if (isLoading) {
-    return <div>로딩 중...</div>;
-  }
-
-  return isAuthenticated ? children : <Navigate to="/login" />;
-};
 
 // 관리자만 접근 가능한 라우트
 const AdminRoute = ({ children }) => {
