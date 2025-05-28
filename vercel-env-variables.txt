@@ -24,6 +24,10 @@ FRONTEND_URL=https://hotstinder.vercel.app
 # 🆕 프론트엔드용 API URL (중요!)
 REACT_APP_API_URL=https://hotstinder.vercel.app
 
+# Battle.net OAuth 설정
+BNET_CLIENT_ID=2555749aa63d40d79055409e12a9b191
+BNET_CLIENT_SECRET=3c7ddrNaG7p5mUHK1XziVskdxGoHA21R
+
 # 기타 설정
 MAX_FILE_SIZE=50MB
 UPLOAD_PATH=./uploads
@@ -61,6 +65,14 @@ LOG_LEVEL=info
 # 
 # 🆕 Name: REACT_APP_API_URL
 # Value: https://hotstinder.vercel.app
+# Environment: Production ✓
+# 
+# 🆕 Name: BNET_CLIENT_ID
+# Value: 2555749aa63d40d79055409e12a9b191
+# Environment: Production ✓
+# 
+# 🆕 Name: BNET_CLIENT_SECRET
+# Value: 3c7ddrNaG7p5mUHK1XziVskdxGoHA21R
 # Environment: Production ✓
 # 
 # Name: MAX_FILE_SIZE

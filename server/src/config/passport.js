@@ -63,11 +63,25 @@ module.exports = (passport, memoryUsers) => {
     }
   });
 
+  // 환경에 따른 콜백 URL 동적 설정
+  const getCallbackURL = () => {
+    if (process.env.NODE_ENV === 'production') {
+      // Vercel 배포 환경
+      return 'https://hotstinder.vercel.app/api/auth/bnet/callback';
+    } else {
+      // 로컬 개발 환경
+      return process.env.BNET_CALLBACK_URL || 'http://localhost:5000/api/auth/bnet/callback';
+    }
+  };
+
+  const callbackURL = getCallbackURL();
+  logger.info('Battle.net 콜백 URL 설정:', { callbackURL, env: process.env.NODE_ENV });
+
   // 배틀넷 전략 설정
   passport.use(new BnetStrategy({
     clientID: process.env.BNET_CLIENT_ID,
     clientSecret: process.env.BNET_CLIENT_SECRET,
-    callbackURL: process.env.BNET_CALLBACK_URL,
+    callbackURL: callbackURL,
     region: process.env.BNET_REGION || 'kr',
     passReqToCallback: true
   }, async (req, accessToken, refreshToken, profile, done) => {
