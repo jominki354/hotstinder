@@ -76,7 +76,6 @@ Vercel 문서에 따라 `builds`와 `functions`의 충돌을 피하기 위해 **
   "outputDirectory": "client/build",
   "functions": {
     "api/index.js": {
-      "runtime": "nodejs18.x",
       "maxDuration": 30
     }
   },
@@ -95,7 +94,7 @@ Vercel 문서에 따라 `builds`와 `functions`의 충돌을 피하기 위해 **
 
 ### 주요 개선사항
 - ✅ **충돌 해결**: `builds` 제거하고 `functions`만 사용
-- ✅ **안정성**: Node.js 18.x 런타임 명시
+- ✅ **런타임 최적화**: 기본 Node.js 런타임 사용 (자동 최신 버전)
 - ✅ **성능**: `rewrites` 사용으로 더 나은 라우팅
 - ✅ **호환성**: Vercel 권장사항 완전 준수
 
@@ -170,6 +169,6 @@ Vercel 문서에 따라 `builds`와 `functions`의 충돌을 피하기 위해 **
 
 **최적화된 Vercel 설정:**
 - ✅ Functions-only 방식으로 충돌 방지
-- ✅ Node.js 18.x 안정성 확보
+- ✅ 기본 Node.js 런타임으로 자동 최신 버전 사용
 - ✅ 효율적인 라우팅 구조
 - ✅ Vercel 권장사항 완전 준수 
