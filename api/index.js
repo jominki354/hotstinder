@@ -83,47 +83,17 @@ app.get('/api', (req, res) => {
   });
 });
 
-// 배틀넷 로그인 시작
-app.get('/api/auth/bnet', passport.authenticate('bnet'));
-
-// 배틀넷 콜백 처리
-app.get('/api/auth/bnet/callback', 
-  passport.authenticate('bnet', { 
-    failureRedirect: `${process.env.FRONTEND_URL || 'https://hotstinder.vercel.app'}/login?error=auth_failed`
-  }),
-  (req, res) => {
-    try {
-      // JWT 토큰 생성
-      const token = jwt.sign(
-        { 
-          id: req.user.id, 
-          battletag: req.user.battletag 
-        },
-        process.env.JWT_SECRET || 'your-jwt-secret',
-        { expiresIn: '7d' }
-      );
-      
-      // 성공 시 프론트엔드로 리다이렉트
-      res.redirect(`${process.env.FRONTEND_URL || 'https://hotstinder.vercel.app'}/auth/success?token=${token}`);
-    } catch (error) {
-      console.error('JWT 생성 오류:', error);
-      res.redirect(`${process.env.FRONTEND_URL || 'https://hotstinder.vercel.app'}/login?error=token_error`);
-    }
-  }
-);
-
-// 로그아웃
-app.post('/api/auth/logout', (req, res) => {
-  req.logout((err) => {
-    if (err) {
-      return res.status(500).json({ error: '로그아웃 실패' });
-    }
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ error: '세션 삭제 실패' });
-      }
-      res.json({ message: '로그아웃 성공' });
-    });
+// 환경 변수 디버깅 (프로덕션에서는 제거 필요)
+app.get('/api/debug/env', (req, res) => {
+  res.json({
+    NODE_ENV: process.env.NODE_ENV,
+    BNET_CLIENT_ID: process.env.BNET_CLIENT_ID ? '설정됨' : '설정되지 않음',
+    BNET_CLIENT_SECRET: process.env.BNET_CLIENT_SECRET ? '설정됨' : '설정되지 않음',
+    BNET_CALLBACK_URL: process.env.BNET_CALLBACK_URL,
+    BNET_REGION: process.env.BNET_REGION,
+    JWT_SECRET: process.env.JWT_SECRET ? '설정됨' : '설정되지 않음',
+    SESSION_SECRET: process.env.SESSION_SECRET ? '설정됨' : '설정되지 않음',
+    FRONTEND_URL: process.env.FRONTEND_URL
   });
 });
 
