@@ -152,6 +152,25 @@ app.use('/api/matchmaking', matchmakingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/replay', replayRoutes);
 
+// 프로덕션 환경에서 클라이언트 정적 파일 서빙
+if (process.env.NODE_ENV === 'production') {
+  // 클라이언트 빌드 파일 경로
+  const clientBuildPath = path.join(__dirname, '../../client/build');
+  
+  // 정적 파일 서빙
+  app.use(express.static(clientBuildPath));
+  
+  // 모든 GET 요청을 React 앱으로 리다이렉트 (SPA 라우팅 지원)
+  app.get('*', (req, res) => {
+    // API 요청은 제외
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ message: 'API 엔드포인트를 찾을 수 없습니다.' });
+    }
+    
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+}
+
 // 오류 처리 미들웨어
 app.use((err, req, res, next) => {
   logger.error('서버 오류:', err);
