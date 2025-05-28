@@ -81,22 +81,45 @@ function extractStatsFromScore(scoreData, players) {
  */
 function formatParserResult(parserResult, filePath, scoreData = null, playerInitData = {}) {
     try {
+        console.log('[DEBUG] Parser result keys:', Object.keys(parserResult || {}));
+        console.log('[DEBUG] Parser result type:', typeof parserResult);
         console.log('[DEBUG] Parser result:', JSON.stringify(parserResult, null, 2));
         
-        const { result, match, players } = parserResult;
+        // parserResult가 null이거나 undefined인 경우
+        if (!parserResult) {
+            return {
+                success: false,
+                error: '리플레이 파싱 실패: 파서 결과가 null 또는 undefined입니다.'
+            };
+        }
         
-        // 파싱 실패 체크 - result가 undefined이거나 OK가 아닌 경우
-        if (result === undefined || result === null) {
-            console.log('[DEBUG] Result is undefined or null');
-            // result가 없어도 match와 players가 있으면 성공으로 간주
+        const { status, match, players } = parserResult;
+        
+        console.log('[DEBUG] Extracted values:', {
+            status: status,
+            statusType: typeof status,
+            match: match ? 'exists' : 'null/undefined',
+            matchKeys: match ? Object.keys(match) : 'N/A',
+            players: players ? 'exists' : 'null/undefined',
+            playersKeys: players ? Object.keys(players) : 'N/A',
+            playersCount: players ? Object.keys(players).length : 0
+        });
+        
+        // 파싱 실패 체크 - status가 undefined이거나 OK가 아닌 경우
+        if (status === undefined || status === null) {
+            console.log('[DEBUG] Status is undefined or null');
+            // status가 없어도 match와 players가 있으면 성공으로 간주
             if (!match || !players) {
+                console.log('[DEBUG] Match or players missing - match:', !!match, 'players:', !!players);
                 return {
                     success: false,
                     error: '리플레이 파싱 실패: 결과 데이터가 없습니다.'
                 };
             }
-        } else if (result !== Parser.ReplayStatus.OK) {
-            const statusString = Parser.StatusString[result] || `Unknown status: ${result}`;
+        } else if (status !== Parser.ReplayStatus.OK) {
+            console.log('[DEBUG] Parser status:', status);
+            console.log('[DEBUG] Parser.ReplayStatus.OK:', Parser.ReplayStatus.OK);
+            const statusString = Parser.StatusString[status] || `Unknown status: ${status}`;
             return {
                 success: false,
                 error: `리플레이 파싱 실패: ${statusString}`
@@ -105,6 +128,7 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
 
         // 기본 데이터 확인
         if (!match || !players) {
+            console.log('[DEBUG] Final check failed - match:', !!match, 'players:', !!players);
             return {
                 success: false,
                 error: '리플레이 파싱 실패: 필수 데이터가 누락되었습니다.'
@@ -252,7 +276,7 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
                 fileSize: fileStats.size,
                 analysisDate: new Date().toISOString(),
                 parserVersion: 'hots-parser',
-                parserStatus: result || 'OK'
+                parserStatus: status || 'OK'
             }
         };
 
@@ -291,6 +315,10 @@ async function analyzeReplay(filePath) {
         console.log(`[INFO] 리플레이 분석 시작: ${filePath}`);
 
         // hots-parser로 리플레이 처리
+        console.log('[DEBUG] hots-parser 호출 시작');
+        console.log('[DEBUG] Parser.processReplay 함수 존재 여부:', typeof Parser.processReplay);
+        console.log('[DEBUG] Parser.ReplayStatus 존재 여부:', typeof Parser.ReplayStatus);
+        
         const parserResult = Parser.processReplay(filePath, {
             getBMData: false, // 성능 향상을 위해 BM 데이터 스킵
             useAttributeName: false, // 영웅 이름 해석 사용
@@ -298,8 +326,18 @@ async function analyzeReplay(filePath) {
             legacyTalentKeys: false // 새로운 탤런트 키 형식 사용
         });
 
-        console.log(`[INFO] hots-parser 결과 상태: ${parserResult.result}`);
+        console.log(`[INFO] hots-parser 호출 완료`);
+        console.log(`[DEBUG] parserResult 타입:`, typeof parserResult);
+        console.log(`[DEBUG] parserResult null 여부:`, parserResult === null);
+        console.log(`[DEBUG] parserResult undefined 여부:`, parserResult === undefined);
         
+        if (parserResult && typeof parserResult === 'object') {
+            console.log(`[DEBUG] parserResult 키들:`, Object.keys(parserResult));
+            console.log(`[INFO] hots-parser 결과 상태: ${parserResult.status}`);
+        } else {
+            console.log(`[ERROR] parserResult가 예상된 객체가 아님:`, parserResult);
+        }
+
         // 추가로 trackerevents에서 Score 데이터 추출
         let scoreData = null;
         let playerInitData = {};
