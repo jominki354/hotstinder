@@ -1,4 +1,4 @@
-module.exports = function handler(req, res) {
+export default function handler(req, res) {
   res.status(200).json({
     message: 'Vercel API 라우트 테스트 성공!',
     method: req.method,
@@ -6,4 +6,4 @@ module.exports = function handler(req, res) {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
-}; 
+} 
