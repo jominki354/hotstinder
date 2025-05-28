@@ -201,6 +201,36 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// 디버깅용 모듈 상태 확인 라우트
+app.get('/api/debug', (req, res) => {
+  res.json({
+    modules: {
+      connectMongoDB: !!connectMongoDB,
+      authRoutes: !!authRoutes,
+      userRoutes: !!userRoutes,
+      matchRoutes: !!matchRoutes,
+      matchmakingRoutes: !!matchmakingRoutes,
+      adminRoutes: !!adminRoutes,
+      replayRoutes: !!replayRoutes,
+      configPassport: !!configPassport,
+      logger: !!logger
+    },
+    environment: {
+      NODE_ENV: process.env.NODE_ENV,
+      USE_MONGODB: process.env.USE_MONGODB,
+      MONGODB_URI: process.env.MONGODB_URI ? '설정됨' : '설정안됨',
+      JWT_SECRET: process.env.JWT_SECRET ? '설정됨' : '설정안됨',
+      BNET_CLIENT_ID: process.env.BNET_CLIENT_ID ? '설정됨' : '설정안됨'
+    },
+    global: {
+      isMongoDBConnected: global.isMongoDBConnected,
+      useMongoDB: global.useMongoDB,
+      useNeDB: global.useNeDB
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // 오류 처리 미들웨어
 app.use((err, req, res, next) => {
   logger.error('서버 오류:', err);
