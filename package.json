@@ -10,7 +10,8 @@
     "setup": "mkdir -p server/data server/uploads server/logs",
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "build": "cd client && npm run build",
-    "build:server": "cd server && npm install --production"
+    "build:server": "cd server && npm install --production",
+    "vercel-build": "cd client && npm install && npm run build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
