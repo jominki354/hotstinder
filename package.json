@@ -11,7 +11,16 @@
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "build": "cd client && npm install && npm run build",
     "build:server": "cd server && npm install --production",
-    "vercel-build": "cd client && npm install && npm run build"
+    "vercel-build": "cd client && npm install && npm run build && cd ../server && npm install --production"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "passport": "^0.6.0",
+    "express-session": "^1.17.3",
+    "memorystore": "^1.6.7",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
