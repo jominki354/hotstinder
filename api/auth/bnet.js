@@ -31,7 +31,7 @@ passport.deserializeUser((user, done) => {
   done(null, user);
 });
 
-export default function handler(req, res) {
+module.exports = function handler(req, res) {
   // 세션 설정
   const sessionMiddleware = session({
     secret: process.env.SESSION_SECRET || 'dev_session_secret',
@@ -63,4 +63,4 @@ export default function handler(req, res) {
       });
     });
   });
-} 
+}; 

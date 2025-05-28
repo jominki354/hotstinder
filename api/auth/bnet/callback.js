@@ -41,7 +41,7 @@ passport.deserializeUser((user, done) => {
   done(null, user);
 });
 
-export default function handler(req, res) {
+module.exports = function handler(req, res) {
   const sessionMiddleware = session({
     secret: process.env.SESSION_SECRET || 'dev_session_secret',
     resave: false,
@@ -82,4 +82,4 @@ export default function handler(req, res) {
       });
     });
   });
-} 
+}; 
