@@ -1,0 +1,76 @@
+# Vercel 배포용 환경 변수
+# 이 파일의 내용을 Vercel 대시보드에 복사해서 붙여넣으세요
+# 
+# 설정 방법:
+# 1. https://vercel.com/dashboard 접속
+# 2. hotstinder 프로젝트 클릭
+# 3. Settings → Environment Variables
+# 4. 아래 변수들을 하나씩 추가
+
+NODE_ENV=production
+
+USE_MONGODB=true
+
+# ⚠️ 중요: 실제 MongoDB 비밀번호로 변경하세요!
+MONGODB_URI=mongodb+srv://kooingh354:실제비밀번호를여기에입력@hotstinder.gvbw5hv.mongodb.net/hotstinder?retryWrites=true&w=majority
+
+# 보안 키 (자동 생성됨 - 그대로 사용)
+JWT_SECRET=e837259ce3f39c9bb9b20f68c94d1619c8b6355e96a27e7c31c6e3e21971af36
+SESSION_SECRET=efbb9963dca4c6bb4e191c1014aaae0dc71530e65debc80e8e39d56ccfcdc1d1
+
+# 프론트엔드 URL (배포 완료 후 실제 URL로 변경)
+FRONTEND_URL=https://hotstinder.vercel.app
+
+# 🆕 프론트엔드용 API URL (중요!)
+REACT_APP_API_URL=https://hotstinder.vercel.app
+
+# 기타 설정
+MAX_FILE_SIZE=50MB
+UPLOAD_PATH=./uploads
+LOG_LEVEL=info
+
+# ========================================
+# Vercel 대시보드 설정 가이드
+# ========================================
+# 
+# 각 변수를 다음과 같이 설정하세요:
+# 
+# Name: NODE_ENV
+# Value: production
+# Environment: Production ✓
+# 
+# Name: USE_MONGODB  
+# Value: true
+# Environment: Production ✓
+# 
+# Name: MONGODB_URI
+# Value: mongodb+srv://kooingh354:실제비밀번호@hotstinder.gvbw5hv.mongodb.net/hotstinder?retryWrites=true&w=majority
+# Environment: Production ✓
+# 
+# Name: JWT_SECRET
+# Value: e837259ce3f39c9bb9b20f68c94d1619c8b6355e96a27e7c31c6e3e21971af36
+# Environment: Production ✓
+# 
+# Name: SESSION_SECRET
+# Value: efbb9963dca4c6bb4e191c1014aaae0dc71530e65debc80e8e39d56ccfcdc1d1
+# Environment: Production ✓
+# 
+# Name: FRONTEND_URL
+# Value: https://hotstinder.vercel.app
+# Environment: Production ✓
+# 
+# 🆕 Name: REACT_APP_API_URL
+# Value: https://hotstinder.vercel.app
+# Environment: Production ✓
+# 
+# Name: MAX_FILE_SIZE
+# Value: 50MB
+# Environment: Production ✓
+# 
+# Name: UPLOAD_PATH
+# Value: ./uploads
+# Environment: Production ✓
+# 
+# Name: LOG_LEVEL
+# Value: info
+# Environment: Production ✓ 
