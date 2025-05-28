@@ -14,26 +14,26 @@ let configPassport, logger;
 
 try {
   // MongoDB 관련 모듈
-  const mongoModule = require('../server/src/db/mongodb');
+  const mongoModule = require(path.join(__dirname, '../server/src/db/mongodb'));
   connectMongoDB = mongoModule.connectMongoDB;
   addDummyData = mongoModule.addDummyData;
   
-  MongoUser = require('../server/src/models/MongoUser');
-  MongoMatch = require('../server/src/models/MongoMatch');
-  MongoMatchmaking = require('../server/src/models/MongoMatchmaking');
-  MongoUserLog = require('../server/src/models/MongoUserLog');
+  MongoUser = require(path.join(__dirname, '../server/src/models/MongoUser'));
+  MongoMatch = require(path.join(__dirname, '../server/src/models/MongoMatch'));
+  MongoMatchmaking = require(path.join(__dirname, '../server/src/models/MongoMatchmaking'));
+  MongoUserLog = require(path.join(__dirname, '../server/src/models/MongoUserLog'));
 
   // 라우트 파일
-  authRoutes = require('../server/src/routes/auth.routes');
-  userRoutes = require('../server/src/routes/user.routes');
-  matchRoutes = require('../server/src/routes/match.routes');
-  matchmakingRoutes = require('../server/src/routes/matchmaking.routes');
-  adminRoutes = require('../server/src/routes/admin.routes');
-  replayRoutes = require('../server/src/routes/replay.routes');
+  authRoutes = require(path.join(__dirname, '../server/src/routes/auth.routes'));
+  userRoutes = require(path.join(__dirname, '../server/src/routes/user.routes'));
+  matchRoutes = require(path.join(__dirname, '../server/src/routes/match.routes'));
+  matchmakingRoutes = require(path.join(__dirname, '../server/src/routes/matchmaking.routes'));
+  adminRoutes = require(path.join(__dirname, '../server/src/routes/admin.routes'));
+  replayRoutes = require(path.join(__dirname, '../server/src/routes/replay.routes'));
 
   // 설정 및 유틸리티
-  configPassport = require('../server/src/config/passport');
-  logger = require('../server/src/utils/logger');
+  configPassport = require(path.join(__dirname, '../server/src/config/passport'));
+  logger = require(path.join(__dirname, '../server/src/utils/logger'));
 } catch (error) {
   console.error('모듈 로딩 실패:', error);
   // 기본 로거 설정
@@ -214,6 +214,12 @@ app.get('/api/debug', (req, res) => {
       replayRoutes: !!replayRoutes,
       configPassport: !!configPassport,
       logger: !!logger
+    },
+    paths: {
+      __dirname: __dirname,
+      serverPath: path.join(__dirname, '../server'),
+      authRoutePath: path.join(__dirname, '../server/src/routes/auth.routes.js'),
+      mongoPath: path.join(__dirname, '../server/src/db/mongodb.js')
     },
     environment: {
       NODE_ENV: process.env.NODE_ENV,
