@@ -3,14 +3,19 @@ node_modules/
 client/node_modules/
 server/node_modules/
 
-# 환경 설정 파일 - 개인 프로젝트이므로 .env 포함
-# .env
-# server/.env
-# client/.env
-# .env.local
-# .env.development.local
-# .env.test.local
-# .env.production.local
+# 환경 설정 파일 (보안상 중요)
+.env
+.env.*
+server/.env
+server/.env.*
+client/.env
+client/.env.*
+!.env.example
+!.env.production
+
+# Vercel 관련 민감 파일
+vercel-env-variables.*
+*.env
 
 # 로그 파일
 npm-debug.log*
@@ -18,6 +23,11 @@ yarn-debug.log*
 yarn-error.log*
 logs
 *.log
+server/logs/
+server/*.log
+server/*_log.txt
+server/debug.txt
+server/temp.txt
 
 # 빌드 디렉토리
 client/build/
@@ -47,4 +57,23 @@ server/data/
 # 임시 파일
 *.swp
 *.swo
-.tmp 
+.tmp
+debug.txt
+temp*.txt
+
+# 리플레이 파일 (용량이 큰 파일들)
+*.StormReplay
+*.replay
+
+# 분석 결과 파일 (용량이 큰 파일들)
+*_analysis*.json
+replay_analysis_results.json
+complete_replay_analysis.json
+final_complete_analysis.json
+
+# 업로드 파일
+server/uploads/
+
+# 캐시 파일
+.cache/
+.parcel-cache/ 

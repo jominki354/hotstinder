@@ -4,7 +4,7 @@ import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import AuthCallbackPage from './pages/AuthCallbackPage';
+import AuthSuccessPage from './pages/AuthSuccessPage';
 import DashboardPage from './pages/DashboardPage';
 import ProfileSetupPage from './pages/ProfileSetupPage';
 import FindMatchPage from './pages/FindMatchPage';
@@ -368,8 +368,8 @@ function App() {
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />
           } />
-          <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          <Route path="/auth/success" element={<AuthCallbackPage />} />
+          <Route path="/auth/callback" element={<AuthSuccessPage />} />
+          <Route path="/auth/success" element={<AuthSuccessPage />} />
 
           {/* 인증이 필요한 라우트 */}
           <Route path="/dashboard" element={
