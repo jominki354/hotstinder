@@ -5,21 +5,21 @@ const logger = require('../utils/logger');
 const connectMongoDB = async () => {
   try {
     logger.info('MongoDB를 사용하도록 설정되어 있습니다. 연결을 시도합니다...');
-    
+
     // deprecated 옵션 제거
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hotstinder');
-    
+
     logger.info(`MongoDB 데이터베이스 연결 성공: ${mongoose.connection.host}`);
-    
+
     // 연결 이벤트 리스너
     mongoose.connection.on('error', (err) => {
       logger.error('MongoDB 연결 오류:', err);
     });
-    
+
     mongoose.connection.on('disconnected', () => {
       logger.warn('MongoDB 연결이 끊어졌습니다.');
     });
-    
+
     return mongoose.connection;
   } catch (error) {
     logger.error('MongoDB 연결 실패:', error);
@@ -32,11 +32,11 @@ const addDummyData = async (UserModel) => {
   try {
     // 기존 사용자 수 확인
     const count = await mongoose.model('User').countDocuments();
-    
+
     // 사용자가 없을 경우에만 더미 데이터 추가
     if (count === 0) {
       logger.info('MongoDB: 사용자 데이터가 없습니다. 더미 데이터를 추가합니다.');
-      
+
       // 더미 데이터 추가
       const dummyUsers = [
         {
@@ -73,7 +73,7 @@ const addDummyData = async (UserModel) => {
           createdAt: new Date()
         }
       ];
-      
+
       // 개별적으로 삽입하여 오류 처리 개선
       for (const user of dummyUsers) {
         try {
@@ -94,4 +94,4 @@ const addDummyData = async (UserModel) => {
 module.exports = {
   connectMongoDB,
   addDummyData
-}; 
+};

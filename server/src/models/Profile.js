@@ -51,4 +51,4 @@ const ProfileSchema = new Schema({
 });
 
 // 이미 모델이 존재하는지 확인하고, 존재하면 그것을 사용
-module.exports = mongoose.models.Profile || mongoose.model('Profile', ProfileSchema); 
+module.exports = mongoose.models.Profile || mongoose.model('Profile', ProfileSchema);

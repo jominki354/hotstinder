@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { translateHeroName } from '../utils/heroTranslations';
 
 // 역할별 영웅 분류 및 아이콘 URL
 const HERO_DATA = {
@@ -121,32 +122,32 @@ const ProfileSetupPage = () => {
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' 또는 'delete'
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
-  
+
   // 간소화된 폼 데이터
   const [formData, setFormData] = useState({
     nickname: '',
     previousTier: 'placement', // 기본값 배치
     preferredRoles: []
   });
-  
+
   // 배틀태그 가져오기 함수
   const getBattleTag = () => {
     if (!user) return '';
     return user.battletag || user.battleTag || user.battleNetTag || user.nickname || '';
   };
-  
+
   // 사용자 ID 가져오기 함수
   const getUserId = () => {
     if (!user) return '';
     return user._id || user.id || '';
   };
-  
+
   // 계정 생성일 가져오기 함수
   const getCreatedAt = () => {
     if (!user || !user.createdAt) return new Date().toLocaleDateString('ko-KR');
     return new Date(user.createdAt).toLocaleDateString('ko-KR');
   };
-  
+
   // 리디렉션 처리 및 초기 데이터 로딩
   useEffect(() => {
     if (!isAuthenticated) {
@@ -156,17 +157,17 @@ const ProfileSetupPage = () => {
       if (user?.isProfileComplete) {
         setIsEditMode(true);
       }
-      
+
       // 배틀태그에서 닉네임 설정
       const battletag = getBattleTag();
-      
+
       if (battletag) {
         setFormData(prev => ({
           ...prev,
           nickname: battletag
         }));
       }
-      
+
       // 사용자 데이터가 있으면 기존 정보 설정
       if (user) {
         setFormData(prev => ({
@@ -177,35 +178,35 @@ const ProfileSetupPage = () => {
       }
     }
   }, [isAuthenticated, user, navigate]);
-  
+
   // 역할 토글 핸들러
   const handleRoleToggle = (role) => {
     setFormData(prev => {
       const updatedRoles = prev.preferredRoles.includes(role)
         ? prev.preferredRoles.filter(r => r !== role)
         : [...prev.preferredRoles, role];
-      
+
       return {
         ...prev,
         preferredRoles: updatedRoles
       };
     });
   };
-  
+
   // 티어 선택 핸들러
   const handleTierSelect = (tierId) => {
     setFormData(prev => ({
-        ...prev,
+      ...prev,
       previousTier: tierId
     }));
   };
-  
+
   // 프로필 저장 핸들러
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    
+
     try {
       // 데이터 검증
       if (formData.preferredRoles.length === 0) {
@@ -213,11 +214,11 @@ const ProfileSetupPage = () => {
         setIsLoading(false);
         return;
       }
-      
+
       // 선택한 티어의 MMR 정보 가져오기
       const selectedTier = TIERS.find(tier => tier.id === formData.previousTier);
       const initialMmr = Math.floor((selectedTier.minMmr + selectedTier.maxMmr) / 2); // 해당 티어의 중간값
-      
+
       // 서버에 전송할 데이터
       const profileData = {
         nickname: formData.nickname,
@@ -226,9 +227,9 @@ const ProfileSetupPage = () => {
         initialMmr: initialMmr,
         isProfileComplete: true // 명시적으로 필드 추가
       };
-      
+
       console.log('프로필 데이터 전송:', profileData);
-      
+
       let result;
       if (isEditMode) {
         // 기존 프로필 업데이트
@@ -239,35 +240,35 @@ const ProfileSetupPage = () => {
         const response = await axios.post(
           '/api/auth/profile/setup',
           profileData,
-          { 
-          withCredentials: true,
-          headers: {
+          {
+            withCredentials: true,
+            headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+            }
           }
         );
-        
+
         console.log('프로필 설정 응답:', response.data);
         result = { success: response.data.success };
       }
-      
+
       if (result.success) {
         // 사용자 정보 갱신
         await refreshUser();
-        
+
         // 성공 상태로 설정
         setIsLoading(false);
         setSuccessState(true);
-        
+
         // 로컬 스토리지에 프로필 완료 상태와 추가 정보 저장
         localStorage.setItem('profileComplete', 'true');
-        
+
         // 리로드 시에도 기본 프로필 정보를 유지하기 위해 추가 정보 저장
         localStorage.setItem('userPreferredRoles', JSON.stringify(formData.preferredRoles));
         localStorage.setItem('userPreviousTier', formData.previousTier);
         localStorage.setItem('userNickname', formData.nickname);
-        
+
         // 사용자 정보 갱신 후 1초 후 대시보드로 리다이렉션 (새 프로필 생성 시에만)
         if (!isEditMode) {
           setTimeout(() => {
@@ -285,52 +286,52 @@ const ProfileSetupPage = () => {
       }
     } catch (err) {
       console.error('프로필 설정 오류:', err);
-      
-      const errorMessage = err.response?.data?.message || 
-                          err.message || 
+
+      const errorMessage = err.response?.data?.message ||
+                          err.message ||
                           '프로필 저장 중 오류가 발생했습니다.';
-      
+
       setError(errorMessage);
       setIsLoading(false);
     }
   };
-  
+
   // 계정 탈퇴 핸들러
   const handleAccountDelete = async (e) => {
     e.preventDefault();
-    
+
     if (deleteConfirmation !== getBattleTag()) {
       setError('배틀태그를 정확히 입력해주세요.');
       return;
     }
-    
+
     setIsLoading(true);
     setError('');
-    
+
     try {
       const result = await deleteAccount(getBattleTag());
-      
+
       if (result.success) {
         // deleteAccount 함수 내에서 로그아웃 및 홈페이지 리다이렉션 처리됨
-    } else {
+      } else {
         throw new Error(result.error || '계정 삭제에 실패했습니다.');
       }
     } catch (err) {
       console.error('계정 탈퇴 오류:', err);
-      
-      const errorMessage = err.response?.data?.message || 
-                          err.message || 
+
+      const errorMessage = err.response?.data?.message ||
+                          err.message ||
                           '계정 탈퇴 중 오류가 발생했습니다.';
-      
+
       setError(errorMessage);
       setIsLoading(false);
     }
   };
-  
+
   if (!isAuthenticated) {
     return <div className="flex justify-center items-center min-h-screen bg-slate-900 text-white">로딩 중...</div>;
   }
-  
+
   return (
     <div className="min-h-screen bg-slate-900 py-10 text-white">
       <div className="container mx-auto px-4">
@@ -338,7 +339,7 @@ const ProfileSetupPage = () => {
           <h1 className="text-3xl font-bold text-white mb-2 text-center">
             {isEditMode ? '프로필 관리' : '프로필 설정'}
           </h1>
-          
+
           {/* 계정 정보 표시 */}
           <div className="mb-6 text-center">
             <p className="text-indigo-400">
@@ -349,7 +350,7 @@ const ProfileSetupPage = () => {
               <p>가입일: {getCreatedAt()}</p>
             </div>
           </div>
-          
+
           {/* 탭 메뉴 */}
           <div className="flex mb-6 border-b border-slate-700">
             <button
@@ -362,44 +363,44 @@ const ProfileSetupPage = () => {
             >
               프로필 {isEditMode ? '수정' : '설정'}
             </button>
-              <button
-                onClick={() => setActiveTab('delete')}
-                className={`flex-1 py-2 px-4 text-center ${
-                  activeTab === 'delete'
-                    ? 'text-red-400 border-b-2 border-red-500 font-medium'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-              >
+            <button
+              onClick={() => setActiveTab('delete')}
+              className={`flex-1 py-2 px-4 text-center ${
+                activeTab === 'delete'
+                  ? 'text-red-400 border-b-2 border-red-500 font-medium'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
                 계정 탈퇴
-              </button>
+            </button>
           </div>
-          
+
           {error && (
             <div className="bg-red-900/30 border border-red-500 text-red-200 px-4 py-3 rounded-md mb-4">
               {error}
             </div>
           )}
-          
+
           {/* 프로필 설정/수정 폼 */}
           {activeTab === 'profile' && (
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* 닉네임 영역 */}
               <div>
-              <label className="block text-white mb-2 font-semibold">
+                <label className="block text-white mb-2 font-semibold">
                 닉네임
-              </label>
-              <input
-                type="text"
-                name="nickname"
-                value={formData.nickname}
+                </label>
+                <input
+                  type="text"
+                  name="nickname"
+                  value={formData.nickname}
                   readOnly={true}
-                className="w-full bg-slate-700 border border-slate-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-not-allowed opacity-75"
-              />
-              <p className="text-slate-400 text-sm mt-1">
+                  className="w-full bg-slate-700 border border-slate-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-not-allowed opacity-75"
+                />
+                <p className="text-slate-400 text-sm mt-1">
                 배틀넷 계정의 배틀태그가 닉네임으로 사용됩니다. 변경할 수 없습니다.
-              </p>
-            </div>
-            
+                </p>
+              </div>
+
               {/* 이전 티어 선택 영역 */}
               <div>
                 <label className="block text-white mb-3 font-semibold">
@@ -414,8 +415,8 @@ const ProfileSetupPage = () => {
                       className={`
                         relative p-4 rounded-lg transition overflow-hidden
                         ${formData.previousTier === tier.id
-                          ? 'ring-2 ring-white shadow-lg transform scale-105'
-                          : 'hover:shadow-md'}
+                      ? 'ring-2 ring-white shadow-lg transform scale-105'
+                      : 'hover:shadow-md'}
                       `}
                     >
                       <div className={`absolute inset-0 bg-gradient-to-br ${tier.color} opacity-70`}></div>
@@ -433,34 +434,34 @@ const ProfileSetupPage = () => {
                   선택한 티어의 평균 MMR이 초기값으로 설정됩니다.
                 </p>
               </div>
-              
+
               {/* 선호하는 역할 영역 */}
               <div>
-              <label className="block text-white mb-2 font-semibold">
+                <label className="block text-white mb-2 font-semibold">
                 선호하는 역할 (여러 개 선택 가능)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {ROLES.map(role => (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => handleRoleToggle(role)}
-                    className={`
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {ROLES.map(role => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => handleRoleToggle(role)}
+                      className={`
                       px-4 py-2 rounded-md transition
                       ${formData.preferredRoles.includes(role)
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}
                     `}
-                  >
-                    {role}
-                  </button>
-                ))}
-              </div>
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
                 <p className="text-slate-400 text-sm mt-1">
                   선택된 역할: {formData.preferredRoles.length}개
                 </p>
-            </div>
-              
+              </div>
+
               {/* 버튼 영역 */}
               <div className="pt-4">
                 <button
@@ -469,22 +470,22 @@ const ProfileSetupPage = () => {
                   className={`
                     w-full py-3 rounded-md font-semibold text-white transition
                     ${successState
-                      ? 'bg-green-600 cursor-default'
-                      : isLoading
-                        ? 'bg-indigo-800 cursor-not-allowed'
-                        : 'bg-indigo-600 hover:bg-indigo-700 transform hover:scale-105'}
+              ? 'bg-green-600 cursor-default'
+              : isLoading
+                ? 'bg-indigo-800 cursor-not-allowed'
+                : 'bg-indigo-600 hover:bg-indigo-700 transform hover:scale-105'}
                   `}
                 >
-                  {successState 
-                    ? '저장 성공!' 
-                    : isLoading 
-                      ? '저장 중...' 
-                      : isEditMode 
-                        ? '프로필 수정하기' 
+                  {successState
+                    ? '저장 성공!'
+                    : isLoading
+                      ? '저장 중...'
+                      : isEditMode
+                        ? '프로필 수정하기'
                         : '프로필 저장하기'
                   }
                 </button>
-                
+
                 {isEditMode && (
                   <button
                     type="button"
@@ -497,7 +498,7 @@ const ProfileSetupPage = () => {
               </div>
             </form>
           )}
-              
+
           {/* 계정 탈퇴 폼 */}
           {activeTab === 'delete' && (
             <div className="space-y-6">
@@ -511,7 +512,7 @@ const ProfileSetupPage = () => {
                   계정 탈퇴를 원하시면 아래에 배틀태그를 입력해주세요.
                 </p>
               </div>
-              
+
               <form onSubmit={handleAccountDelete} className="space-y-4">
                 <div>
                   <label className="block text-white mb-2 font-semibold">
@@ -524,36 +525,36 @@ const ProfileSetupPage = () => {
                     placeholder={`배틀태그 입력 (${getBattleTag()})`}
                     className="w-full bg-slate-700 border border-slate-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
-              <p className="text-slate-400 text-sm mt-1">
+                  <p className="text-slate-400 text-sm mt-1">
                     정확한 배틀태그를 입력해야 계정 탈퇴가 진행됩니다.
-              </p>
-            </div>
-            
+                  </p>
+                </div>
+
                 <div className="pt-4">
-              <button
-                type="submit"
+                  <button
+                    type="submit"
                     disabled={isLoading || deleteConfirmation !== getBattleTag()}
-                className={`
+                    className={`
                       w-full py-3 rounded-md font-semibold text-white transition
                   ${isLoading
-                        ? 'bg-red-800 cursor-not-allowed'
-                        : deleteConfirmation === getBattleTag()
-                          ? 'bg-red-600 hover:bg-red-700'
-                          : 'bg-red-900/50 cursor-not-allowed'}
+              ? 'bg-red-800 cursor-not-allowed'
+              : deleteConfirmation === getBattleTag()
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-red-900/50 cursor-not-allowed'}
                 `}
-              >
+                  >
                     {isLoading ? '처리 중...' : '계정 탈퇴하기'}
                   </button>
-                  
+
                   <button
                     type="button"
                     onClick={() => setActiveTab('profile')}
                     className="w-full mt-3 py-3 rounded-md font-semibold text-white bg-slate-700 hover:bg-slate-600 transition"
                   >
                     취소하고 돌아가기
-              </button>
-            </div>
-          </form>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>
@@ -562,4 +563,4 @@ const ProfileSetupPage = () => {
   );
 };
 
-export default ProfileSetupPage; 
+export default ProfileSetupPage;

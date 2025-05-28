@@ -43,7 +43,7 @@ if (process.env.USE_MONGODB === 'true') {
     .then(() => {
       logger.info('MongoDB 연결 성공. MongoDB를 기본 데이터베이스로 사용합니다.');
       global.isMongoDBConnected = true;
-      
+
       // 모델 설정
       global.db = {
         users: MongoUser,
@@ -51,7 +51,7 @@ if (process.env.USE_MONGODB === 'true') {
         matchmaking: MongoMatchmaking,
         userLogs: MongoUserLog
       };
-      
+
       // 더미 데이터 추가
       addDummyData(MongoUser);
     })
@@ -76,10 +76,10 @@ const corsOptions = {
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000'
     ];
-    
+
     // origin이 없는 경우 (모바일 앱, Postman 등) 허용
     if (!origin) return callback(null, true);
-    
+
     // 허용된 도메인인지 확인
     const isAllowed = allowedOrigins.some(allowedOrigin => {
       if (typeof allowedOrigin === 'string') {
@@ -89,7 +89,7 @@ const corsOptions = {
       }
       return false;
     });
-    
+
     if (isAllowed) {
       callback(null, true);
     } else {
@@ -99,7 +99,14 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Cache-Control',
+    'Pragma',
+    'Expires',
+    'X-Requested-With'
+  ]
 };
 
 // 미들웨어 설정
@@ -156,17 +163,17 @@ app.use('/api/replay', replayRoutes);
 if (process.env.NODE_ENV === 'production') {
   // 클라이언트 빌드 파일 경로
   const clientBuildPath = path.join(__dirname, '../../client/build');
-  
+
   // 정적 파일 서빙
   app.use(express.static(clientBuildPath));
-  
+
   // 모든 GET 요청을 React 앱으로 리다이렉트 (SPA 라우팅 지원)
   app.get('*', (req, res) => {
     // API 요청은 제외
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ message: 'API 엔드포인트를 찾을 수 없습니다.' });
     }
-    
+
     res.sendFile(path.join(clientBuildPath, 'index.html'));
   });
 }
@@ -186,4 +193,4 @@ httpServer.listen(PORT, () => {
   } else {
     logger.error('MongoDB 연결이 활성화되지 않았습니다. 서버가 제대로 작동하지 않을 수 있습니다.');
   }
-}); 
+});

@@ -23,7 +23,7 @@ try {
     fs.writeFileSync(usersDbPath, '', { encoding: 'utf8' });
     logger.info(`NeDBUser: 빈 데이터베이스 파일 생성됨 - ${usersDbPath}`);
   }
-  
+
   // 읽기/쓰기 권한 확인
   fs.accessSync(usersDbPath, fs.constants.R_OK | fs.constants.W_OK);
 } catch (err) {
@@ -97,7 +97,7 @@ const UserModel = {
         lastLoginAt: now,
         previousTier: userData.previousTier || 'placement'
       };
-      
+
       // 배틀태그에서 닉네임 추출
       if (!userWithTimestamps.nickname && userWithTimestamps.battletag) {
         userWithTimestamps.nickname = userWithTimestamps.battletag.split('#')[0];
@@ -108,10 +108,10 @@ const UserModel = {
           logger.error('NeDBUser: 사용자 생성 오류', err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBUser: 사용자 생성됨 - ${newDoc._id}`);
         resolve(newDoc);
       });
@@ -191,21 +191,21 @@ const UserModel = {
         ...updateData,
         updatedAt: new Date()
       };
-      
+
       db.update({ _id: id }, { $set: updateWithTimestamp }, {}, (err, numReplaced) => {
         if (err) {
           logger.error(`NeDBUser: 사용자 업데이트 오류 (${id})`, err);
           return reject(err);
         }
-        
+
         if (numReplaced === 0) {
           logger.warn(`NeDBUser: 업데이트할 사용자 없음 (${id})`);
           return resolve(null);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         // 업데이트된 문서 반환
         db.findOne({ _id: id }, (err, doc) => {
           if (err) {
@@ -227,10 +227,10 @@ const UserModel = {
           logger.error(`NeDBUser: 사용자 삭제 오류 (${id})`, err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBUser: 사용자 삭제됨 - ${id} (${numRemoved}개)`);
         resolve(numRemoved > 0);
       });
@@ -245,10 +245,10 @@ const UserModel = {
           logger.error(`NeDBUser: BnetID로 사용자 삭제 오류 (${bnetId})`, err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBUser: BnetID로 사용자 삭제됨 - ${bnetId} (${numRemoved}개)`);
         resolve(numRemoved > 0);
       });
@@ -276,16 +276,16 @@ const UserModel = {
           logger.error('NeDBUser: 더미 사용자 삭제 오류', err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBUser: 모든 더미 사용자 삭제됨 (${numRemoved}개)`);
         resolve(numRemoved);
       });
     });
   },
-  
+
   // 다중 사용자 삭제 (관리자 도구용)
   deleteMany: (query) => {
     return new Promise((resolve, reject) => {
@@ -294,21 +294,21 @@ const UserModel = {
           logger.error('NeDBUser: 다중 사용자 삭제 오류', err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBUser: 다중 사용자 삭제됨 (${numRemoved}개)`);
         resolve(numRemoved);
       });
     });
   },
-  
+
   // 데이터베이스 동기화
   compactDatabase: () => {
     return new Promise((resolve, reject) => {
       db.persistence.compactDatafile();
-      
+
       // 비동기 작업이므로 약간의 지연 후 성공 반환
       setTimeout(() => {
         logger.info('NeDBUser: 데이터베이스 압축 완료');
@@ -318,14 +318,14 @@ const UserModel = {
   },
 
   // JWT 토큰 생성 메서드
-  generateAuthToken: function(user) {
+  generateAuthToken: function (user) {
     return jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'your-jwt-secret', {
       expiresIn: process.env.JWT_EXPIRES_IN || '7d'
     });
   },
 
   // 승률 계산 메서드
-  getWinRate: function(user) {
+  getWinRate: function (user) {
     const totalGames = user.playerStats?.totalGames || 0;
     const wins = user.playerStats?.wins || 0;
     if (totalGames === 0) return 0;
@@ -333,4 +333,4 @@ const UserModel = {
   }
 };
 
-module.exports = UserModel; 
+module.exports = UserModel;

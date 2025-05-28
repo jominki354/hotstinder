@@ -16,6 +16,8 @@ const Header = () => {
   useEffect(() => {
     console.log('Header - 인증 상태:', isAuthenticated);
     console.log('Header - 사용자 정보:', user);
+    console.log('Header - isAdmin:', user?.isAdmin);
+    console.log('Header - isSuperAdmin:', user?.isSuperAdmin);
   }, [isAuthenticated, user]);
 
   const handleLogout = async () => {
@@ -61,16 +63,16 @@ const Header = () => {
   // 배틀태그 가져오기 함수 개선
   const getBattleTag = () => {
     if (!user) return '';
-    
+
     // 디버깅용 로그
-    console.log('Header - getBattleTag 호출됨:', { 
-      battletag: user.battletag, 
+    console.log('Header - getBattleTag 호출됨:', {
+      battletag: user.battletag,
       battleTag: user.battleTag,
       battleNetTag: user.battleNetTag,
       nickname: user.nickname,
-      raw: user 
+      raw: user
     });
-    
+
     // null 체크를 포함한 배틀태그 반환 로직 (우선순위 처리)
     return user.battletag || user.battleTag || user.battleNetTag || user.nickname || '';
   };
@@ -89,12 +91,12 @@ const Header = () => {
       } catch (err) {
         console.error('저장된 매치 정보 파싱 오류:', err);
       }
-      
+
       // 매치 상세 페이지로 이동
-      navigate('/match-details', { 
-        state: { 
+      navigate('/match-details', {
+        state: {
           matchInfo: savedMatchInfo || matchInfo || { matchId: currentMatchId }
-        } 
+        }
       });
     } else {
       // 매치 진행 중이 아니면 매치메이킹 페이지로 이동
@@ -137,7 +139,7 @@ const Header = () => {
 
         {/* 모바일 메뉴 버튼 */}
         <div className="md:hidden flex justify-end">
-          <button 
+          <button
             onClick={toggleMobileMenu}
             className="text-slate-300 hover:text-white focus:outline-none"
           >
@@ -157,10 +159,10 @@ const Header = () => {
             <Link to="/" className="text-slate-300 hover:text-white">홈</Link>
             <Link to="/leaderboard" className="text-slate-300 hover:text-white">리더보드</Link>
             <Link to="/recent-games" className="text-slate-300 hover:text-white">최근 게임</Link>
-            
+
             {/* 관리자가 아닐 때만 매치 찾기 링크 활성화 */}
             {isAuthenticated && !isAdmin ? (
-              <button 
+              <button
                 onClick={handleMatchFindingClick}
                 className="text-slate-300 hover:text-white transition-colors"
               >
@@ -171,7 +173,7 @@ const Header = () => {
             ) : (
               <Link to="/login" className="text-slate-300 hover:text-white">매치 찾기</Link>
             )}
-            
+
             {isAuthenticated ? (
               <div className="relative">
                 <button
@@ -183,7 +185,7 @@ const Header = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-                
+
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded shadow-lg py-1 z-10 animate-fadeIn">
                     {isAdmin ? (
@@ -191,17 +193,22 @@ const Header = () => {
                     ) : (
                       <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">대시보드</Link>
                     )}
-                    
+
                     {isAdmin ? (
                       <span className="block px-4 py-2 text-sm text-slate-500 cursor-not-allowed">프로필</span>
                     ) : (
                       <Link to="/profile" className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">프로필</Link>
                     )}
-                    
+
                     {isAdmin && (
-                      <Link to="/admin" className="block px-4 py-2 text-sm text-green-300 hover:bg-slate-700">관리자 페이지</Link>
+                      <>
+                        <div className="border-t border-slate-600 my-1"></div>
+                        <Link to="/admin" className="block px-4 py-2 text-sm text-green-300 hover:bg-slate-700">
+                          관리자 페이지
+                        </Link>
+                      </>
                     )}
-                    
+
                     <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700"
@@ -219,7 +226,7 @@ const Header = () => {
       </div>
 
       {/* 모바일 메뉴 */}
-      <div 
+      <div
         className={`md:hidden transition-all duration-300 ease-in-out overflow-hidden fixed top-16 left-0 right-0 bg-slate-800/95 backdrop-blur z-40 shadow-lg ${
           mobileMenuOpen ? 'max-h-96 opacity-100 animate-slideInUp' : 'max-h-0 opacity-0'
         }`}
@@ -244,14 +251,14 @@ const Header = () => {
               )}
             </div>
           )}
-          
+
           <Link to="/" className="block py-2 text-slate-300 hover:text-white">홈</Link>
           <Link to="/leaderboard" className="block py-2 text-slate-300 hover:text-white">리더보드</Link>
           <Link to="/recent-games" className="block py-2 text-slate-300 hover:text-white">최근 게임</Link>
-          
+
           {/* 관리자가 아닐 때만 매치 찾기 링크 활성화 */}
           {isAuthenticated && !isAdmin ? (
-            <button 
+            <button
               onClick={handleMatchFindingClick}
               className="block w-full text-left py-2 text-slate-300 hover:text-white transition-colors"
             >
@@ -262,7 +269,7 @@ const Header = () => {
           ) : (
             <Link to="/login" className="block py-2 text-slate-300 hover:text-white">매치 찾기</Link>
           )}
-          
+
           {isAuthenticated ? (
             <>
               {isAdmin ? (
@@ -270,17 +277,17 @@ const Header = () => {
               ) : (
                 <Link to="/dashboard" className="block py-2 text-slate-300 hover:text-white">대시보드</Link>
               )}
-              
+
               {isAdmin ? (
                 <span className="block py-2 text-slate-500 cursor-not-allowed">프로필</span>
               ) : (
                 <Link to="/profile" className="block py-2 text-slate-300 hover:text-white">프로필</Link>
               )}
-              
+
               {isAdmin && (
                 <Link to="/admin" className="block py-2 text-green-300 hover:text-white">관리자 페이지</Link>
               )}
-              
+
               <button
                 onClick={handleLogout}
                 className="block w-full text-left py-2 text-slate-300 hover:text-white"
@@ -297,4 +304,4 @@ const Header = () => {
   );
 };
 
-export default Header; 
+export default Header;

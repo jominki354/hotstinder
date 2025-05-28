@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 const AdminUsersPage = () => {
   const { isAuthenticated, user } = useAuthStore();
   const navigate = useNavigate();
-  
+
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [error, setError] = useState('');
@@ -19,7 +19,7 @@ const AdminUsersPage = () => {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [confirmAction, setConfirmAction] = useState(null);
   const [processing, setProcessing] = useState(false);
-  
+
   const itemsPerPage = 10;
 
   // 관리자 확인
@@ -29,7 +29,7 @@ const AdminUsersPage = () => {
       setLoading(false);
       return;
     }
-    
+
     fetchUsers();
   }, [isAuthenticated, user, page, sortBy, sortDirection]);
 
@@ -46,7 +46,7 @@ const AdminUsersPage = () => {
           search: searchTerm
         }
       });
-      
+
       setUsers(response.data.users);
       setTotalPages(response.data.totalPages);
       setLoading(false);
@@ -60,16 +60,16 @@ const AdminUsersPage = () => {
   // 관리자를 제외한 모든 사용자 삭제 함수
   const deleteAllUsers = async () => {
     if (processing) return;
-    
+
     if (!window.confirm('정말로 모든 사용자 데이터를 삭제하시겠습니까? 관리자 계정은 제외되며, 이 작업은 되돌릴 수 없습니다.')) {
       return;
     }
-    
+
     try {
       setProcessing(true);
       const response = await axios.delete('/api/admin/delete-all-users');
       toast.success(response.data.message);
-      
+
       // 목록 새로고침
       fetchUsers();
       setSelectedUsers([]);
@@ -155,7 +155,7 @@ const AdminUsersPage = () => {
       alert('삭제할 사용자를 선택해주세요.');
       return;
     }
-    
+
     setConfirmAction({
       type: action,
       userId: userId || null,
@@ -217,7 +217,7 @@ const AdminUsersPage = () => {
           <Link to="/admin/users/new" className="btn btn-primary">
             새 사용자 추가
           </Link>
-          <button 
+          <button
             onClick={() => deleteAllUsers()}
             disabled={processing}
             className="bg-red-800 hover:bg-red-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 transition-colors"
@@ -441,7 +441,7 @@ const AdminUsersPage = () => {
           >
             &lt;
           </button>
-          
+
           {[...Array(Math.min(5, totalPages))].map((_, i) => {
             // 페이지 번호 계산 로직
             let pageNum;
@@ -454,7 +454,7 @@ const AdminUsersPage = () => {
             } else {
               pageNum = page - 2 + i;
             }
-            
+
             return (
               <button
                 key={pageNum}
@@ -469,7 +469,7 @@ const AdminUsersPage = () => {
               </button>
             );
           })}
-          
+
           <button
             onClick={() => setPage(page + 1)}
             disabled={page === totalPages}
@@ -528,4 +528,4 @@ const AdminUsersPage = () => {
   );
 };
 
-export default AdminUsersPage; 
+export default AdminUsersPage;

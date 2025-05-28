@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
   },
   preferredRoles: [{
     type: String,
-    enum: ['탱커', '투사', '브루저', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '전체']
+    enum: ['탱커', '전사', '투사', '브루저', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '특수병', '전체']
   }],
   previousTier: {
     type: String,
@@ -96,7 +96,7 @@ const UserModel = {
         updatedAt: now,
         lastLoginAt: now
       };
-      
+
       // 배틀태그에서 닉네임 추출
       if (!userWithTimestamps.nickname && userWithTimestamps.battletag) {
         userWithTimestamps.nickname = userWithTimestamps.battletag.split('#')[0];
@@ -175,18 +175,18 @@ const UserModel = {
         ...updateData,
         updatedAt: new Date()
       };
-      
+
       const updatedUser = await User.findByIdAndUpdate(
         id,
         { $set: updateWithTimestamp },
         { new: true }
       );
-      
+
       if (!updatedUser) {
         logger.warn(`MongoUser: 업데이트할 사용자 없음 (${id})`);
         return null;
       }
-      
+
       logger.debug(`MongoUser: 사용자 업데이트됨 - ${id}`);
       return updatedUser;
     } catch (err) {
@@ -241,7 +241,7 @@ const UserModel = {
       throw err;
     }
   },
-  
+
   // 다중 사용자 삭제 (관리자 도구용)
   deleteMany: async (query) => {
     try {
@@ -255,18 +255,18 @@ const UserModel = {
   },
 
   // JWT 토큰 생성 메서드
-  generateAuthToken: function(user) {
+  generateAuthToken: function (user) {
     return jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'your-jwt-secret', {
       expiresIn: process.env.JWT_EXPIRES_IN || '7d'
     });
   },
 
   // 승률 계산 메서드
-  getWinRate: function(user) {
+  getWinRate: function (user) {
     const totalGames = (user.wins || 0) + (user.losses || 0);
     if (totalGames === 0) return 0;
     return Math.round((user.wins / totalGames) * 100);
   }
 };
 
-module.exports = UserModel; 
+module.exports = UserModel;

@@ -3,6 +3,10 @@ body.queue-active {
   animation: darkening 1.5s forwards;
   transition: background-color 1.5s ease;
   position: relative;
+}
+
+/* 매치메이킹 페이지에서만 스크롤 숨김 */
+body.queue-active.matchmaking-page {
   overflow: hidden;
 }
 

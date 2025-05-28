@@ -8,7 +8,7 @@ try {
   // 항상 NeDB를 사용하도록 설정
   global.useNeDB = true;
   console.log('NeDB 모드로 서버 실행 중');
-  
+
   // NeDB가 초기화되었는지 확인
   if (!global.db) {
     console.log('NeDB 데이터베이스 초기화 중...');
@@ -22,8 +22,8 @@ try {
   }
 } catch (err) {
   console.error('데이터베이스 초기화 오류:', err);
-} 
-*/ 
+}
+*/
 
 require('dotenv').config();
 const express = require('express');
@@ -65,20 +65,20 @@ let isInitialized = false;
 
 const initializeDatabase = async () => {
   if (isInitialized) return;
-  
+
   if (process.env.USE_MONGODB === 'true') {
     try {
       await connectMongoDB();
       logger.info('MongoDB 연결 성공');
       global.isMongoDBConnected = true;
-      
+
       global.db = {
         users: MongoUser,
         matches: MongoMatch,
         matchmaking: MongoMatchmaking,
         userLogs: MongoUserLog
       };
-      
+
       await addDummyData(MongoUser);
       isInitialized = true;
     } catch (error) {
@@ -99,9 +99,9 @@ const corsOptions = {
       'http://localhost:3000',
       'https://hotstinder.vercel.app'
     ];
-    
+
     if (!origin) return callback(null, true);
-    
+
     const isAllowed = allowedOrigins.some(allowedOrigin => {
       if (typeof allowedOrigin === 'string') {
         return origin === allowedOrigin;
@@ -110,7 +110,7 @@ const corsOptions = {
       }
       return false;
     });
-    
+
     if (isAllowed) {
       callback(null, true);
     } else {
@@ -188,4 +188,4 @@ app.use((req, res) => {
   res.status(404).json({ message: '요청한 리소스를 찾을 수 없습니다.' });
 });
 
-module.exports = app; 
+module.exports = app;

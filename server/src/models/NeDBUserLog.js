@@ -30,7 +30,7 @@ const UserLogModel = {
         timestamp: now,
         createdAt: now
       };
-      
+
       db.insert(logWithTimestamp, (err, newDoc) => {
         if (err) return reject(err);
         resolve(newDoc);
@@ -108,4 +108,4 @@ const UserLogModel = {
   }
 };
 
-module.exports = UserLogModel; 
+module.exports = UserLogModel;

@@ -204,7 +204,7 @@ const MatchModel = {
       if (!matchWithTimestamps.mmrChanges) {
         matchWithTimestamps.mmrChanges = [];
       }
-      
+
       if (!matchWithTimestamps.eventLog) {
         matchWithTimestamps.eventLog = [];
       }
@@ -298,18 +298,18 @@ const MatchModel = {
         ...updateData,
         updatedAt: new Date()
       };
-      
+
       const updatedMatch = await Match.findByIdAndUpdate(
         id,
         { $set: updateWithTimestamp },
         { new: true }
       );
-      
+
       if (!updatedMatch) {
         logger.warn(`MongoMatch: 업데이트할 매치 없음 (${id})`);
         return null;
       }
-      
+
       logger.debug(`MongoMatch: 매치 업데이트됨 - ${id}`);
       return updatedMatch;
     } catch (err) {
@@ -357,7 +357,7 @@ const MatchModel = {
       throw err;
     }
   },
-  
+
   // 다중 매치 삭제 (관리자 도구용)
   deleteMany: async (query) => {
     try {
@@ -395,4 +395,4 @@ const MatchModel = {
   }
 };
 
-module.exports = MatchModel; 
+module.exports = MatchModel;

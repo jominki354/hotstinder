@@ -7,7 +7,7 @@ const AdminUserEditPage = () => {
   const { isAuthenticated, user } = useAuthStore();
   const { userId } = useParams();
   const navigate = useNavigate();
-  
+
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState('');
@@ -47,7 +47,7 @@ const AdminUserEditPage = () => {
       setLoading(false);
       return;
     }
-    
+
     if (userId === 'new') {
       // 새 사용자 추가 모드
       setLoading(false);
@@ -64,7 +64,7 @@ const AdminUserEditPage = () => {
       setLoading(true);
       const response = await axios.get(`/api/admin/users/${userId}`);
       setUserData(response.data);
-      
+
       // 폼 데이터 초기화
       setFormData({
         battletag: response.data.battletag || '',
@@ -77,11 +77,11 @@ const AdminUserEditPage = () => {
         favoriteHeroes: response.data.favoriteHeroes || [],
         isAdmin: response.data.isAdmin || false
       });
-      
+
       // 매치 히스토리 가져오기
       const matchesResponse = await axios.get(`/api/admin/users/${userId}/matches`);
       setMatchHistory(matchesResponse.data);
-      
+
       setLoading(false);
     } catch (err) {
       console.error('사용자 데이터 가져오기 오류:', err);
@@ -106,31 +106,31 @@ const AdminUserEditPage = () => {
   // 입력 필드 변경 처리
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
+
     // 체크박스인 경우 checked 값 사용
     const inputValue = type === 'checkbox' ? checked : value;
-    
+
     // 숫자 필드인 경우 숫자로 변환
     const parsedValue = ['mmr', 'wins', 'losses'].includes(name)
       ? parseInt(inputValue, 10) || 0
       : inputValue;
-    
+
     setFormData({
       ...formData,
       [name]: parsedValue
     });
-    
+
     setIsEdited(true);
   };
 
   // 폼 제출 처리
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       console.log('폼 제출:', formData);
       console.log('관리자 권한 설정 상태:', formData.isAdmin);
-      
+
       if (userId === 'new') {
         // 새 사용자 생성
         const response = await axios.post('/api/admin/users', formData);
@@ -141,16 +141,16 @@ const AdminUserEditPage = () => {
         // 기존 사용자 업데이트
         // 변경 전 isAdmin 값 저장
         const prevIsAdmin = userData.isAdmin;
-        
+
         // 사용자 업데이트 요청
         const response = await axios.put(`/api/admin/users/${userId}`, formData);
         console.log('사용자 업데이트 결과:', response.data);
-        
+
         // 관리자 권한 변경 확인
         if (prevIsAdmin !== formData.isAdmin) {
           console.log(`관리자 권한 변경: ${prevIsAdmin} -> ${formData.isAdmin}`);
           console.log(`서버 응답의 isAdmin: ${response.data.isAdmin}`);
-          
+
           if (response.data.isAdmin !== formData.isAdmin) {
             console.warn('서버에서 관리자 권한이 예상대로 업데이트되지 않았습니다!');
             alert('관리자 권한 변경이 제대로 적용되지 않았을 수 있습니다. 페이지를 새로고침하여 확인해주세요.');
@@ -160,7 +160,7 @@ const AdminUserEditPage = () => {
         } else {
           alert('사용자 정보가 성공적으로 업데이트되었습니다.');
         }
-        
+
         setIsEdited(false);
         fetchUserData(); // 최신 데이터로 새로고침
       }
@@ -228,7 +228,7 @@ const AdminUserEditPage = () => {
         <div className="lg:col-span-2">
           <form onSubmit={handleSubmit} className="bg-slate-800 rounded-lg p-6 shadow-xl">
             <h2 className="text-xl font-semibold text-white mb-4">사용자 정보</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
                 <label className="block text-gray-400 mb-1" htmlFor="battletag">배틀태그</label>
@@ -254,7 +254,7 @@ const AdminUserEditPage = () => {
                 />
               </div>
             </div>
-            
+
             <div className="mb-6">
               <label className="block text-gray-400 mb-1" htmlFor="email">이메일</label>
               <input
@@ -266,7 +266,7 @@ const AdminUserEditPage = () => {
                 className="w-full bg-slate-700 text-white px-4 py-2 rounded border border-slate-600 focus:border-indigo-500 focus:outline-none"
               />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
                 <label className="block text-gray-400 mb-1" htmlFor="mmr">MMR</label>
@@ -305,7 +305,7 @@ const AdminUserEditPage = () => {
                 />
               </div>
             </div>
-            
+
             <div className="mb-6">
               <label className="block text-gray-400 mb-1" htmlFor="previousTier">이전 시즌 티어</label>
               <select
@@ -320,7 +320,7 @@ const AdminUserEditPage = () => {
                 ))}
               </select>
             </div>
-            
+
             <div className="mb-6">
               <label className="flex items-center">
                 <input
@@ -333,7 +333,7 @@ const AdminUserEditPage = () => {
                 <span className="text-white">관리자 권한 부여</span>
               </label>
             </div>
-            
+
             <div className="flex justify-end space-x-3">
               {userId !== 'new' && (
                 <button
@@ -367,7 +367,7 @@ const AdminUserEditPage = () => {
             <>
               <div className="bg-slate-800 rounded-lg p-6 shadow-xl mb-6">
                 <h2 className="text-xl font-semibold text-white mb-4">사용자 통계</h2>
-                
+
                 <div className="mb-4">
                   <div className="flex justify-between mb-1">
                     <span className="text-gray-400">승률</span>
@@ -390,7 +390,7 @@ const AdminUserEditPage = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-700/50 p-3 rounded">
                     <div className="text-gray-400 text-sm mb-1">총 게임</div>
@@ -418,11 +418,11 @@ const AdminUserEditPage = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* 사용자 로그 */}
               <div className="bg-slate-800 rounded-lg p-6 shadow-xl mb-6">
                 <h2 className="text-xl font-semibold text-white mb-4">접속 로그</h2>
-                
+
                 {logsLoading ? (
                   <div className="flex justify-center py-4">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
@@ -455,17 +455,17 @@ const AdminUserEditPage = () => {
                               browserInfo = 'IE';
                             }
                           }
-                          
+
                           return (
                             <tr key={log._id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                               <td className="py-2">
                                 {new Date(log.timestamp).toLocaleString()}
                               </td>
                               <td className="py-2">
-                                {log.action === 'login' ? '로그인' : 
-                                 log.action === 'admin_login' ? '관리자 로그인' :
-                                 log.action === 'logout' ? '로그아웃' :
-                                 log.action === 'profile_update' ? '프로필 수정' : '기타'}
+                                {log.action === 'login' ? '로그인' :
+                                  log.action === 'admin_login' ? '관리자 로그인' :
+                                    log.action === 'logout' ? '로그아웃' :
+                                      log.action === 'profile_update' ? '프로필 수정' : '기타'}
                               </td>
                               <td className="py-2 text-xs font-mono">
                                 <span title={log.ipAddress}>
@@ -487,10 +487,10 @@ const AdminUserEditPage = () => {
                   <p className="text-gray-400">로그 기록이 없습니다.</p>
                 )}
               </div>
-              
+
               <div className="bg-slate-800 rounded-lg p-6 shadow-xl">
                 <h2 className="text-xl font-semibold text-white mb-4">최근 매치</h2>
-                
+
                 {matchHistory.length > 0 ? (
                   <ul className="space-y-3">
                     {matchHistory.slice(0, 5).map(match => (
@@ -515,7 +515,7 @@ const AdminUserEditPage = () => {
                 ) : (
                   <p className="text-gray-400">매치 기록이 없습니다.</p>
                 )}
-                
+
                 {matchHistory.length > 5 && (
                   <div className="mt-4 text-center">
                     <Link
@@ -562,4 +562,4 @@ const AdminUserEditPage = () => {
   );
 };
 
-export default AdminUserEditPage; 
+export default AdminUserEditPage;

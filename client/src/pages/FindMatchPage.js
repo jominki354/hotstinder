@@ -12,7 +12,7 @@ const getGlobalQueueTimeState = () => {
   if (window.queueTimeState) {
     return window.queueTimeState;
   }
-  
+
   // QueueStatus 컴포넌트가 로드되기 전에는 기본 객체 반환
   return {
     time: 0,
@@ -27,7 +27,7 @@ const getGlobalQueueTimeState = () => {
 const FindMatchPage = () => {
   const { isAuthenticated, user, setQueueStatus: setGlobalQueueStatus, inQueue: globalInQueue, matchInProgress: globalMatchInProgress, setMatchProgress, currentMatchId } = useAuthStore();
   const navigate = useNavigate();
-  
+
   const [inQueue, setInQueue] = useState(false);
   const [queueStatus, setQueueStatus] = useState({
     currentPlayers: 0,
@@ -54,12 +54,12 @@ const FindMatchPage = () => {
   const [callingAdmin, setCallingAdmin] = useState(false);
   // 리플레이 제출 버튼 상태
   const [submittingReplay, setSubmittingReplay] = useState(false);
-  
+
   // 대기열 시간 (전역 상태에서 가져옴)
   const [queueTimeSeconds, setQueueTimeSeconds] = useState(getGlobalQueueTimeState().time);
   // 우주 입자 상태
   const [particles, setParticles] = useState([]);
-  
+
   // 매치 정보 상태 추가
   const [matchInfo, setMatchInfo] = useState({
     blueTeam: [],
@@ -70,7 +70,7 @@ const FindMatchPage = () => {
     matchId: '',
     channelCreator: ''
   });
-  
+
   // 시뮬레이션 타이머 ID 저장용 ref 추가
   const simulationTimerRef = useRef(null);
   // 시뮬레이션 상태 추가
@@ -86,18 +86,29 @@ const FindMatchPage = () => {
     };
   }, []);
 
+  // 매치메이킹 페이지 클래스 추가/제거
+  useEffect(() => {
+    // 컴포넌트 마운트 시 매치메이킹 페이지 클래스 추가
+    document.body.classList.add('matchmaking-page');
+
+    return () => {
+      // 컴포넌트 언마운트 시 매치메이킹 페이지 클래스 제거
+      document.body.classList.remove('matchmaking-page');
+    };
+  }, []);
+
   // 전역 타이머에 구독
   useEffect(() => {
     const updateTime = (time) => {
       setQueueTimeSeconds(time);
     };
-    
+
     // 현재 시간 즉시 반영
     updateTime(getGlobalQueueTimeState().time);
-    
+
     // 구독
     const unsubscribe = getGlobalQueueTimeState().subscribe(updateTime);
-    
+
     return () => {
       unsubscribe(); // 구독 해제
     };
@@ -105,8 +116,8 @@ const FindMatchPage = () => {
 
   // 맵 배열 선언
   const maps = [
-    '용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원', 
-    '거미 여왕의 무덤', '영원의 전쟁터', '불지옥 신단', 
+    '용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원',
+    '거미 여왕의 무덤', '영원의 전쟁터', '불지옥 신단',
     '파멸의 탑', '볼스카야 공장', '알터랙 고개'
   ];
 
@@ -115,10 +126,10 @@ const FindMatchPage = () => {
     // 전역 상태가 true인 경우 로컬 상태도 true로 설정
     if (globalInQueue && !inQueue) {
       setInQueue(true);
-      
+
       // 전역 상태가 true인데 로컬 상태가 false라면 대기열 정보 로드
       fetchQueueStatus();
-      
+
       // 타이머 시작 (아직 시작되지 않은 경우)
       if (!getGlobalQueueTimeState().startTime) {
         getGlobalQueueTimeState().start();
@@ -130,14 +141,14 @@ const FindMatchPage = () => {
   useEffect(() => {
     const initializePageStatus = async () => {
       if (!isAuthenticated || !user) return;
-      
+
       try {
         console.log('[FindMatchPage] 페이지 초기화 - 서버 상태 확인');
         const res = await axios.get('/api/matchmaking/status');
-        
+
         // 서버 상태로 로컬 상태 동기화
         setQueueStatus(res.data);
-        
+
         // 서버에서 대기열에 있다고 하면 로컬 상태도 업데이트
         if (res.data.inQueue && !inQueue) {
           console.log('[FindMatchPage] 서버에서 대기열 상태 감지, 로컬 상태 동기화');
@@ -150,7 +161,7 @@ const FindMatchPage = () => {
           setGlobalQueueStatus(false);
           localStorage.removeItem('inQueue');
         }
-        
+
         // 서버에서 받은 대기 시간 정보로 동기화
         if (res.data.inQueue && res.data.waitTime !== undefined) {
           console.log('[FindMatchPage] 초기화 시 서버 대기 시간 동기화:', {
@@ -158,7 +169,7 @@ const FindMatchPage = () => {
             joinedAt: res.data.joinedAt,
             serverTime: res.data.serverTime
           });
-          
+
           // 서버 시간 기준으로 대기 시간 설정
           getGlobalQueueTimeState().setServerTime(
             res.data.waitTime,
@@ -169,10 +180,10 @@ const FindMatchPage = () => {
           // 대기열에 없으면 타이머 초기화
           getGlobalQueueTimeState().reset();
         }
-        
+
       } catch (error) {
         console.error('[FindMatchPage] 초기 상태 확인 중 오류:', error);
-        
+
         // 인증 오류인 경우 대기열 상태 초기화
         if (error.response && error.response.status === 401) {
           localStorage.removeItem('inQueue');
@@ -181,7 +192,7 @@ const FindMatchPage = () => {
         }
       }
     };
-    
+
     // 페이지 로드 시 한 번만 실행
     initializePageStatus();
   }, [isAuthenticated, user]); // isAuthenticated와 user가 변경될 때만 재실행
@@ -191,7 +202,7 @@ const FindMatchPage = () => {
     try {
       const res = await axios.get('/api/matchmaking/status');
       setQueueStatus(res.data);
-      
+
       // 서버에서 받은 대기 시간 정보로 동기화
       if (res.data.inQueue && res.data.waitTime !== undefined) {
         console.log('[FindMatchPage] 서버 대기 시간 동기화:', {
@@ -199,7 +210,7 @@ const FindMatchPage = () => {
           joinedAt: res.data.joinedAt,
           serverTime: res.data.serverTime
         });
-        
+
         // 서버 시간 기준으로 대기 시간 설정
         getGlobalQueueTimeState().setServerTime(
           res.data.waitTime,
@@ -210,7 +221,7 @@ const FindMatchPage = () => {
         // 대기열에 없으면 타이머 초기화
         getGlobalQueueTimeState().reset();
       }
-      
+
       // 10명이 모이면 매치 찾음 처리
       if (res.data.currentPlayers === res.data.requiredPlayers) {
         setMatchFound(true);
@@ -218,7 +229,7 @@ const FindMatchPage = () => {
       }
     } catch (err) {
       console.error('대기열 상태 가져오기 오류:', err);
-      
+
       // 인증 오류(401)인 경우 대기열 상태 초기화
       if (err.response && err.response.status === 401) {
         localStorage.removeItem('inQueue');
@@ -227,19 +238,19 @@ const FindMatchPage = () => {
       }
     }
   };
-  
+
   // 대기열 상태 폴링 함수
   useEffect(() => {
     let interval;
-    
+
     if (inQueue && !matchFound) {
       // 초기 상태 가져오기
       fetchQueueStatus();
-      
+
       // 3초마다 업데이트
       interval = setInterval(fetchQueueStatus, 3000);
     }
-    
+
     return () => {
       if (interval) {
         clearInterval(interval);
@@ -253,17 +264,17 @@ const FindMatchPage = () => {
       setParticles([]);
       return;
     }
-    
+
     // 초기 입자 생성
     const initialParticles = [];
     const particleCount = window.innerWidth < 768 ? 200 : 400; // 입자 수 2배 증가
-    
+
     for (let i = 0; i < particleCount; i++) {
       // 더 자연스러운 먼지 효과를 위한 다양한 속성 설정
       const size = Math.random() * 6 + 1.2; // 1.2-7.2px 크기 (20% 증가)
       const moveRange = 60 + Math.random() * 300; // 60-360px 움직임 범위 (20% 증가)
       const speed = 15 + Math.random() * 25; // 15-40초 움직임 속도
-      
+
       initialParticles.push({
         id: i,
         top: `${Math.random() * 100}vh`,
@@ -278,9 +289,9 @@ const FindMatchPage = () => {
         scale: 0.8 + Math.random() * 0.4 // 0.8-1.2 사이의 스케일 변화
       });
     }
-    
+
     setParticles(initialParticles);
-    
+
     // 주기적으로 새 입자 생성
     const interval = setInterval(() => {
       if (inQueue) {
@@ -288,7 +299,7 @@ const FindMatchPage = () => {
         const size = Math.random() * 6 + 1.2; // 크기 20% 증가
         const moveRange = 60 + Math.random() * 300; // 움직임 범위 20% 증가
         const speed = 15 + Math.random() * 25;
-        
+
         const newParticle = {
           id: Date.now(),
           top: `${Math.random() * 100}vh`,
@@ -301,11 +312,11 @@ const FindMatchPage = () => {
           delay: Math.random() * 5,
           scale: 0.8 + Math.random() * 0.4
         };
-        
+
         setParticles(prev => [...prev.slice(-399), newParticle]); // 최대 400개로 증가
       }
     }, 200); // 200ms로 더 빠르게 생성
-    
+
     return () => {
       clearInterval(interval);
       setParticles([]);
@@ -316,34 +327,34 @@ const FindMatchPage = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       if (!isAuthenticated || !user || !user._id) return;
-      
+
       try {
         setLoadingUserInfo(true);
         console.log('사용자 데이터 가져오는 중... 사용자 ID:', user._id);
-        
+
         // 서버에서 최신 사용자 데이터를 가져옴
         const response = await axios.get(`/api/users/${user._id}`);
-        
+
         if (response.data && response.data.user) {
           const userData = response.data.user;
           console.log('서버에서 가져온 사용자 정보:', userData);
-          
+
           const userInfo = {
             mmr: userData.mmr || 1500,
-            preferredRole: userData.preferredRoles && userData.preferredRoles.length > 0 
-              ? userData.preferredRoles[0] 
+            preferredRole: userData.preferredRoles && userData.preferredRoles.length > 0
+              ? userData.preferredRoles[0]
               : '미설정',
             battletag: userData.battletag || user.battletag || user.battleTag || '',
             preferredRoles: userData.preferredRoles || []
           };
-          
+
           setUserInfo(userInfo);
         } else {
           // 서버 응답이 없거나 사용자 정보가 없는 경우 전역 상태의 사용자 정보 사용
           setUserInfo({
             mmr: user.mmr || 1500,
-            preferredRole: user.preferredRoles && user.preferredRoles.length > 0 
-              ? user.preferredRoles[0] 
+            preferredRole: user.preferredRoles && user.preferredRoles.length > 0
+              ? user.preferredRoles[0]
               : '미설정',
             battletag: user.battletag || user.battleTag || '',
             preferredRoles: user.preferredRoles || []
@@ -351,12 +362,12 @@ const FindMatchPage = () => {
         }
       } catch (err) {
         console.error('사용자 데이터 가져오기 오류:', err);
-        
+
         // 오류 발생 시 Zustand 상태의 사용자 정보 사용
         setUserInfo({
           mmr: user.mmr || 1500,
-          preferredRole: user.preferredRoles && user.preferredRoles.length > 0 
-            ? user.preferredRoles[0] 
+          preferredRole: user.preferredRoles && user.preferredRoles.length > 0
+            ? user.preferredRoles[0]
             : '미설정',
           battletag: user.battletag || user.battleTag || '',
           preferredRoles: user.preferredRoles || []
@@ -365,7 +376,7 @@ const FindMatchPage = () => {
         setLoadingUserInfo(false);
       }
     };
-    
+
     fetchUserData();
   }, [isAuthenticated, user]);
 
@@ -373,12 +384,12 @@ const FindMatchPage = () => {
   useEffect(() => {
     if (isAuthenticated && user) {
       // 프로필이 미설정 상태인지 확인
-      const profileIncomplete = !user.isProfileComplete || 
-                               !user.preferredRoles || 
-                               user.preferredRoles.length === 0 || 
-                               !user.favoriteHeroes || 
+      const profileIncomplete = !user.isProfileComplete ||
+                               !user.preferredRoles ||
+                               user.preferredRoles.length === 0 ||
+                               !user.favoriteHeroes ||
                                user.favoriteHeroes.length === 0;
-                               
+
       setShowProfileRecommendation(profileIncomplete);
     }
   }, [isAuthenticated, user]);
@@ -400,38 +411,38 @@ const FindMatchPage = () => {
   // 임의의 매치 정보 생성 함수
   const generateMatchInfo = () => {
     console.log('임의의 매치 정보 생성 중...');
-    
+
     // 이미 매치 정보가 있으면 다시 생성하지 않음
     if (matchInfo.blueTeam.length > 0) {
       return matchInfo;
     }
-    
+
     // 가상의 플레이어 10명 생성
     const roles = ['탱커', '전문가', '투사', '힐러', '원거리 암살자', '근접 암살자'];
     let players = [];
-    
+
     // 현재 사용자 정보
     const currentPlayer = {
       id: user?._id || 'current-user',
       battletag: userInfo.battletag || user?.battletag || '현재사용자#1234',
       mmr: userInfo.mmr || user?.mmr || 1500,
-      role: userInfo.preferredRoles && userInfo.preferredRoles.length > 0 
+      role: userInfo.preferredRoles && userInfo.preferredRoles.length > 0
         ? userInfo.preferredRoles[0]
-        : (user?.preferredRoles && user.preferredRoles.length > 0 
-            ? user.preferredRoles[0] 
-            : '탱커')
+        : (user?.preferredRoles && user.preferredRoles.length > 0
+          ? user.preferredRoles[0]
+          : '탱커')
     };
-    
+
     // 현재 사용자 추가
     players.push(currentPlayer);
-    
+
     // 나머지 9명의 가상 플레이어 생성
     for (let i = 0; i < 9; i++) {
       const userMmr = currentPlayer.mmr || 1500;
       const randomMMR = userMmr + Math.floor(Math.random() * 200) - 100;
       const randomRole = roles[Math.floor(Math.random() * roles.length)];
       const randomBattleTag = `Player#${Math.floor(1000 + Math.random() * 9000)}`;
-      
+
       players.push({
         id: `player-${i}`,
         battletag: randomBattleTag,
@@ -439,26 +450,26 @@ const FindMatchPage = () => {
         role: randomRole
       });
     }
-    
+
     // 무작위로 팀 분배
     const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
     const blueTeam = shuffledPlayers.slice(0, 5);
     const redTeam = shuffledPlayers.slice(5, 10);
-    
+
     // MMR 기준으로 정렬 (내림차순)
     const sortedBlueTeam = [...blueTeam].sort((a, b) => b.mmr - a.mmr);
     const sortedRedTeam = [...redTeam].sort((a, b) => b.mmr - a.mmr);
-    
+
     // 팀 MMR 평균 계산
     const blueTeamAvgMmr = Math.round(sortedBlueTeam.reduce((acc, p) => acc + p.mmr, 0) / 5);
     const redTeamAvgMmr = Math.round(sortedRedTeam.reduce((acc, p) => acc + p.mmr, 0) / 5);
-    
+
     // 무작위 맵 선택
     const randomMap = maps[Math.floor(Math.random() * maps.length)];
-    
+
     // 채널 개설자 (레드팀에서 무작위로 선택)
     const channelCreator = sortedRedTeam[0].battletag;
-    
+
     // 날짜 기반 고유 매치 ID 생성 (YYYYMMDD-HHMM-순번)
     const now = new Date();
     const year = now.getFullYear();
@@ -467,12 +478,12 @@ const FindMatchPage = () => {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const sequence = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-    
+
     const matchId = `${year}${month}${day}-${hours}${minutes}-${sequence}`;
-    
+
     console.log(`매치가 생성되었습니다. ID: ${matchId}`);
     console.log(`블루팀 평균 MMR: ${blueTeamAvgMmr}, 레드팀 평균 MMR: ${redTeamAvgMmr}`);
-    
+
     // 생성된 매치 정보
     const generatedMatchInfo = {
       blueTeam: sortedBlueTeam,
@@ -483,86 +494,86 @@ const FindMatchPage = () => {
       matchId,
       channelCreator
     };
-    
+
     // 매치 정보 설정
     setMatchInfo(generatedMatchInfo);
-    
+
     return generatedMatchInfo;
   };
 
   // DB 사용자 데이터를 활용한 매치 정보 생성 함수 추가
   const generateMatchInfoWithDbUsers = (dbUsers) => {
     console.log('실제 DB 사용자 데이터로 매치 정보 생성 중...');
-    
+
     // 이미 매치 정보가 있으면 다시 생성하지 않음
     if (matchInfo.blueTeam.length > 0) {
       return matchInfo;
     }
-    
+
     console.log('DB에서 가져온 사용자 수:', dbUsers.length);
-    
+
     // 최소 10명의 플레이어 확보
     let players = [];
-    
+
     // 현재 사용자 정보
     const currentPlayer = {
       id: user?._id || 'current-user',
       battletag: userInfo.battletag || user?.battletag || '현재사용자#1234',
       mmr: userInfo.mmr || user?.mmr || 1500,
-      role: userInfo.preferredRoles && userInfo.preferredRoles.length > 0 
+      role: userInfo.preferredRoles && userInfo.preferredRoles.length > 0
         ? userInfo.preferredRoles[0]
-        : (user?.preferredRoles && user.preferredRoles.length > 0 
-            ? user.preferredRoles[0] 
-            : '탱커')
+        : (user?.preferredRoles && user.preferredRoles.length > 0
+          ? user.preferredRoles[0]
+          : '탱커')
     };
-    
+
     // 현재 사용자 추가
     players.push(currentPlayer);
-    
+
     // 실제 DB에서 9명의 유저 필요
     const requiredPlayers = 9;
-    
+
     // DB 유저 데이터가 충분한지 확인
     if (dbUsers.length >= requiredPlayers) {
       // DB에서 가져온 사용자 중복 방지 필터링
-      const filteredDbUsers = dbUsers.filter(player => 
-        player.battletag !== currentPlayer.battletag && 
+      const filteredDbUsers = dbUsers.filter(player =>
+        player.battletag !== currentPlayer.battletag &&
         player._id !== user?._id
       );
-      
+
       // 충분한 유저가 없으면 시스템 관리자에게 알림
       if (filteredDbUsers.length < requiredPlayers) {
         console.warn(`DB에서 중복 제외 후 사용자 수가 부족합니다: ${filteredDbUsers.length}명 (필요: ${requiredPlayers}명)`);
       }
-      
+
       // 무작위로 섞어서 9명 선택
       const shuffledUsers = [...filteredDbUsers].sort(() => Math.random() - 0.5);
       const selectedUsers = shuffledUsers.slice(0, Math.min(requiredPlayers, shuffledUsers.length));
-      
+
       // 선택된 사용자 추가
       selectedUsers.forEach(user => {
         players.push({
           id: user._id || `db-user-${Date.now()}-${Math.random()}`,
           battletag: user.battletag || user.battleTag || `Unknown#${Math.floor(1000 + Math.random() * 9000)}`,
           mmr: user.mmr || 1500,
-          role: user.preferredRoles && user.preferredRoles.length > 0 
-            ? user.preferredRoles[0] 
+          role: user.preferredRoles && user.preferredRoles.length > 0
+            ? user.preferredRoles[0]
             : '미설정'
         });
       });
-      
+
       console.log(`DB에서 ${selectedUsers.length}명의 사용자를 추가했습니다.`);
     } else {
       console.warn(`DB 사용자 수가 부족합니다: ${dbUsers.length}명 (필요: ${requiredPlayers}명)`);
     }
-    
+
     // 여전히 10명 미만인 경우 대비
     if (players.length < 10) {
       console.warn(`전체 플레이어 수가 부족합니다: ${players.length}명/10명. 부족한 플레이어를 생성합니다.`);
-      
+
       // 역할 목록
       const roles = ['탱커', '전문가', '투사', '힐러', '원거리 암살자', '근접 암살자'];
-      
+
       // 부족한 플레이어 추가
       for (let i = players.length; i < 10; i++) {
         // 현재 사용자 MMR과 비슷한 범위 내에서 랜덤 MMR 생성
@@ -570,7 +581,7 @@ const FindMatchPage = () => {
         const randomMMR = userMmr + Math.floor(Math.random() * 200) - 100;
         const randomRole = roles[Math.floor(Math.random() * roles.length)];
         const randomBattleTag = `임시플레이어#${Math.floor(1000 + Math.random() * 9000)}`;
-        
+
         players.push({
           id: `temp-${i}`,
           battletag: randomBattleTag,
@@ -579,26 +590,26 @@ const FindMatchPage = () => {
         });
       }
     }
-    
+
     // 무작위로 팀 분배
     const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
     const blueTeam = shuffledPlayers.slice(0, 5);
     const redTeam = shuffledPlayers.slice(5, 10);
-    
+
     // MMR 기준으로 정렬 (내림차순)
     const sortedBlueTeam = [...blueTeam].sort((a, b) => b.mmr - a.mmr);
     const sortedRedTeam = [...redTeam].sort((a, b) => b.mmr - a.mmr);
-    
+
     // 팀 MMR 평균 계산
     const blueTeamAvgMmr = Math.round(sortedBlueTeam.reduce((acc, p) => acc + p.mmr, 0) / 5);
     const redTeamAvgMmr = Math.round(sortedRedTeam.reduce((acc, p) => acc + p.mmr, 0) / 5);
-    
+
     // 무작위 맵 선택
     const randomMap = maps[Math.floor(Math.random() * maps.length)];
-    
+
     // 채널 개설자 (레드팀에서 무작위로 선택)
     const channelCreator = sortedRedTeam[0].battletag;
-    
+
     // 날짜 기반 고유 매치 ID 생성 (YYYYMMDD-HHMM-순번)
     const now = new Date();
     const year = now.getFullYear();
@@ -608,12 +619,12 @@ const FindMatchPage = () => {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     // 순번은 시뮬레이션이므로 1~999 중 랜덤하게 생성
     const sequence = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
-    
+
     const matchId = `${year}${month}${day}-${hours}${minutes}-${sequence}`;
-    
+
     console.log(`매치가 생성되었습니다. ID: ${matchId}`);
     console.log(`블루팀 평균 MMR: ${blueTeamAvgMmr}, 레드팀 평균 MMR: ${redTeamAvgMmr}`);
-    
+
     // 매치 정보 설정
     setMatchInfo({
       blueTeam: sortedBlueTeam,
@@ -624,7 +635,7 @@ const FindMatchPage = () => {
       matchId,
       channelCreator
     });
-    
+
     return {
       blueTeam: sortedBlueTeam,
       redTeam: sortedRedTeam,
@@ -645,7 +656,7 @@ const FindMatchPage = () => {
       setInQueue(false);
       return;
     }
-    
+
     // 초기화: localStorage에서 대기열 상태를 확인하여 로컬 상태 동기화
     const localInQueue = localStorage.getItem('inQueue') === 'true';
     if (localInQueue && !inQueue && isAuthenticated) {
@@ -660,7 +671,7 @@ const FindMatchPage = () => {
       // 배경 효과 제거
       document.body.classList.remove('queue-active');
     }
-    
+
     // 컴포넌트 언마운트 시
     return () => {
       // 언마운트 시에는 배경 효과를 제거하지 않음 (다른 페이지로 이동해도 효과 유지)
@@ -676,16 +687,16 @@ const FindMatchPage = () => {
         setError('로그인이 필요합니다.');
         return;
       }
-      
+
       setError('');
       setIsLoading(true);
-      
+
       console.log('대기열 참가 요청 전송:', { userId: user._id });
-      
+
       const response = await axios.post('/api/matchmaking/join', {
         userId: user._id
       });
-      
+
       if (response.data.success) {
         console.log('대기열 참가 성공:', response.data);
         setInQueue(true);
@@ -693,17 +704,17 @@ const FindMatchPage = () => {
         localStorage.setItem('inQueue', 'true');
         setGlobalQueueStatus(true); // 전역 상태 업데이트
         setQueueStatus(response.data.queueStatus);
-        
+
         // 배경 애니메이션 활성화를 위해 body에 클래스 추가
         document.body.classList.add('queue-active');
-        
+
         // 서버에서 받은 대기 시간 정보로 동기화
         if (response.data.waitTime !== undefined && response.data.joinedAt) {
           console.log('서버 대기 시간 정보로 동기화:', {
             waitTime: response.data.waitTime,
             joinedAt: response.data.joinedAt
           });
-          
+
           // 서버 시간 기준으로 대기 시간 설정 (서버 시간은 현재 시간으로 추정)
           getGlobalQueueTimeState().setServerTime(
             response.data.waitTime,
@@ -720,7 +731,7 @@ const FindMatchPage = () => {
       }
     } catch (err) {
       console.error('대기열 참가 오류:', err);
-      
+
       // 상세 오류 정보 로깅
       if (err.response) {
         console.error('서버 응답 오류:', {
@@ -733,7 +744,7 @@ const FindMatchPage = () => {
       } else {
         console.error('요청 설정 오류:', err.message);
       }
-      
+
       // 사용자 친화적인 오류 메시지 표시
       const errorMessage = err.response?.data?.message || '대기열 참가 중 오류가 발생했습니다. 다시 시도해주세요.';
       setError(errorMessage);
@@ -747,14 +758,14 @@ const FindMatchPage = () => {
     // 이미 시뮬레이션 중이면 중단
     if (isSimulating) {
       console.log('시뮬레이션 중단 시작');
-      
+
       // 시뮬레이션 상태 변경 전에 타이머 중지
       if (simulationTimerRef.current) {
         clearInterval(simulationTimerRef.current);
         simulationTimerRef.current = null;
         console.log('시뮬레이션 타이머가 정상적으로 제거되었습니다.');
       }
-      
+
       // 시뮬레이션 및 대기열 상태 초기화
       setIsSimulating(false);
       setInQueue(false);
@@ -763,82 +774,82 @@ const FindMatchPage = () => {
         requiredPlayers: 10,
         estimatedTime: '00:00'
       });
-      
+
       // 전역 상태 및 로컬 스토리지 업데이트
       localStorage.setItem('inQueue', 'false');
       localStorage.removeItem('simulatedPlayers'); // 시뮬레이션 플레이어 수 제거
       localStorage.removeItem('simulationStartTime'); // 시뮬레이션 시작 시간 제거
       setGlobalQueueStatus(false);
-      
+
       // 전역 변수 업데이트
       window.isSimulationRunning = false;
-      
+
       // 타이머 및 배경 효과 초기화
       getGlobalQueueTimeState().reset();
       document.body.classList.remove('queue-active');
       console.log('시뮬레이션 중단 완료');
       return;
     }
-    
+
     console.log('시뮬레이션 시작');
-    
+
     // 시뮬레이션 시작 전 상태 초기화
     if (simulationTimerRef.current) {
       clearInterval(simulationTimerRef.current);
       simulationTimerRef.current = null;
     }
-    
+
     // 전역 queueTimeState 초기화 및 시작 (타이머 시작 먼저)
     getGlobalQueueTimeState().reset();
     getGlobalQueueTimeState().start();
-    
+
     // 시뮬레이션 상태 활성화 (직접 설정)
     setIsSimulating(true);
-    
+
     // 시뮬레이션 시작 시간 저장 (페이지 이동 후 복원을 위함)
     const startTime = Date.now();
     localStorage.setItem('simulationStartTime', startTime.toString());
-    
+
     // 전역 상태 및 로컬 스토리지 먼저 업데이트 (QueueStatus 컴포넌트와 동기화)
     localStorage.setItem('inQueue', 'true');
     setGlobalQueueStatus(true);
-    
+
     // 이제 로컬 inQueue 상태 업데이트
     setInQueue(true);
-    
+
     // 배경 애니메이션 활성화
     document.body.classList.add('queue-active');
-    
+
     console.log('API에서 사용자 데이터 로드 중...');
-    
+
     // 첫 상태 즉시 설정 (1명으로 시작)
     setQueueStatus({
       currentPlayers: 1,
       requiredPlayers: 10,
       estimatedTime: '00:15'
     });
-    
+
     // 로컬 변수로 시뮬레이션 활성화 상태 추적
     window.isSimulationRunning = true;
     localStorage.setItem('simulatedPlayers', '1'); // 시뮬레이션 시작 시 플레이어 수 저장
-    
+
     // DB에서 사용자 데이터 가져오기 시도
     axios.get('/api/users/all')
       .then(response => {
         const dbUsers = response.data || [];
         console.log(`DB에서 ${dbUsers.length}명의 사용자를 가져왔습니다.`);
-        
+
         // 시뮬레이션 시작
         startSimulationTimer(dbUsers, true);
       })
       .catch(error => {
         console.error('사용자 데이터 로드 중 오류:', error);
         console.log('오류 발생으로 로컬 데이터로 시뮬레이션 진행');
-        
+
         // 로컬 데이터로 시뮬레이션 시작
         startSimulationTimer([], false);
       });
-    
+
     console.log('시뮬레이션 설정 완료');
   };
 
@@ -846,34 +857,34 @@ const FindMatchPage = () => {
   const startSimulationTimer = (dbUsers, useDbData) => {
     // 시뮬레이션 시작 시간 가져오기
     const startTime = parseInt(localStorage.getItem('simulationStartTime') || Date.now().toString());
-    
+
     // 시뮬레이션 시간 경과 계산 - 페이지 이동 후에도 상태 유지하기 위함
     const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    
+
     // 시간 경과에 따른 플레이어 수 계산 (0.5초에 1명씩 증가, 최대 10명)
     let expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 0.5));
-    
+
     // localStorage에 저장된 플레이어 수 확인
     const storedPlayers = parseInt(localStorage.getItem('simulatedPlayers') || '1');
-    
+
     // 둘 중 더 큰 값 사용
     let currentPlayers = Math.max(expectedPlayers, storedPlayers);
     console.log(`시뮬레이션 복원: 시간 경과 ${timeElapsed}초, 예상 플레이어 ${expectedPlayers}명, 저장된 플레이어 ${storedPlayers}명, 설정 플레이어 ${currentPlayers}명`);
-    
+
     // 상태 업데이트
     setQueueStatus({
       currentPlayers: currentPlayers,
       requiredPlayers: 10,
       estimatedTime: currentPlayers >= 10 ? '00:00' : '00:15'
     });
-    
+
     // 이미 10명이 모였으면 바로 매치 처리 (자동 이동하지 않음)
     if (currentPlayers >= 10) {
       console.log('이미 10명이 모여 있습니다. 매치 찾음 처리합니다.');
-      
+
       // 전역 변수로 시뮬레이션 상태 변경
       window.isSimulationRunning = false;
-      
+
       // 상태 업데이트
       setMatchFound(true);
       setIsSimulating(false);
@@ -881,7 +892,7 @@ const FindMatchPage = () => {
       localStorage.removeItem('simulatedPlayers');
       localStorage.removeItem('simulationStartTime');
       setGlobalQueueStatus(false);
-      
+
       // 매치 정보 생성
       let generatedMatchInfo;
       if (useDbData && dbUsers.length >= 9) {
@@ -889,13 +900,13 @@ const FindMatchPage = () => {
       } else {
         generatedMatchInfo = generateMatchInfoAndSave(null, false);
       }
-      
+
       // 매치 찾음 플래그 설정
       localStorage.setItem('justFoundMatch', 'true');
-      
+
       return;
     }
-    
+
     // 0.5초마다 플레이어 증가 (두 배 빠른 속도)
     simulationTimerRef.current = setInterval(function() {
       // 시뮬레이션이 중단되었는지 확인 (전역 변수 사용)
@@ -905,35 +916,35 @@ const FindMatchPage = () => {
         simulationTimerRef.current = null;
         return;
       }
-      
+
       // 현재 localStorage에서 플레이어 수 확인
       const storedPlayers = parseInt(localStorage.getItem('simulatedPlayers') || '1');
-      
+
       // 플레이어 수 증가 (최대 10명)
       currentPlayers = Math.min(10, storedPlayers + 1);
       console.log(`시뮬레이션 진행 중: ${storedPlayers}명 -> ${currentPlayers}명`);
-      
+
       // 현재 플레이어 수를 localStorage에 저장 (페이지 간 상태 유지)
       localStorage.setItem('simulatedPlayers', currentPlayers.toString());
-      
+
       // React 상태 업데이트
       setQueueStatus(prev => ({
         ...prev,
         currentPlayers: currentPlayers,
         estimatedTime: currentPlayers >= 10 ? '00:00' : '00:15'
       }));
-      
+
       // 10명 도달 시 매치 찾음 처리 (자동 이동하지 않음)
       if (currentPlayers === 10) {
         console.log('시뮬레이션 완료: 10명 모집 완료, 매치 생성 중...');
-        
+
         // 전역 변수로 시뮬레이션 상태 변경
         window.isSimulationRunning = false;
-        
+
         // 타이머 종료
         clearInterval(simulationTimerRef.current);
         simulationTimerRef.current = null;
-        
+
         // 상태 업데이트
         setMatchFound(true);
         setIsSimulating(false);
@@ -941,7 +952,7 @@ const FindMatchPage = () => {
         localStorage.removeItem('simulatedPlayers');
         localStorage.removeItem('simulationStartTime');
         setGlobalQueueStatus(false);
-        
+
         // 매치 정보 생성
         let generatedMatchInfo;
         if (useDbData && dbUsers.length >= 9) {
@@ -951,7 +962,7 @@ const FindMatchPage = () => {
           generatedMatchInfo = generateMatchInfoAndSave(null, false);
           console.log('로컬 데이터로 매치 정보 생성 완료');
         }
-        
+
         // 매치 찾음 플래그 설정
         localStorage.setItem('justFoundMatch', 'true');
       }
@@ -961,7 +972,7 @@ const FindMatchPage = () => {
   // 매치 정보 생성 및 저장 함수 (코드 정리)
   const generateMatchInfoAndSave = (dbUsers, useDbData) => {
     let generatedMatchInfo;
-    
+
     if (useDbData && dbUsers && dbUsers.length >= 9) {
       // DB 사용자로 매치 정보 생성
       generatedMatchInfo = generateMatchInfoWithDbUsers(dbUsers);
@@ -969,42 +980,42 @@ const FindMatchPage = () => {
       // 로컬 데이터로 매치 정보 생성
       generatedMatchInfo = generateMatchInfo();
     }
-    
+
     // 매치 정보 저장
     if (generatedMatchInfo) {
       console.log('[FindMatchPage] 매치 정보 저장:', generatedMatchInfo.matchId);
-      
+
       // 시뮬레이션 플래그 추가
       if (isSimulating || window.isSimulationRunning) {
         generatedMatchInfo.isSimulation = true;
         console.log('[FindMatchPage] 시뮬레이션 매치로 표시');
       }
-      
+
       // 매치 정보를 JSON 문자열로 변환하여 저장
       const matchInfoStr = JSON.stringify(generatedMatchInfo);
-      
+
       // 로컬 스토리지에 매치 정보 저장
       localStorage.setItem('lastMatchInfo', matchInfoStr);
       localStorage.setItem('matchInProgress', 'true');
       localStorage.setItem('currentMatchId', generatedMatchInfo.matchId);
       localStorage.setItem('justFoundMatch', 'true'); // 매치 찾음 플래그 설정
-      
+
       // 시뮬레이션 매치인 경우 추가 플래그 저장
       if (generatedMatchInfo.isSimulation) {
         localStorage.setItem('isSimulationRunning', 'true');
       }
-      
+
       // 매치 정보 상태 업데이트
       setMatchInfo(generatedMatchInfo);
-      
+
       // 전역 상태 업데이트
       setMatchProgress(true, generatedMatchInfo.matchId);
-      
+
       // 대기열 상태 초기화 (매치가 찾아졌으므로)
       setInQueue(false);
       localStorage.setItem('inQueue', 'false');
       setGlobalQueueStatus(false);
-      
+
       // 시뮬레이션 관련 상태 정리
       if (isSimulating) {
         setIsSimulating(false);
@@ -1012,24 +1023,24 @@ const FindMatchPage = () => {
         localStorage.removeItem('simulationStartTime');
         window.isSimulationRunning = false;
       }
-      
+
       console.log('[FindMatchPage] 매치 정보 저장 완료, ID:', generatedMatchInfo.matchId);
     }
-    
+
     return generatedMatchInfo;
   };
 
   // 컴포넌트 마운트/언마운트 시 정리
   useEffect(() => {
     // 컴포넌트 마운트 시 전역 변수 확인
-    const simulationRunning = localStorage.getItem('simulatedPlayers') !== null && 
+    const simulationRunning = localStorage.getItem('simulatedPlayers') !== null &&
                              localStorage.getItem('simulationStartTime') !== null;
-    
+
     if (simulationRunning) {
       console.log('기존 시뮬레이션 상태 복원');
       window.isSimulationRunning = true;
       setIsSimulating(true);
-      
+
       // 로컬 상태 복원
       const simulatedPlayers = parseInt(localStorage.getItem('simulatedPlayers') || '1');
       setInQueue(true);
@@ -1038,21 +1049,21 @@ const FindMatchPage = () => {
         requiredPlayers: 10,
         estimatedTime: simulatedPlayers >= 10 ? '00:00' : '00:15'
       });
-      
+
       // 타이머 시작
       if (!getGlobalQueueTimeState().startTime) {
         getGlobalQueueTimeState().start();
       }
-      
+
       // 배경 효과 적용
       document.body.classList.add('queue-active');
-      
+
       // 시뮬레이션 타이머 재시작
       startSimulationTimer([], false);
     } else {
       window.isSimulationRunning = false;
     }
-    
+
     // 언마운트 시 정리
     return () => {
       // 타이머 정리
@@ -1067,7 +1078,7 @@ const FindMatchPage = () => {
   // 시뮬레이션 상태 변경 시 전역 변수 업데이트
   useEffect(() => {
     window.isSimulationRunning = isSimulating;
-    
+
     // 시뮬레이션 비활성화 시 추가 정리
     if (!isSimulating && simulationTimerRef.current) {
       clearInterval(simulationTimerRef.current);
@@ -1082,17 +1093,17 @@ const FindMatchPage = () => {
       // 시뮬레이션 중이면 중단
       if (isSimulating || window.isSimulationRunning) {
         console.log('대기열 취소: 시뮬레이션 중단 (leaveQueue 경유)');
-        
+
         // 전역 변수로 시뮬레이션 상태 변경
         window.isSimulationRunning = false;
-        
+
         // 타이머 중지
         if (simulationTimerRef.current) {
           clearInterval(simulationTimerRef.current);
           simulationTimerRef.current = null;
           console.log('대기열 취소: 시뮬레이션 타이머가 정상적으로 제거되었습니다.');
         }
-        
+
         // 상태 초기화
         setIsSimulating(false);
         setInQueue(false);
@@ -1101,36 +1112,36 @@ const FindMatchPage = () => {
           requiredPlayers: 10,
           estimatedTime: '00:00'
         });
-        
+
         // 전역 상태 및 로컬 스토리지 업데이트
         localStorage.setItem('inQueue', 'false');
         localStorage.removeItem('simulatedPlayers'); // 시뮬레이션 플레이어 수 제거
         setGlobalQueueStatus(false);
-        
+
         // 타이머 및 배경 효과 초기화
         getGlobalQueueTimeState().reset();
         document.body.classList.remove('queue-active');
-        
+
         console.log('대기열 취소: 시뮬레이션 중단 완료');
         return;
       }
-      
+
       setIsLoading(true);
-      
+
       // 실제 API 호출
       const response = await axios.post('/api/matchmaking/leave', {
         userId: user._id
       });
-      
+
       if (response.data.success) {
         setInQueue(false);
         localStorage.setItem('inQueue', 'false');
         setGlobalQueueStatus(false);
         setError('');
-        
+
         // 타이머 초기화
         getGlobalQueueTimeState().reset();
-        
+
         // 배경 애니메이션 비활성화
         document.body.classList.remove('queue-active');
       } else {
@@ -1139,7 +1150,7 @@ const FindMatchPage = () => {
       }
     } catch (err) {
       console.error('대기열 취소 오류:', err);
-      
+
       if (err.response) {
         console.error('서버 응답 오류:', {
           status: err.response.status,
@@ -1147,10 +1158,10 @@ const FindMatchPage = () => {
           headers: err.response.headers
         });
       }
-      
+
       const errorMessage = err.response?.data?.message || '대기열 취소 중 오류가 발생했습니다. 다시 시도해주세요.';
       setError(errorMessage);
-      
+
       // 오류가 발생해도 클라이언트 측 상태 초기화
       localStorage.setItem('inQueue', 'false');
       setGlobalQueueStatus(false);
@@ -1167,22 +1178,22 @@ const FindMatchPage = () => {
     // 로컬 스토리지에서 매치 진행 중 상태 확인
     const isMatchInProgress = localStorage.getItem('matchInProgress') === 'true';
     const matchId = localStorage.getItem('currentMatchId');
-    
+
     if (isMatchInProgress && matchId) {
       // 로컬 상태와 글로벌 상태 모두 업데이트
       setMatchInProgress(true);
       setMatchProgress(true, matchId);
-      
+
       // 대기열 상태 초기화
       setInQueue(false);
       localStorage.setItem('inQueue', 'false');
       setGlobalQueueStatus(false);
-      
+
       // 기존 매치 정보 가져오기 시도 (이 부분은 실제 구현에서 서버에서 가져와야 함)
       if (matchInfo.matchId === '' || matchInfo.matchId !== matchId) {
         // 실제로는 서버에서 매치 정보를 가져오는 API 호출이 필요함
         // axios.get(`/api/matches/${matchId}`)...
-        
+
         try {
           // 로컬 스토리지에서 매치 정보 가져오기
           const savedMatchInfo = localStorage.getItem('lastMatchInfo');
@@ -1220,31 +1231,31 @@ const FindMatchPage = () => {
   // 매치 찾음 창 닫기 함수 수정
   const closeMatchFound = () => {
     setMatchFound(false);
-    
+
     // 매치 정보 저장
     const matchInfoStr = JSON.stringify(matchInfo);
     localStorage.setItem('lastMatchInfo', matchInfoStr);
-    
+
     // 매치 창을 닫을 때 글로벌 매치 진행 중 상태로 설정
     setMatchProgress(true, matchInfo.matchId);
     setMatchInProgress(true);
-    
+
     // 대기열 상태 초기화
     setInQueue(false);
     setGlobalQueueStatus(false);
-    
+
     // 리디렉션 플래그 설정
     localStorage.setItem('redirectedToMatch', 'true');
-    
+
     // 매치 세부 정보 페이지로 이동
     navigate('/match-details', { state: { matchInfo } });
   };
-  
+
   // 매치 상세 정보 창 열기 함수 추가
   const openMatchDetails = () => {
     // 저장된 매치 정보가 있으면 사용, 없으면 현재 정보 사용
     let displayMatchInfo = matchInfo;
-    
+
     // 매치 정보가 없으면 localStorage에서 가져오기
     if (matchInfo.blueTeam.length === 0 && matchInfo.matchId === '') {
       const savedMatchInfo = localStorage.getItem('lastMatchInfo');
@@ -1258,7 +1269,7 @@ const FindMatchPage = () => {
         }
       }
     }
-    
+
     // 매치 정보가 있으면 매치 세부 정보 페이지로 이동
     if (displayMatchInfo.matchId) {
       navigate('/match-details', { state: { matchInfo: displayMatchInfo } });
@@ -1266,7 +1277,7 @@ const FindMatchPage = () => {
       alert('표시할 매치 정보가 없습니다.');
     }
   };
-  
+
   // 매치 상세 정보 창 닫기 함수 추가
   const closeMatchDetails = () => {
     setShowMatchDetails(false);
@@ -1276,7 +1287,7 @@ const FindMatchPage = () => {
   const callAdmin = () => {
     // 호출 중 상태로 변경
     setCallingAdmin(true);
-    
+
     // 매치 ID 확인
     const matchId = matchInfo?.matchId || currentMatchId;
     if (!matchId) {
@@ -1284,10 +1295,10 @@ const FindMatchPage = () => {
       setCallingAdmin(false);
       return;
     }
-    
+
     // 임시 구현 (API 없이)
     setTimeout(() => {
-    alert('관리자에게 도움 요청이 전송되었습니다. 잠시만 기다려주세요.');
+      alert('관리자에게 도움 요청이 전송되었습니다. 잠시만 기다려주세요.');
       setCallingAdmin(false);
     }, 1500);
   };
@@ -1297,17 +1308,17 @@ const FindMatchPage = () => {
     if (!window.confirm('정말로 매치를 취소하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
       return;
     }
-    
+
     // 매치 진행 중 상태 초기화
     setMatchProgress(false);
     setMatchInProgress(false);
-    
+
     // localStorage에서 매치 정보 삭제
     localStorage.removeItem('matchInProgress');
     localStorage.removeItem('currentMatchId');
     localStorage.removeItem('lastMatchInfo');
     localStorage.removeItem('isSimulationRunning'); // 시뮬레이션 플래그 정리
-    
+
     // 알림 메시지 삭제
     // alert('매치가 취소되었습니다.');
   };
@@ -1316,7 +1327,7 @@ const FindMatchPage = () => {
   const submitReplay = () => {
     // 제출 중 상태로 변경
     setSubmittingReplay(true);
-    
+
     // 매치 ID가 있는지 확인
     const matchId = matchInfo?.matchId || currentMatchId;
     if (!matchId) {
@@ -1324,7 +1335,7 @@ const FindMatchPage = () => {
       setSubmittingReplay(false);
       return;
     }
-    
+
     // 리플레이 업로드 모달 표시
     setShowReplayModal(true);
     setSubmittingReplay(false);
@@ -1333,13 +1344,13 @@ const FindMatchPage = () => {
   // 리플레이 모달 닫기 핸들러 수정
   const handleReplayModalClose = (success) => {
     setShowReplayModal(false);
-    
+
     // 업로드 성공 시 추가 작업
     if (success) {
       // 매치 진행 중 상태 초기화 (전역 상태)
       setMatchProgress(false);
       setMatchInProgress(false);
-      
+
       // 모든 매치 관련 상태 초기화
       localStorage.removeItem('lastMatchInfo');
     }
@@ -1350,7 +1361,7 @@ const FindMatchPage = () => {
     // 매치 세부 정보 페이지로 이동
     const savedMatchInfo = localStorage.getItem('lastMatchInfo');
     let matchInfoToPass = matchInfo;
-    
+
     if (savedMatchInfo) {
       try {
         const parsedInfo = JSON.parse(savedMatchInfo);
@@ -1361,21 +1372,21 @@ const FindMatchPage = () => {
         console.error('매치 정보 파싱 오류:', err);
       }
     }
-    
+
     navigate('/match-details', { state: { matchInfo: matchInfoToPass } });
   };
 
   // 대기열 UI 렌더링
   const renderQueueUI = () => {
     if (!inQueue) return null;
-    
+
     // 시간 형식화 (MM:SS)
     const formatTime = (seconds) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
-    
+
     return (
       <div className="queue-ui-container">
         {/* 우주 입자 */}
@@ -1397,31 +1408,31 @@ const FindMatchPage = () => {
             }}
           />
         ))}
-        
+
         {/* 대기열 상태 */}
         <div className="flex flex-col items-center justify-center text-center">
           {/* 배틀태그 */}
           <div className="queue-ui-battle-tag">
             {userInfo.battletag || user?.battletag || '알 수 없음'}
           </div>
-          
+
           {/* 대기열 카운터 */}
           <div className="queue-counter">
             <span className="queue-ui-current">{queueStatus.currentPlayers}</span>
             <span className="queue-ui-slash">/</span>
             <span className="queue-ui-total">{queueStatus.requiredPlayers}</span>
           </div>
-          
+
           {/* 대기 시간 - 전역 타이머 값 사용 */}
           <div className="queue-time-counter">
             <div className="queue-time-label">대기 시간</div>
             <div className="queue-ui-time">{formatTime(getGlobalQueueTimeState().time)}</div>
           </div>
-          
+
           {/* 버튼 그룹 */}
           <div className="queue-ui-buttons">
             {/* 취소 버튼 */}
-            <button 
+            <button
               className="queue-ui-cancel-btn"
               onClick={leaveQueue}
               disabled={isLoading}
@@ -1437,7 +1448,7 @@ const FindMatchPage = () => {
   // 프로필 설정 추천 배너
   const renderProfileRecommendation = () => {
     if (!showProfileRecommendation) return null;
-    
+
     return (
       <div className="bg-indigo-900/50 border border-indigo-500 text-white px-6 py-4 rounded-lg mb-6">
         <div className="flex items-start">
@@ -1448,8 +1459,8 @@ const FindMatchPage = () => {
             </p>
           </div>
           <div className="ml-4 flex-shrink-0">
-            <Link 
-              to="/profile/setup" 
+            <Link
+              to="/profile/setup"
               className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition"
             >
               프로필 설정하기
@@ -1463,12 +1474,12 @@ const FindMatchPage = () => {
   // 매치 세부 정보 표시 컴포넌트
   const renderMatchDetailsModal = () => {
     if (!showMatchDetails) return null;
-    
+
     return (
       <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-auto">
         <div className="bg-slate-800 p-6 rounded-lg max-w-4xl w-full match-found-animation relative">
           {/* 닫기 버튼 */}
-          <button 
+          <button
             onClick={closeMatchDetails}
             className="absolute top-2 right-2 text-gray-400 hover:text-white p-2 rounded-full hover:bg-gray-700/50 transition"
             aria-label="닫기"
@@ -1480,7 +1491,7 @@ const FindMatchPage = () => {
 
           <h2 className="text-3xl font-bold text-indigo-400 mb-4 text-center">매치 정보</h2>
           <p className="text-white text-xl mb-6 text-center">진행 중인 게임 정보입니다</p>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* 전장 정보 */}
             <div className="bg-indigo-900/30 p-4 rounded-lg text-center flex flex-col justify-center relative">
@@ -1491,7 +1502,7 @@ const FindMatchPage = () => {
                 <p className="text-white text-2xl font-bold mb-4">{matchInfo.map}</p>
               </div>
             </div>
-            
+
             {/* 채널 정보 - 우측에 배치 */}
             <div className="bg-indigo-900/30 p-4 rounded-lg text-center flex flex-col justify-center relative">
               <div className="absolute top-0 left-0 right-0 bg-indigo-900/60 py-1 px-3 rounded-t-lg">
@@ -1511,7 +1522,7 @@ const FindMatchPage = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* 레드 팀 (왼쪽) */}
             <div className="bg-red-900/20 p-4 rounded-lg border-2 border-red-800 shadow-lg">
@@ -1521,8 +1532,8 @@ const FindMatchPage = () => {
               </div>
               <ul className="space-y-2">
                 {matchInfo.redTeam.map((player, index) => (
-                  <li 
-                    key={player.id || index} 
+                  <li
+                    key={player.id || index}
                     className={`${index === 0 ? 'bg-red-900/40' : 'bg-red-900/30'} p-2 rounded flex justify-between items-center ${index === 0 ? 'border border-yellow-500/50' : ''}`}
                   >
                     <div className="flex items-center">
@@ -1537,7 +1548,7 @@ const FindMatchPage = () => {
                 ))}
               </ul>
             </div>
-            
+
             {/* 블루 팀 (오른쪽) */}
             <div className="bg-blue-900/20 p-4 rounded-lg border-2 border-blue-800 shadow-lg">
               <div className="flex justify-between items-center mb-4">
@@ -1546,8 +1557,8 @@ const FindMatchPage = () => {
               </div>
               <ul className="space-y-2">
                 {matchInfo.blueTeam.map((player, index) => (
-                  <li 
-                    key={player.id || index} 
+                  <li
+                    key={player.id || index}
                     className={`${index === 0 ? 'bg-blue-900/40' : 'bg-blue-900/30'} p-2 rounded flex justify-between items-center ${index === 0 ? 'border border-yellow-500/50' : ''}`}
                   >
                     <div className="flex items-center">
@@ -1563,7 +1574,7 @@ const FindMatchPage = () => {
               </ul>
             </div>
           </div>
-          
+
           {/* MMR 계산식 요약 */}
           <div className="bg-slate-700/50 p-4 rounded-lg mb-6">
             <h3 className="text-lg font-semibold text-white mb-2 text-center">팀 밸런스 정보</h3>
@@ -1576,17 +1587,17 @@ const FindMatchPage = () => {
               👑이 각 팀의 밴픽을 담당합니다.
             </div>
           </div>
-          
+
           {/* 버튼 영역 */}
           <div className="grid grid-cols-2 gap-4 mt-4">
-            <button 
+            <button
               onClick={submitReplay}
               disabled={submittingReplay}
               className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition disabled:opacity-50"
             >
               {submittingReplay ? '처리 중...' : '리플레이 제출'}
             </button>
-            <button 
+            <button
               onClick={callAdmin}
               disabled={callingAdmin}
               className="bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-4 rounded transition disabled:opacity-50"
@@ -1599,14 +1610,14 @@ const FindMatchPage = () => {
             >
               닫기
             </button>
-            <button 
+            <button
               onClick={cancelMatch}
               className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition"
             >
               매치 취소
             </button>
           </div>
-          
+
           {/* 매치 ID 우측 하단에 작게 표시 */}
           <div className="text-right mt-4">
             <span className="text-gray-500/70 text-xs font-mono">
@@ -1623,24 +1634,24 @@ const FindMatchPage = () => {
       <div className="page-content page-container">
         <div className="max-w-4xl mx-auto pt-4">
           <h1 className="text-3xl font-bold text-white mb-6 page-title">매치메이킹</h1>
-          
+
           <div className="mb-6">
             <Link to="/" className="text-indigo-400 hover:text-indigo-300">
               &larr; 홈으로 돌아가기
             </Link>
           </div>
-       
+
           {renderProfileRecommendation()}
-          
+
           <div className={`card ${inQueue ? 'card-in-queue' : ''}`}>
             <h1 className="text-3xl font-bold text-indigo-400 mb-6">매치 찾기</h1>
-            
+
             {error && (
               <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded mb-6">
                 {error}
               </div>
             )}
-            
+
             {/* 매치 진행 중 상태 표시 */}
             {matchInProgress ? (
               <div className="bg-green-900/50 border border-green-700 text-green-300 px-4 py-3 rounded mb-6">
@@ -1654,30 +1665,30 @@ const FindMatchPage = () => {
                     <h3 className="font-bold">매치 진행 중</h3>
                     <p>현재 게임이 진행 중입니다. 게임을 완료한 후 리플레이를 제출해주세요.</p>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button 
+                      <button
                         onClick={submitReplay}
                         disabled={submittingReplay}
                         className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
                       >
                         {submittingReplay ? '처리 중...' : '리플레이 제출'}
                       </button>
-                      
-                      <button 
+
+                      <button
                         onClick={openMatchDetails}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
                       >
                         매치 정보
                       </button>
-                      
-                      <button 
+
+                      <button
                         onClick={callAdmin}
                         disabled={callingAdmin}
                         className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm"
                       >
                         {callingAdmin ? '요청 중...' : '관리자 호출'}
                       </button>
-                      
-                      <button 
+
+                      <button
                         onClick={cancelMatch}
                         className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
                       >
@@ -1692,90 +1703,90 @@ const FindMatchPage = () => {
               </div>
             ) : (
               <>
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold text-white mb-4">내 정보</h2>
-                {isAuthenticated && user ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-300">
-                    <div className="bg-slate-700/50 p-4 rounded">
-                      <div className="text-sm text-gray-400">배틀태그</div>
-                      <div className="font-semibold">{userInfo.battletag || user.battletag}</div>
-                    </div>
-                    <div className="bg-slate-700/50 p-4 rounded">
-                      <div className="text-sm text-gray-400">MMR</div>
-                      <div className="font-semibold">
-                        {loadingUserInfo ? (
-                          <span className="text-indigo-300">로딩 중...</span>
-                        ) : (
-                          userInfo.mmr !== null ? userInfo.mmr : (user.mmr || 1500)
-                        )}
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-white mb-4">내 정보</h2>
+                  {isAuthenticated && user ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-300">
+                      <div className="bg-slate-700/50 p-4 rounded">
+                        <div className="text-sm text-gray-400">배틀태그</div>
+                        <div className="font-semibold">{userInfo.battletag || user.battletag}</div>
                       </div>
-                    </div>
-                    <div className="bg-slate-700/50 p-4 rounded">
-                      <div className="text-sm text-gray-400">선호하는 역할</div>
-                      <div className="font-semibold">
-                        {loadingUserInfo ? (
-                          <span className="text-indigo-300">로딩 중...</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {userInfo.preferredRoles && userInfo.preferredRoles.length > 0 ? 
-                              userInfo.preferredRoles.map((role, index) => (
-                                <span key={index} className="bg-indigo-800/50 px-2 py-0.5 rounded text-xs text-indigo-200">
-                                  {role}
-                                </span>
-                              ))
-                              : 
-                              user.preferredRoles && user.preferredRoles.length > 0 ?
-                                user.preferredRoles.map((role, index) => (
+                      <div className="bg-slate-700/50 p-4 rounded">
+                        <div className="text-sm text-gray-400">MMR</div>
+                        <div className="font-semibold">
+                          {loadingUserInfo ? (
+                            <span className="text-indigo-300">로딩 중...</span>
+                          ) : (
+                            userInfo.mmr !== null ? userInfo.mmr : (user.mmr || 1500)
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-slate-700/50 p-4 rounded">
+                        <div className="text-sm text-gray-400">선호하는 역할</div>
+                        <div className="font-semibold">
+                          {loadingUserInfo ? (
+                            <span className="text-indigo-300">로딩 중...</span>
+                          ) : (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {userInfo.preferredRoles && userInfo.preferredRoles.length > 0 ?
+                                userInfo.preferredRoles.map((role, index) => (
                                   <span key={index} className="bg-indigo-800/50 px-2 py-0.5 rounded text-xs text-indigo-200">
                                     {role}
                                   </span>
                                 ))
                                 :
-                                <span className="text-gray-400">미설정</span>
-                            }
-                          </div>
-                        )}
+                                user.preferredRoles && user.preferredRoles.length > 0 ?
+                                  user.preferredRoles.map((role, index) => (
+                                    <span key={index} className="bg-indigo-800/50 px-2 py-0.5 rounded text-xs text-indigo-200">
+                                      {role}
+                                    </span>
+                                  ))
+                                  :
+                                  <span className="text-gray-400">미설정</span>
+                              }
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-yellow-300 mb-4">
+                  ) : (
+                    <div className="text-yellow-300 mb-4">
                     로그인이 필요합니다. <Link to="/login" className="text-indigo-400 hover:underline">로그인하기</Link>
-                  </div>
-                )}
-              </div>
-              
-              <div className="text-center">
-                <p className="text-gray-300 mb-6">
-                  매치 찾기를 시작하면 동일한 MMR대의 플레이어 10명이 모일 때까지 대기합니다.
-                  10명이 모이면 자동으로 팀이 구성되고 게임이 시작됩니다.
-                </p>
-                
-                <div className="button-group">
-                  <button
-                    onClick={joinQueue}
-                    disabled={!isAuthenticated || inQueue}
-                    className="btn btn-primary"
-                  >
-                    {inQueue ? '대기열에 등록됨' : '매치 찾기 시작'}
-                  </button>
-                  
-                  {process.env.NODE_ENV === 'development' && (
-                    <button
-                      onClick={simulateQueue}
-                      className="btn btn-secondary"
-                    >
-                      {isSimulating ? '[개발용] 시뮬레이션 중단' : '[개발용] 매치 시뮬레이션'}
-                    </button>
+                    </div>
                   )}
                 </div>
-              </div>
+
+                <div className="text-center">
+                  <p className="text-gray-300 mb-6">
+                  매치 찾기를 시작하면 동일한 MMR대의 플레이어 10명이 모일 때까지 대기합니다.
+                  10명이 모이면 자동으로 팀이 구성되고 게임이 시작됩니다.
+                  </p>
+
+                  <div className="button-group">
+                    <button
+                      onClick={joinQueue}
+                      disabled={!isAuthenticated || inQueue}
+                      className="btn btn-primary"
+                    >
+                      {inQueue ? '대기열에 등록됨' : '매치 찾기 시작'}
+                    </button>
+
+                    {process.env.NODE_ENV === 'development' && (
+                      <button
+                        onClick={simulateQueue}
+                        className="btn btn-secondary"
+                      >
+                        {isSimulating ? '[개발용] 시뮬레이션 중단' : '[개발용] 매치 시뮬레이션'}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </>
             )}
           </div>
         </div>
       </div>
-      
+
       {/* 블랙홀 효과 */}
       {inQueue && (
         <div className="black-hole-container">
@@ -1786,16 +1797,16 @@ const FindMatchPage = () => {
           <div className="particle-stream"></div>
         </div>
       )}
-      
+
       {/* 대기열 UI */}
       {renderQueueUI()}
-      
+
       {/* 매치 세부 정보 모달 */}
       {showMatchDetails && renderMatchDetailsModal()}
-      
+
       {/* 리플레이 업로드 모달 */}
       {showReplayModal && (
-        <ReplayUploadModal 
+        <ReplayUploadModal
           isOpen={showReplayModal}
           onClose={handleReplayModalClose}
           matchId={currentMatchId}
@@ -1805,4 +1816,4 @@ const FindMatchPage = () => {
   );
 };
 
-export default FindMatchPage; 
+export default FindMatchPage;

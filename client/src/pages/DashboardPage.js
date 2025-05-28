@@ -74,7 +74,7 @@ const DashboardPage = () => {
   // 티어 정보
   const getTierInfo = () => {
     const currentMMR = stats.mmrHistory.length > 0 ? stats.mmrHistory[stats.mmrHistory.length - 1].mmr : 0;
-    
+
     // MMR 기반 티어 결정 로직
     if (currentMMR >= 2500) return { name: '그랜드마스터', color: 'text-red-400', bgColor: 'bg-gradient-to-r from-red-500/20 to-red-700/20', icon: '👑' };
     if (currentMMR >= 2200) return { name: '마스터', color: 'text-purple-400', bgColor: 'bg-gradient-to-r from-purple-500/20 to-purple-700/20', icon: '⭐' };
@@ -100,7 +100,7 @@ const DashboardPage = () => {
   return (
     <div className="max-w-6xl mx-auto px-4">
       <h1 className="text-3xl font-bold text-indigo-400 mb-8">대시보드</h1>
-      
+
       {/* 프로필 설정 권장 배너 */}
       {!user.isProfileComplete && (
         <div className="bg-indigo-900/50 border border-indigo-500 text-white px-6 py-4 rounded-lg mb-6">
@@ -112,8 +112,8 @@ const DashboardPage = () => {
               </p>
             </div>
             <div className="ml-4 flex-shrink-0">
-              <Link 
-                to="/profile/setup" 
+              <Link
+                to="/profile/setup"
                 className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition"
               >
                 프로필 설정하기
@@ -122,7 +122,7 @@ const DashboardPage = () => {
           </div>
         </div>
       )}
-      
+
       {/* 프로필 카드 */}
       <div className={`rounded-xl p-6 mb-8 border border-indigo-900/50 ${tier.bgColor}`}>
         <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
@@ -139,7 +139,7 @@ const DashboardPage = () => {
               <span className="text-2xl" title={tier.name}>{tier.icon}</span>
             </div>
           </div>
-          
+
           {/* 유저 정보 */}
           <div className="flex-1 text-center md:text-left">
             <h2 className="text-2xl md:text-3xl font-bold text-white">{getBattleTag() || '배틀태그 없음'}</h2>
@@ -147,7 +147,7 @@ const DashboardPage = () => {
               <p className={`${tier.color} font-semibold`}>{tier.name} ({currentMMR} MMR)</p>
               <p className="text-gray-400">가입일: {new Date(user.createdAt).toLocaleDateString('ko-KR')}</p>
             </div>
-            
+
             {/* 요약 통계 */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 text-center">
               <div className="bg-slate-800/50 rounded-lg p-3 border border-indigo-900/50">
@@ -181,7 +181,7 @@ const DashboardPage = () => {
             </svg>
             최근 경기
           </h2>
-          
+
           {isLoading ? (
             <div className="animate-pulse space-y-3">
               {[...Array(5)].map((_, i) => (
@@ -221,7 +221,7 @@ const DashboardPage = () => {
               <p className="text-gray-400 italic">아직 경기 데이터가 없습니다</p>
             </div>
           )}
-          
+
           <Link to="/recent-games" className="mt-4 inline-block bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition">
             모든 경기 보기
           </Link>
@@ -237,7 +237,7 @@ const DashboardPage = () => {
               </svg>
               KDA 통계
             </h2>
-            
+
             {isLoading ? (
               <div className="animate-pulse space-y-2">
                 <div className="h-8 bg-slate-700/50 rounded w-full"></div>
@@ -256,7 +256,7 @@ const DashboardPage = () => {
                 <div className="w-full bg-slate-700/30 rounded-full h-2.5">
                   <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${(stats.kda.kills / (stats.kda.kills + stats.kda.deaths + stats.kda.assists)) * 100}%` }}></div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-red-400">사망</span>
                   <div className="flex items-center">
@@ -267,7 +267,7 @@ const DashboardPage = () => {
                 <div className="w-full bg-slate-700/30 rounded-full h-2.5">
                   <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${(stats.kda.deaths / (stats.kda.kills + stats.kda.deaths + stats.kda.assists)) * 100}%` }}></div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-blue-400">도움</span>
                   <div className="flex items-center">
@@ -278,7 +278,7 @@ const DashboardPage = () => {
                 <div className="w-full bg-slate-700/30 rounded-full h-2.5">
                   <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${(stats.kda.assists / (stats.kda.kills + stats.kda.deaths + stats.kda.assists)) * 100}%` }}></div>
                 </div>
-                
+
                 <div className="mt-4 text-center">
                   <div className="text-xl font-bold text-yellow-400">{calculateKDARatio()}</div>
                   <div className="text-gray-400 text-sm">KDA 비율</div>
@@ -286,7 +286,7 @@ const DashboardPage = () => {
               </div>
             )}
           </div>
-          
+
           {/* 선호 영웅 */}
           <div className="bg-slate-800/30 rounded-xl p-6 border border-indigo-900/50">
             <h2 className="text-xl font-semibold mb-4 text-indigo-400 flex items-center">
@@ -295,7 +295,7 @@ const DashboardPage = () => {
               </svg>
               선호 영웅
             </h2>
-            
+
             {isLoading ? (
               <div className="animate-pulse space-y-3">
                 {[...Array(3)].map((_, i) => (
@@ -306,10 +306,10 @@ const DashboardPage = () => {
               <div className="space-y-3">
                 {stats.favoriteHeroes.map(hero => (
                   <div key={hero.name} className="bg-slate-700/30 rounded-lg p-3 flex items-center">
-                    <img 
-                      src={hero.iconUrl} 
-                      alt={hero.name} 
-                      className="w-12 h-12 rounded-full" 
+                    <img
+                      src={hero.iconUrl}
+                      alt={hero.name}
+                      className="w-12 h-12 rounded-full"
                     />
                     <div className="ml-3 flex-1">
                       <div className="font-semibold text-white">{hero.name}</div>
@@ -325,7 +325,7 @@ const DashboardPage = () => {
               </div>
             )}
           </div>
-          
+
           {/* 빠른 링크 */}
           <div className="bg-slate-800/30 rounded-xl p-6 border border-indigo-900/50">
             <h2 className="text-xl font-semibold mb-4 text-indigo-400">빠른 링크</h2>
@@ -357,4 +357,4 @@ const DashboardPage = () => {
   );
 };
 
-export default DashboardPage; 
+export default DashboardPage;

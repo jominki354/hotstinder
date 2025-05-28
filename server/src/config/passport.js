@@ -15,26 +15,26 @@ module.exports = (passport, memoryUsers) => {
   passport.deserializeUser(async (id, done) => {
     try {
       logger.debug('사용자 역직렬화 시도:', { id });
-      
+
       let user = null;
-      
+
       if (global.useNeDB) {
         // NeDB에서 사용자 찾기
         user = await NeDBUser.findById(id);
-        
+
         if (user) {
           // 사용자 인스턴스에 generateAuthToken 메서드 추가
-          user.generateAuthToken = function() {
+          user.generateAuthToken = function () {
             return NeDBUser.generateAuthToken(this);
           };
-          
+
           logger.debug('NeDB에서 사용자 찾음:', { id, battletag: user.battletag });
           return done(null, user);
         }
       } else {
         // MongoDB에서 사용자 찾기
         user = await User.findById(id);
-        
+
         // 메모리에서도 찾아봅니다 (메모리 저장소 사용 시)
         if (!user && memoryUsers) {
           memoryUsers.forEach((u) => {
@@ -44,13 +44,13 @@ module.exports = (passport, memoryUsers) => {
           });
         }
       }
-      
+
       if (user) {
         // 사용자 인스턴스에 generateAuthToken 메서드 추가
-        user.generateAuthToken = function() {
+        user.generateAuthToken = function () {
           return NeDBUser.generateAuthToken(this);
         };
-        
+
         logger.debug('사용자 역직렬화:', { id, battletag: user.battletag });
         return done(null, user);
       } else {
@@ -86,19 +86,19 @@ module.exports = (passport, memoryUsers) => {
     passReqToCallback: true
   }, async (req, accessToken, refreshToken, profile, done) => {
     try {
-      logger.debug('배틀넷 인증 콜백 호출:', { 
-        bnetId: profile.id, 
+      logger.debug('배틀넷 인증 콜백 호출:', {
+        bnetId: profile.id,
         battletag: profile.battletag,
         sessionID: req.sessionID
       });
-      
+
       let user;
       let isNewUser = false;
-      
+
       // MongoDB만 사용하도록 수정
       // MongoDB에서 사용자 찾기 또는 생성
       user = await User.findOne({ bnetId: profile.id });
-      
+
       if (!user) {
         // 새 사용자 생성
         user = new User({
@@ -125,24 +125,24 @@ module.exports = (passport, memoryUsers) => {
         await user.save();
         logger.debug('기존 사용자 로그인 (MongoDB):', { battletag: user.battletag });
       }
-      
+
       // 사용자 인스턴스에 JWT 토큰 생성 메서드 추가
-      user.generateAuthToken = function() {
+      user.generateAuthToken = function () {
         const token = jwt.sign(
-          { id: this._id, bnetId: this.bnetId }, 
+          { id: this._id, bnetId: this.bnetId },
           process.env.JWT_SECRET || 'your-jwt-secret',
           { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
         );
         return token;
       };
-      
+
       // isNewUser 플래그 추가
       user.isNewUser = isNewUser;
-      
+
       return done(null, user);
     } catch (err) {
       logger.error('배틀넷 인증 처리 오류:', err);
       return done(err, null);
     }
   }));
-}; 
+};

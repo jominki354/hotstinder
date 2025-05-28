@@ -43,11 +43,11 @@ const AdminRoute = ({ children }) => {
 };
 
 function App() {
-  const { 
-    isAuthenticated, 
-    user, 
-    loadUser, 
-    checkAuth, 
+  const {
+    isAuthenticated,
+    user,
+    loadUser,
+    checkAuth,
     token,
     inQueue,
     setQueueStatus,
@@ -55,9 +55,10 @@ function App() {
     matchInProgress,
     currentMatchId,
     matchInfo,
-    setMatchInfo
+    setMatchInfo,
+    loading: isLoading
   } = useAuthStore();
-  
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -65,7 +66,7 @@ function App() {
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('앱 초기화 중, 인증 상태 확인...');
-      
+
       // 토큰이 있을 경우에만 사용자 정보 로드
       if (token) {
         try {
@@ -94,7 +95,7 @@ function App() {
         }
       }
     };
-    
+
     initializeAuth();
   }, [loadUser, checkAuth, token, setQueueStatus, setMatchProgress]);
 
@@ -104,12 +105,12 @@ function App() {
       // 매치 진행 중 상태 확인
       const isMatchInProgress = localStorage.getItem('matchInProgress') === 'true';
       const matchId = localStorage.getItem('currentMatchId');
-      
+
       // 매치 진행 중이면서 매치 ID가 있으면 매치 상태 업데이트
       if (isMatchInProgress && matchId) {
         // 전역 상태 업데이트
         setMatchProgress(true, matchId);
-        
+
         // 매치 정보 확인
         const savedMatchInfo = localStorage.getItem('lastMatchInfo');
         if (savedMatchInfo && (!matchInfo || matchInfo.matchId !== matchId)) {
@@ -126,23 +127,23 @@ function App() {
         }
       }
     };
-    
+
     // 인증 상태가 있을 때만 매치 상태 확인
     if (isAuthenticated && user) {
       checkMatchState();
     }
   }, [isAuthenticated, user, matchInfo, setMatchProgress, setMatchInfo]);
-  
+
   // 전역 수준에서 매치 상태 변경 감지 및 페이지 자동 이동
   useEffect(() => {
     // 이미 매치메이킹 페이지나 매치 상세 페이지에 있으면 리다이렉트하지 않음
-    const isMatchRelatedPage = location.pathname === '/matchmaking' || 
+    const isMatchRelatedPage = location.pathname === '/matchmaking' ||
                               location.pathname === '/match-details';
-    
+
     if (isMatchRelatedPage) {
       return;
     }
-    
+
     // 관리자 페이지에 있으면 리다이렉트하지 않음
     if (location.pathname.startsWith('/admin')) {
       return;
@@ -150,7 +151,7 @@ function App() {
 
     // 이미 리디렉션이 발생했는지 확인
     const alreadyRedirected = localStorage.getItem('redirectedToMatch') === 'true';
-    
+
     // 이미 리디렉션 되었으면 추가 리디렉션 방지
     if (alreadyRedirected) {
       return;
@@ -162,13 +163,13 @@ function App() {
       // 우선순위 1: 매치 진행 중이고 로그인 상태일 때 매치 정보 페이지로 자동 이동
       // 단, 대기열이 가득 찬 직후가 아닌 경우에만 자동 이동 (사용자가 직접 확인 후 이동하도록)
       const justFoundMatch = localStorage.getItem('justFoundMatch') === 'true';
-      
+
       if (matchInProgress && currentMatchId && isAuthenticated && !justFoundMatch) {
         console.log('[App] 매치 진행 중 감지, 매치 정보 페이지로 자동 이동');
-        
+
         // 리디렉션 플래그 설정
         localStorage.setItem('redirectedToMatch', 'true');
-        
+
         // 다음 렌더링 사이클에서 이동하여 렌더링 충돌 방지
         requestAnimationFrame(() => {
           if (location.pathname !== '/match-details') {
@@ -178,23 +179,23 @@ function App() {
         });
         return true; // 매치 상태 변경 처리됨
       }
-      
+
       // 우선순위 2: localStorage에서 매치 상태 확인 (전역 상태와 다를 수 있음)
       // 단, 대기열이 가득 찬 직후가 아닌 경우에만 자동 이동
       const localMatchInProgress = localStorage.getItem('matchInProgress') === 'true';
       const localMatchId = localStorage.getItem('currentMatchId');
-      
+
       if (localMatchInProgress && localMatchId && isAuthenticated && !justFoundMatch) {
         console.log('[App] localStorage에서 매치 진행 중 감지');
-        
+
         // 리디렉션 플래그 설정
         localStorage.setItem('redirectedToMatch', 'true');
-        
+
         // 전역 상태 업데이트
         if (!matchInProgress) {
           setMatchProgress(true, localMatchId);
         }
-        
+
         // 페이지 이동
         requestAnimationFrame(() => {
           if (location.pathname !== '/match-details') {
@@ -204,59 +205,59 @@ function App() {
         });
         return true; // 매치 상태 변경 처리됨
       }
-      
+
       // 우선순위 3: 시뮬레이션 중이고 플레이어가 가득 찬 경우 확인
       // 단, 자동 이동하지 않고 대기열 상태창에 알림만 표시
-      const simulationRunning = localStorage.getItem('simulatedPlayers') !== null && 
+      const simulationRunning = localStorage.getItem('simulatedPlayers') !== null &&
                                 localStorage.getItem('simulationStartTime') !== null;
-      
+
       if (simulationRunning && isAuthenticated) {
         // 시뮬레이션 시작 시간 가져오기
         const startTime = parseInt(localStorage.getItem('simulationStartTime') || Date.now().toString());
         // 시간 경과에 따른 플레이어 수 계산 (0.5초당 1명씩 증가)
         const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
         const expectedPlayers = Math.min(10, 1 + Math.floor(timeElapsed / 0.5));
-        
+
         // 저장된 플레이어 수 확인
         const storedPlayers = parseInt(localStorage.getItem('simulatedPlayers') || '1');
         const currentPlayers = Math.max(expectedPlayers, storedPlayers);
-        
+
         // 플레이어 수 업데이트 (시뮬레이션 진행 상태 반영)
         localStorage.setItem('simulatedPlayers', currentPlayers.toString());
-        
+
         if (currentPlayers >= 10) {
           // 10명이 모이면 매치 시작으로 상태 변경 (자동 이동하지 않음)
           console.log('[App] 시뮬레이션에서 10명 모임, 매치 찾음 알림 표시');
-          
+
           // 매치 찾았을 때 로컬 스토리지 업데이트
           localStorage.setItem('inQueue', 'false');
           localStorage.setItem('matchInProgress', 'true');
           localStorage.setItem('justFoundMatch', 'true'); // 방금 매치를 찾았음을 표시
-          
+
           // 전역 상태 업데이트
           setQueueStatus(false);
-          
+
           // 저장된 매치 정보 확인
           const savedMatchInfo = localStorage.getItem('lastMatchInfo');
           if (savedMatchInfo) {
             try {
               const matchInfo = JSON.parse(savedMatchInfo);
-              
+
               // 대기열 상태 초기화
               localStorage.removeItem('simulatedPlayers');
               localStorage.removeItem('simulationStartTime');
-              
+
               // 시뮬레이션 중단
               if (window.isSimulationRunning) {
                 window.isSimulationRunning = false;
               }
-              
+
               // 매치 진행 상태로 업데이트
               localStorage.setItem('currentMatchId', matchInfo.matchId);
-              
+
               // 전역 상태 업데이트
               setMatchProgress(true, matchInfo.matchId);
-              
+
               return true; // 매치 상태 변경 처리됨
             } catch (err) {
               console.error('[App] 시뮬레이션 매치 정보 파싱 오류:', err);
@@ -264,22 +265,22 @@ function App() {
           }
         }
       }
-      
+
       // 우선순위 4: 대기열 상태면서 matchInProgress가 true인 경우 (주로 시뮬레이션)
       // 단, 방금 매치를 찾은 경우에는 자동 이동하지 않음
       if (inQueue && isAuthenticated) {
         const matchStarted = localStorage.getItem('matchInProgress') === 'true';
         const justFoundMatch = localStorage.getItem('justFoundMatch') === 'true';
-        
+
         if (matchStarted && !justFoundMatch) {
           console.log('[App] 대기열 상태이지만 매치가 시작된 것으로 감지됨');
-          
+
           // 리디렉션 플래그 설정
           localStorage.setItem('redirectedToMatch', 'true');
-          
+
           // 대기열 상태 초기화
           setQueueStatus(false);
-          
+
           // 페이지 이동
           if (location.pathname !== '/match-details') {
             console.log('[App] 매치 정보 페이지로 강제 이동');
@@ -288,13 +289,13 @@ function App() {
           }
         }
       }
-      
+
       return false; // 매치 상태 변경 없음
     };
-    
+
     // 초기 상태 확인
     const initialCheck = checkMatchStatus();
-    
+
     // 주기적으로 상태 확인 (초기 확인에서 변화가 없는 경우에만)
     let intervalId;
     if (!initialCheck) {
@@ -302,7 +303,7 @@ function App() {
         checkMatchStatus();
       }, CHECK_INTERVAL);
     }
-    
+
     // 클린업 함수
     return () => {
       if (intervalId) {
@@ -335,15 +336,32 @@ function App() {
     }
   }, [matchInProgress]);
 
+  useEffect(() => {
+    console.log('App - 인증 상태 변경:', {
+      isAuthenticated,
+      isLoading,
+      user: user ? {
+        id: user.id,
+        battleTag: user.battleTag || user.battletag,
+        isAdmin: user.isAdmin,
+        isSuperAdmin: user.isSuperAdmin
+      } : null
+    });
+
+    if (isAuthenticated && !isLoading) {
+      console.log('App - 인증 완료, 사용자 정보:', user);
+    }
+  }, [isAuthenticated, isLoading, user]);
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-900 relative">
       <Header />
-      
+
       {/* QueueStatus 컴포넌트 최적화된 래퍼 */}
       <div className="fixed top-0 right-0 z-50 pointer-events-none w-full h-0 overflow-visible" aria-hidden={!isAuthenticated}>
         <QueueStatus key={isAuthenticated ? 'authenticated' : 'anonymous'} />
       </div>
-      
+
       <main className="flex-grow container mx-auto px-3 sm:px-4 py-4 sm:py-6 mt-16 pt-1 relative">
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -352,41 +370,41 @@ function App() {
           } />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/auth/success" element={<AuthCallbackPage />} />
-          
+
           {/* 인증이 필요한 라우트 */}
           <Route path="/dashboard" element={
             <PrivateRoute>
               {user?.isAdmin ? <Navigate to="/admin" /> : <DashboardPage />}
             </PrivateRoute>
           } />
-          
+
           {/* 프로필 페이지를 /profile/setup으로 통합 */}
           <Route path="/profile/setup" element={
             <PrivateRoute>
               <ProfileSetupPage />
             </PrivateRoute>
           } />
-          
+
           {/* 기존 /profile을 /profile/setup으로 리다이렉트 */}
           <Route path="/profile" element={<Navigate to="/profile/setup" />} />
-          
+
           <Route path="/matchmaking" element={
             <PrivateRoute>
               <FindMatchPage />
             </PrivateRoute>
           } />
-          
+
           {/* 매치 세부 정보 페이지 라우트 추가 */}
           <Route path="/match-details" element={
             <PrivateRoute>
               <MatchDetailsPage />
             </PrivateRoute>
           } />
-          
+
           {/* 리더보드와 최근 게임은 누구나 볼 수 있게 변경 */}
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/recent-games" element={<RecentGamesPage />} />
-          
+
           {/* 관리자 페이지 라우트 */}
           <Route path="/admin-login" element={
             isAuthenticated && user && user.isAdmin ? <Navigate to="/admin" /> : <AdminLoginPage />
@@ -416,7 +434,7 @@ function App() {
               <AdminMatchDetailPage />
             </AdminRoute>
           } />
-          
+
           {/* 404 페이지 */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
@@ -426,4 +444,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;

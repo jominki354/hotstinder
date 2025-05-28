@@ -28,11 +28,16 @@ const AdminLoginPage = () => {
 
     try {
       const response = await axios.post('/api/auth/admin-login', formData);
-      
+
       // 로그인 성공 시 상태 업데이트 및 관리자 페이지로 이동
       if (response.data && response.data.token) {
-        login(response.data.token);
-        navigate('/admin');
+        console.log('관리자 로그인 성공:', response.data);
+        await login(response.data.token);
+
+        // 로그인 후 잠시 대기하여 사용자 정보가 로드되도록 함
+        setTimeout(() => {
+          navigate('/admin');
+        }, 500);
       } else {
         throw new Error('로그인 응답에 토큰이 없습니다.');
       }
@@ -120,4 +125,4 @@ const AdminLoginPage = () => {
   );
 };
 
-export default AdminLoginPage; 
+export default AdminLoginPage;

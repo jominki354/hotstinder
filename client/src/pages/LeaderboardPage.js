@@ -10,7 +10,7 @@ const LeaderboardPage = () => {
   const [isUsingAllUsers, setIsUsingAllUsers] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const MAX_DISPLAY_RANK = 30; // 최대 표시 랭킹 수 제한
 
   const refreshLeaderboard = () => {
@@ -29,22 +29,22 @@ const LeaderboardPage = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // API 요청 시도 - 캐싱 방지를 위한 타임스탬프 추가
         console.log('리더보드 데이터 요청 중...');
         const timestamp = new Date().getTime();
         const res = await axios.get(`/api/users/leaderboard?minGames=1&limit=${MAX_DISPLAY_RANK}&t=${timestamp}`);
-        
+
         // 응답이 유효한 배열인지 확인
         if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
           console.log(`리더보드 데이터 로드 성공: ${res.data.length}명의 플레이어`);
-          
+
           // 유효한 데이터만 필터링
-          const validData = res.data.filter(item => 
-            item && typeof item === 'object' && 
+          const validData = res.data.filter(item =>
+            item && typeof item === 'object' &&
             (item.nickname || item.battletag || item.mmr)
           );
-          
+
           if (validData.length > 0) {
             // 최대 30명까지만 표시
             const limitedData = validData.slice(0, MAX_DISPLAY_RANK);
@@ -58,7 +58,7 @@ const LeaderboardPage = () => {
         } else {
           console.warn('리더보드 데이터가 비어있거나 유효하지 않음:', res?.data);
         }
-        
+
         // 리더보드 데이터 로드에 실패한 경우, 재시도 또는 대체 API 사용
         if (retryCount < 3) {
           console.log(`리더보드 데이터 재시도 (${retryCount + 1}/3)...`);
@@ -72,7 +72,7 @@ const LeaderboardPage = () => {
         }
       } catch (err) {
         console.error('리더보드 데이터 로드 실패:', err);
-        
+
         // 네트워크 오류 또는 서버 오류 발생 시
         if (retryCount < 3) {
           console.log(`리더보드 데이터 재시도 (${retryCount + 1}/3)...`);
@@ -96,16 +96,16 @@ const LeaderboardPage = () => {
         // API 요청 - 캐싱 방지를 위한 타임스탬프 추가
         const timestamp = new Date().getTime();
         const res = await axios.get(`/api/users/all?limit=${MAX_DISPLAY_RANK}&t=${timestamp}`);
-        
+
         if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
           console.log(`전체 유저 데이터 로드 성공: ${res.data.length}명의 플레이어`);
-          
+
           // 유효한 데이터만 필터링
-          const validData = res.data.filter(item => 
-            item && typeof item === 'object' && 
+          const validData = res.data.filter(item =>
+            item && typeof item === 'object' &&
             (item.nickname || item.battletag || item.mmr)
           );
-          
+
           if (validData.length > 0) {
             // 최대 30명까지만 표시
             const limitedData = validData.slice(0, MAX_DISPLAY_RANK);
@@ -115,7 +115,7 @@ const LeaderboardPage = () => {
             return; // 성공했으므로 함수 종료
           }
         }
-        
+
         // 여기까지 왔다면 유효한 데이터를 받지 못한 것임
         console.error('전체 유저 데이터도 비어있거나 유효하지 않음:', res?.data);
         setError('데이터를 불러올 수 없습니다. 나중에 다시 시도해주세요.');
@@ -133,7 +133,7 @@ const LeaderboardPage = () => {
   // 데이터 유효성 검사 및 보정
   const validatePlayerData = (player, index) => {
     if (!player) return null;
-    
+
     // 기본값 설정
     return {
       id: player.id || `user-${index}`,
@@ -176,7 +176,7 @@ const LeaderboardPage = () => {
         <div className="bg-slate-800 rounded-lg p-8 text-center">
           <p className="text-red-400 mb-4">{error}</p>
           <p className="text-gray-400 mb-4">잠시 후 다시 시도해주세요.</p>
-          <button 
+          <button
             onClick={() => {
               setRetryCount(0);
               setLoading(true);
@@ -199,7 +199,7 @@ const LeaderboardPage = () => {
         <div className="bg-slate-800 rounded-lg p-8 text-center">
           <p className="text-gray-400 mb-4">아직 랭킹 데이터가 없습니다.</p>
           <p className="text-gray-500 mb-4">첫 번째 플레이어가 되어보세요!</p>
-          <button 
+          <button
             onClick={() => {
               setRetryCount(0);
               setLoading(true);
@@ -293,7 +293,7 @@ const LeaderboardPage = () => {
               전체 유저 표시 중 (최대 30위)
             </div>
           )}
-          <button 
+          <button
             onClick={refreshLeaderboard}
             disabled={refreshing || loading}
             className={`flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded transition-colors ${(refreshing || loading) ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -306,7 +306,7 @@ const LeaderboardPage = () => {
           </button>
         </div>
       </div>
-      
+
       <div className="bg-slate-800 rounded-lg shadow-lg overflow-hidden mb-6">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -326,10 +326,10 @@ const LeaderboardPage = () => {
               {validLeaderboardData.slice(0, MAX_DISPLAY_RANK).map((player, index) => {
                 // 게임 수 계산
                 const totalGames = player.totalGames;
-                
+
                 return (
-                  <tr 
-                    key={player.id || index} 
+                  <tr
+                    key={player.id || index}
                     className={`hover:bg-slate-700 transition-colors 
                       ${index === 0 ? 'bg-slate-700 bg-opacity-50' : ''}
                       ${index < 3 ? 'border-l-4 border-yellow-500' : ''}`}
@@ -337,9 +337,9 @@ const LeaderboardPage = () => {
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className={`
                         inline-flex items-center justify-center w-8 h-8 rounded-full
-                        ${index === 0 ? 'bg-yellow-500' : 
-                          index === 1 ? 'bg-gray-300' :
-                          index === 2 ? 'bg-amber-600' : 'bg-slate-600'}
+                        ${index === 0 ? 'bg-yellow-500' :
+                    index === 1 ? 'bg-gray-300' :
+                      index === 2 ? 'bg-amber-600' : 'bg-slate-600'}
                         text-white font-bold text-sm
                       `}>
                         {player.rank || (index + 1)}
@@ -378,7 +378,7 @@ const LeaderboardPage = () => {
                       {totalGames > 0 ? (
                         <div className="flex items-center justify-center">
                           <div className="h-2 w-16 bg-slate-600 rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className="h-full bg-green-500"
                               style={{ width: `${Math.min(player.winRate, 100)}%` }}
                             />
@@ -401,10 +401,10 @@ const LeaderboardPage = () => {
           </table>
         </div>
       </div>
-      
+
       <div className="bg-slate-800 rounded-lg shadow p-6 text-center text-gray-400 text-sm">
         <h3 className="text-white text-lg font-semibold mb-4">랭킹 시스템 안내</h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
           <div className="bg-slate-700 p-4 rounded shadow-md">
             <h4 className="font-bold text-white text-base mb-3">티어 시스템</h4>
@@ -453,7 +453,7 @@ const LeaderboardPage = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-slate-700 p-4 rounded shadow-md">
             <h4 className="font-bold text-white text-base mb-3">시즌 보상 안내</h4>
             <div className="grid grid-cols-1 gap-2">
@@ -486,24 +486,24 @@ const LeaderboardPage = () => {
                     <span className="font-extrabold text-white text-base">3위:</span>
                     <div className="font-medium text-white text-sm mt-1">
                       블리자드 기프트 카드 10,000원 + 히어로즈 오브 더 스톰 한정판 스티커 세트
-              </div>
-              </div>
-              </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        
+
         <div className="bg-slate-700 p-3 rounded shadow-sm">
-        <p className="mb-2">MMR은 매치 결과에 따라 지속적으로 업데이트됩니다.</p>
+          <p className="mb-2">MMR은 매치 결과에 따라 지속적으로 업데이트됩니다.</p>
           <p className="mb-2">랭킹은 최대 {MAX_DISPLAY_RANK}위까지만 표시됩니다.</p>
-        {!isUsingAllUsers && (
-          <p>일반 리더보드는 최소 10회 이상의 게임을 진행한 플레이어만 표시됩니다.</p>
-        )}
+          {!isUsingAllUsers && (
+            <p>일반 리더보드는 최소 10회 이상의 게임을 진행한 플레이어만 표시됩니다.</p>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default LeaderboardPage; 
+export default LeaderboardPage;

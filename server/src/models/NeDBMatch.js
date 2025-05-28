@@ -22,7 +22,7 @@ try {
     fs.writeFileSync(matchesDbPath, '', { encoding: 'utf8' });
     logger.info(`NeDBMatch: 빈 데이터베이스 파일 생성됨 - ${matchesDbPath}`);
   }
-  
+
   // 읽기/쓰기 권한 확인
   fs.accessSync(matchesDbPath, fs.constants.R_OK | fs.constants.W_OK);
 } catch (err) {
@@ -120,10 +120,10 @@ const MatchModel = {
           logger.error('NeDBMatch: 매치 생성 오류', err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBMatch: 매치 생성됨 - ${newDoc._id}`);
         resolve(newDoc);
       });
@@ -178,21 +178,21 @@ const MatchModel = {
           logger.error(`NeDBMatch: 플레이어별 매치 조회 오류 (${userId})`, err);
           return reject(err);
         }
-        
+
         // 플레이어가 포함된 매치 필터링
         const matches = docs.filter(match => {
           const blueTeam = match.teams?.blue || [];
           const redTeam = match.teams?.red || [];
-          
+
           // blue 또는 red 팀에 유저가 있는지 확인
-          const inBlue = blueTeam.some(player => 
+          const inBlue = blueTeam.some(player =>
             player.user && player.user.toString() === userId.toString());
-          const inRed = redTeam.some(player => 
+          const inRed = redTeam.some(player =>
             player.user && player.user.toString() === userId.toString());
-            
+
           return inBlue || inRed;
         });
-        
+
         resolve(matches);
       });
     });
@@ -206,21 +206,21 @@ const MatchModel = {
         ...updateData,
         updatedAt: new Date()
       };
-      
+
       db.update({ _id: id }, { $set: updateWithTimestamp }, {}, (err, numReplaced) => {
         if (err) {
           logger.error(`NeDBMatch: 매치 업데이트 오류 (${id})`, err);
           return reject(err);
         }
-        
+
         if (numReplaced === 0) {
           logger.warn(`NeDBMatch: 업데이트할 매치 없음 (${id})`);
           return resolve(null);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         // 업데이트된 문서 반환
         db.findOne({ _id: id }, (err, doc) => {
           if (err) {
@@ -242,10 +242,10 @@ const MatchModel = {
           logger.error(`NeDBMatch: 매치 삭제 오류 (${id})`, err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBMatch: 매치 삭제됨 - ${id} (${numRemoved}개)`);
         resolve(numRemoved > 0);
       });
@@ -273,16 +273,16 @@ const MatchModel = {
           logger.error('NeDBMatch: 더미 매치 삭제 오류', err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBMatch: 모든 더미 매치 삭제됨 (${numRemoved}개)`);
         resolve(numRemoved);
       });
     });
   },
-  
+
   // 다중 매치 삭제 (관리자 도구용)
   deleteMany: (query) => {
     return new Promise((resolve, reject) => {
@@ -291,21 +291,21 @@ const MatchModel = {
           logger.error('NeDBMatch: 다중 매치 삭제 오류', err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.debug(`NeDBMatch: 다중 매치 삭제됨 (${numRemoved}개)`);
         resolve(numRemoved);
       });
     });
   },
-  
+
   // 데이터베이스 동기화
   compactDatabase: () => {
     return new Promise((resolve, reject) => {
       db.persistence.compactDatafile();
-      
+
       // 비동기 작업이므로 약간의 지연 후 성공 반환
       setTimeout(() => {
         logger.info('NeDBMatch: 데이터베이스 압축 완료');
@@ -341,4 +341,4 @@ const MatchModel = {
   }
 };
 
-module.exports = MatchModel; 
+module.exports = MatchModel;

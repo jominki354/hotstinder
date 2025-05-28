@@ -9,7 +9,7 @@ const AdminMatchesPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  
+
   const [loading, setLoading] = useState(true);
   const [matches, setMatches] = useState([]);
   const [error, setError] = useState('');
@@ -17,7 +17,7 @@ const AdminMatchesPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedMatches, setSelectedMatches] = useState([]);
   const [processing, setProcessing] = useState(false);
-  
+
   // 필터 상태
   const [filters, setFilters] = useState({
     startDate: '',
@@ -26,23 +26,23 @@ const AdminMatchesPage = () => {
     status: '',
     userId: queryParams.get('user') || ''
   });
-  
+
   // 정렬 상태
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState('desc');
-  
+
   const itemsPerPage = 10;
-  
+
   // 전장 목록
   const maps = [
-    '용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원', 
-    '거미 여왕의 무덤', '영원의 전쟁터', '불지옥 신단', 
+    '용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원',
+    '거미 여왕의 무덤', '영원의 전쟁터', '불지옥 신단',
     '파멸의 탑', '볼스카야 공장', '알터랙 고개'
   ];
-  
+
   // 매치 상태 목록
   const statuses = ['진행 중', '완료', '취소됨', '무효'];
-  
+
   // 관리자 확인
   useEffect(() => {
     if (!isAuthenticated || !user.isAdmin) {
@@ -50,15 +50,15 @@ const AdminMatchesPage = () => {
       setLoading(false);
       return;
     }
-    
+
     fetchMatches();
   }, [isAuthenticated, user, page, sortBy, sortDirection]);
-  
+
   // 매치 데이터 가져오기
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      
+
       // 필터 파라미터 구성
       const params = {
         page,
@@ -69,8 +69,8 @@ const AdminMatchesPage = () => {
           Object.entries(filters).filter(([_, value]) => value !== '')
         )
       };
-      
-      const response = await axios.get('/api/admin/matches', { 
+
+      const response = await axios.get('/api/admin/matches', {
         params,
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -85,15 +85,15 @@ const AdminMatchesPage = () => {
       setLoading(false);
     }
   };
-  
+
   // 모든 매치 삭제 함수
   const deleteAllMatches = async () => {
     if (processing) return;
-    
+
     if (!window.confirm('정말로 모든 매치 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
       return;
     }
-    
+
     try {
       setProcessing(true);
       const response = await axios.delete('/api/admin/delete-all-matches', {
@@ -102,7 +102,7 @@ const AdminMatchesPage = () => {
         }
       });
       toast.success(response.data.message);
-      
+
       // 목록 새로고침
       fetchMatches();
       setSelectedMatches([]);
@@ -113,14 +113,14 @@ const AdminMatchesPage = () => {
       setProcessing(false);
     }
   };
-  
+
   // 필터 적용
   const applyFilters = (e) => {
     e.preventDefault();
     setPage(1); // 필터 변경 시 첫 페이지로 이동
     fetchMatches();
   };
-  
+
   // 필터 초기화
   const resetFilters = () => {
     setFilters({
@@ -133,7 +133,7 @@ const AdminMatchesPage = () => {
     setPage(1);
     fetchMatches();
   };
-  
+
   // 정렬 변경
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -143,7 +143,7 @@ const AdminMatchesPage = () => {
       setSortDirection('asc');
     }
   };
-  
+
   // 매치 선택 토글
   const toggleMatchSelection = (matchId) => {
     if (selectedMatches.includes(matchId)) {
@@ -152,7 +152,7 @@ const AdminMatchesPage = () => {
       setSelectedMatches([...selectedMatches, matchId]);
     }
   };
-  
+
   // 모든 매치 선택 토글
   const toggleAllMatches = () => {
     if (selectedMatches.length === matches.length) {
@@ -161,12 +161,12 @@ const AdminMatchesPage = () => {
       setSelectedMatches(matches.map(match => match._id));
     }
   };
-  
+
   // 매치 편집 페이지로 이동
   const editMatch = (matchId) => {
     navigate(`/admin/matches/${matchId}`);
   };
-  
+
   // 매치 무효화
   const invalidateMatch = async (matchId) => {
     try {
@@ -184,16 +184,16 @@ const AdminMatchesPage = () => {
       toast.error(errorMessage);
     }
   };
-  
+
   // 다중 매치 무효화
   const invalidateSelectedMatches = async () => {
     if (selectedMatches.length === 0) {
       toast.warning('무효화할 매치를 선택해주세요.');
       return;
     }
-    
+
     try {
-      const response = await axios.post('/api/admin/matches/invalidate', 
+      const response = await axios.post('/api/admin/matches/invalidate',
         { matchIds: selectedMatches },
         {
           headers: {
@@ -211,20 +211,20 @@ const AdminMatchesPage = () => {
       toast.error(errorMessage);
     }
   };
-  
+
   // 매치 삭제
   const deleteMatch = async (matchId) => {
     if (!window.confirm('정말로 이 매치를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
       return;
     }
-    
+
     try {
       const response = await axios.delete(`/api/admin/matches/${matchId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
+
       // 목록에서 삭제된 매치 제거
       setMatches(matches.filter(match => match._id !== matchId));
       setSelectedMatches(selectedMatches.filter(id => id !== matchId));
@@ -235,20 +235,20 @@ const AdminMatchesPage = () => {
       toast.error(errorMessage);
     }
   };
-  
+
   // 다중 매치 삭제
   const deleteSelectedMatches = async () => {
     if (selectedMatches.length === 0) {
       toast.warning('삭제할 매치를 선택해주세요.');
       return;
     }
-    
+
     if (!window.confirm(`정말로 선택된 ${selectedMatches.length}개의 매치를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
       return;
     }
-    
+
     try {
-      const response = await axios.post('/api/admin/matches/delete', 
+      const response = await axios.post('/api/admin/matches/delete',
         { matchIds: selectedMatches },
         {
           headers: {
@@ -256,7 +256,7 @@ const AdminMatchesPage = () => {
           }
         }
       );
-      
+
       // 목록에서 삭제된 매치들 제거
       setMatches(matches.filter(match => !selectedMatches.includes(match._id)));
       setSelectedMatches([]);
@@ -267,7 +267,7 @@ const AdminMatchesPage = () => {
       toast.error(errorMessage);
     }
   };
-  
+
   // 로딩 중 표시
   if (loading && matches.length === 0) {
     return (
@@ -276,7 +276,7 @@ const AdminMatchesPage = () => {
       </div>
     );
   }
-  
+
   // 에러 메시지 표시
   if (error) {
     return (
@@ -290,7 +290,7 @@ const AdminMatchesPage = () => {
       </div>
     );
   }
-  
+
   // 매치 상태에 따른 스타일
   const getStatusStyle = (status) => {
     switch (status) {
@@ -306,7 +306,7 @@ const AdminMatchesPage = () => {
         return 'bg-gray-900/50 text-gray-400';
     }
   };
-  
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 animate-fadeIn">
       <div className="mb-6 flex flex-col md:flex-row md:justify-between md:items-center">
@@ -318,7 +318,7 @@ const AdminMatchesPage = () => {
           <Link to="/admin" className="btn btn-secondary">
             대시보드로 돌아가기
           </Link>
-          <button 
+          <button
             onClick={() => deleteAllMatches()}
             disabled={processing}
             className="bg-red-800 hover:bg-red-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 transition-colors"
@@ -327,7 +327,7 @@ const AdminMatchesPage = () => {
           </button>
         </div>
       </div>
-      
+
       {/* 필터 및 검색 */}
       <div className="bg-slate-800 p-4 rounded-lg mb-6">
         <form onSubmit={applyFilters} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -381,7 +381,7 @@ const AdminMatchesPage = () => {
           </div>
         </form>
       </div>
-      
+
       {/* 선택된 매치 액션 */}
       {selectedMatches.length > 0 && (
         <div className="bg-indigo-900/30 p-4 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center">
@@ -410,7 +410,7 @@ const AdminMatchesPage = () => {
           </div>
         </div>
       )}
-      
+
       {/* 매치 목록 테이블 */}
       <div className="bg-slate-800 rounded-lg overflow-hidden shadow-xl mb-6">
         <div className="overflow-x-auto">
@@ -548,7 +548,7 @@ const AdminMatchesPage = () => {
           </table>
         </div>
       </div>
-      
+
       {/* 페이지네이션 */}
       <div className="flex justify-center">
         <div className="flex space-x-1">
@@ -574,7 +574,7 @@ const AdminMatchesPage = () => {
           >
             &lt;
           </button>
-          
+
           {[...Array(Math.min(5, totalPages))].map((_, i) => {
             // 페이지 번호 계산 로직
             let pageNum;
@@ -587,7 +587,7 @@ const AdminMatchesPage = () => {
             } else {
               pageNum = page - 2 + i;
             }
-            
+
             return (
               <button
                 key={pageNum}
@@ -602,7 +602,7 @@ const AdminMatchesPage = () => {
               </button>
             );
           })}
-          
+
           <button
             onClick={() => setPage(page + 1)}
             disabled={page === totalPages}
@@ -631,4 +631,4 @@ const AdminMatchesPage = () => {
   );
 };
 
-export default AdminMatchesPage; 
+export default AdminMatchesPage;

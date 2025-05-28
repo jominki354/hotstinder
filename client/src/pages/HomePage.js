@@ -68,7 +68,7 @@ const HomePage = () => {
           </thead>
           <tbody className="divide-y divide-slate-700">
             {topPlayers.map((player, index) => (
-              <tr key={player.id} className={index % 2 === 0 ? "bg-indigo-500/10" : ""}>
+              <tr key={player.id} className={index % 2 === 0 ? 'bg-indigo-500/10' : ''}>
                 <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-400">{player.rank}</td>
                 <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-white">{player.nickname}</td>
                 <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-white">{player.mmr}</td>
@@ -96,8 +96,8 @@ const HomePage = () => {
         <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 px-4">
           {isAuthenticated ? (
             <>
-              <Link 
-                to="/matchmaking" 
+              <Link
+                to="/matchmaking"
                 className="battlenet-button w-full sm:w-auto"
               >
                 매치 찾기
@@ -105,8 +105,8 @@ const HomePage = () => {
             </>
           ) : (
             <>
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="battlenet-button w-full sm:w-auto"
               >
                 게임 검색
@@ -134,7 +134,7 @@ const HomePage = () => {
               <div className="text-center text-sm text-gray-300">현재 진행중</div>
             </div>
           </div>
-          
+
           <div className="bg-slate-800 p-6 rounded-lg shadow-lg">
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-indigo-600 rounded-full flex items-center justify-center mb-4 sm:mb-6">
               <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -150,7 +150,7 @@ const HomePage = () => {
               <div className="text-center text-sm text-gray-300">지난 24시간</div>
             </div>
           </div>
-          
+
           <div className="bg-slate-800 p-6 rounded-lg shadow-lg sm:col-span-2 md:col-span-1">
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-indigo-600 rounded-full flex items-center justify-center mb-4 sm:mb-6">
               <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -185,4 +185,4 @@ const HomePage = () => {
   );
 };
 
-export default HomePage; 
+export default HomePage;

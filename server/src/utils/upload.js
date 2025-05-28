@@ -27,7 +27,7 @@ const fileFilter = (req, file, cb) => {
   if (file.originalname.toLowerCase().endsWith('.stormreplay')) {
     return cb(null, true);
   }
-  
+
   // 그 외 파일 타입 거부
   cb(new Error('지원되지 않는 파일 형식입니다. .StormReplay 파일만 업로드 가능합니다.'), false);
 };
@@ -41,4 +41,4 @@ const upload = multer({
   }
 });
 
-module.exports = upload; 
+module.exports = upload;

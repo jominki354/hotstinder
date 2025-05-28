@@ -23,11 +23,11 @@ const NotFoundPage = () => {
           매치 찾기
         </Link>
       </div>
-      
+
       <div className="mt-16">
-        <img 
-          src="/assets/images/404.svg" 
-          alt="페이지를 찾을 수 없음" 
+        <img
+          src="/assets/images/404.svg"
+          alt="페이지를 찾을 수 없음"
           className="max-w-xs opacity-60"
           onError={(e) => {
             e.target.style.display = 'none';
@@ -38,4 +38,4 @@ const NotFoundPage = () => {
   );
 };
 
-export default NotFoundPage; 
+export default NotFoundPage;

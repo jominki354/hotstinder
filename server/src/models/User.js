@@ -84,13 +84,13 @@ const UserSchema = new Schema({
 });
 
 // 승률 계산 가상 필드
-UserSchema.virtual('winRate').get(function() {
+UserSchema.virtual('winRate').get(function () {
   const totalGames = this.wins + this.losses;
   return totalGames > 0 ? Math.round((this.wins / totalGames) * 100) : 0;
 });
 
 // 배틀태그에서 닉네임 추출
-UserSchema.pre('save', function(next) {
+UserSchema.pre('save', function (next) {
   if (this.isNew && this.battletag && !this.nickname) {
     this.nickname = this.battletag.split('#')[0];
   }
@@ -102,4 +102,4 @@ UserSchema.index({ bnetId: 1 }, { unique: true });
 UserSchema.index({ battletag: 1 });
 
 // 이미 모델이 존재하는지 확인하고, 존재하면 그것을 사용
-module.exports = mongoose.models.User || mongoose.model('User', UserSchema); 
+module.exports = mongoose.models.User || mongoose.model('User', UserSchema);

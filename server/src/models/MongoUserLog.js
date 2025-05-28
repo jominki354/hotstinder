@@ -52,7 +52,7 @@ const UserLogModel = {
         timestamp: now,
         createdAt: now
       };
-      
+
       const log = new UserLog(logWithTimestamp);
       const savedLog = await log.save();
       logger.debug(`MongoUserLog: 로그 생성됨 - ${savedLog._id}`);
@@ -139,4 +139,4 @@ const UserLogModel = {
   }
 };
 
-module.exports = UserLogModel; 
+module.exports = UserLogModel;

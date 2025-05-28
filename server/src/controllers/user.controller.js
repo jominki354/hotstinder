@@ -9,7 +9,7 @@ exports.getAllUsers = async (req, res) => {
       if (!users) {
         return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
       }
-      
+
       return res.status(200).json(users);
     } else {
       // NeDB 사용
@@ -18,7 +18,7 @@ exports.getAllUsers = async (req, res) => {
           logger.error('사용자 목록 조회 중 오류:', err);
           return res.status(500).json({ message: '사용자 목록을 가져오는 중 오류가 발생했습니다.' });
         }
-        
+
         return res.status(200).json(users);
       });
     }
@@ -31,7 +31,7 @@ exports.getAllUsers = async (req, res) => {
 // 특정 유저 정보 가져오기
 exports.getUserById = async (req, res) => {
   const { userId } = req.params;
-  
+
   try {
     if (global.useMongoDB && global.mongoConnected) {
       // MongoDB 사용
@@ -39,7 +39,7 @@ exports.getUserById = async (req, res) => {
       if (!user) {
         return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
       }
-      
+
       return res.status(200).json(user);
     } else {
       // NeDB 사용
@@ -48,11 +48,11 @@ exports.getUserById = async (req, res) => {
           logger.error(`사용자(${userId}) 조회 중 오류:`, err);
           return res.status(500).json({ message: '사용자 정보를 가져오는 중 오류가 발생했습니다.' });
         }
-        
+
         if (!user) {
           return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
         }
-        
+
         return res.status(200).json(user);
       });
     }
@@ -65,7 +65,7 @@ exports.getUserById = async (req, res) => {
 // 배틀태그로 유저 정보 가져오기
 exports.getUserByBattletag = async (req, res) => {
   const { battletag } = req.params;
-  
+
   try {
     if (global.useMongoDB && global.mongoConnected) {
       // MongoDB 사용
@@ -73,7 +73,7 @@ exports.getUserByBattletag = async (req, res) => {
       if (!user) {
         return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
       }
-      
+
       return res.status(200).json(user);
     } else {
       // NeDB 사용
@@ -82,11 +82,11 @@ exports.getUserByBattletag = async (req, res) => {
           logger.error(`배틀태그(${battletag}) 조회 중 오류:`, err);
           return res.status(500).json({ message: '사용자 정보를 가져오는 중 오류가 발생했습니다.' });
         }
-        
+
         if (!user) {
           return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
         }
-        
+
         return res.status(200).json(user);
       });
     }
@@ -100,38 +100,38 @@ exports.getUserByBattletag = async (req, res) => {
 exports.updateUserProfile = async (req, res) => {
   const { userId } = req.params;
   const updates = req.body;
-  
+
   try {
     // 중요한 필드 보호
     delete updates._id;
     delete updates.bnetId;
     delete updates.battletag;
     delete updates.isAdmin;
-    
+
     if (global.useMongoDB && global.mongoConnected) {
       // MongoDB 사용
       const updatedUser = await global.db.users.update(userId, updates);
       if (!updatedUser) {
         return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
       }
-      
+
       return res.status(200).json(updatedUser);
     } else {
       // NeDB 사용
       global.db.users.update(
-        { _id: userId }, 
-        { $set: { ...updates, updatedAt: new Date() } }, 
-        { returnUpdatedDocs: true }, 
+        { _id: userId },
+        { $set: { ...updates, updatedAt: new Date() } },
+        { returnUpdatedDocs: true },
         (err, numAffected, updatedDoc) => {
           if (err) {
             logger.error(`사용자(${userId}) 프로필 업데이트 중 오류:`, err);
             return res.status(500).json({ message: '프로필 업데이트 중 오류가 발생했습니다.' });
           }
-          
+
           if (numAffected === 0) {
             return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
           }
-          
+
           return res.status(200).json(updatedDoc);
         }
       );
@@ -151,11 +151,11 @@ exports.getLeaderboard = async (req, res) => {
         .sort({ mmr: -1 })
         .lean()
         .exec();
-      
+
       if (!users || users.length === 0) {
         return res.status(404).json({ message: '리더보드 데이터가 없습니다.' });
       }
-      
+
       // 리더보드 데이터 가공
       const leaderboard = users.map((user, index) => {
         return {
@@ -166,16 +166,16 @@ exports.getLeaderboard = async (req, res) => {
           mmr: user.mmr || 0,
           wins: user.wins || 0,
           losses: user.losses || 0,
-          winRate: user.wins && user.losses ? 
+          winRate: user.wins && user.losses ?
             Math.round((user.wins / (user.wins + user.losses)) * 100 * 10) / 10 : 0,
-          mainRole: user.preferredRoles && user.preferredRoles.length > 0 ? 
+          mainRole: user.preferredRoles && user.preferredRoles.length > 0 ?
             user.preferredRoles[0] : '미지정',
           tier: getTier(user.mmr || 0),
           totalGames: (user.wins || 0) + (user.losses || 0),
           isDummy: user.isDummy || false
         };
       });
-      
+
       return res.status(200).json(leaderboard);
     } else {
       // NeDB 사용
@@ -184,14 +184,14 @@ exports.getLeaderboard = async (req, res) => {
           logger.error('리더보드 데이터 조회 중 오류:', err);
           return res.status(500).json({ message: '리더보드 데이터를 가져오는 중 오류가 발생했습니다.' });
         }
-        
+
         if (!users || users.length === 0) {
           return res.status(404).json({ message: '리더보드 데이터가 없습니다.' });
         }
-        
+
         // MMR 기준으로 정렬
         users.sort((a, b) => (b.mmr || 0) - (a.mmr || 0));
-        
+
         // 리더보드 데이터 가공
         const leaderboard = users.map((user, index) => {
           return {
@@ -202,16 +202,16 @@ exports.getLeaderboard = async (req, res) => {
             mmr: user.mmr || 0,
             wins: user.wins || 0,
             losses: user.losses || 0,
-            winRate: user.wins && user.losses ? 
+            winRate: user.wins && user.losses ?
               Math.round((user.wins / (user.wins + user.losses)) * 100 * 10) / 10 : 0,
-            mainRole: user.preferredRoles && user.preferredRoles.length > 0 ? 
+            mainRole: user.preferredRoles && user.preferredRoles.length > 0 ?
               user.preferredRoles[0] : '미지정',
             tier: getTier(user.mmr || 0),
             totalGames: (user.wins || 0) + (user.losses || 0),
             isDummy: user.isDummy || false
           };
         });
-        
+
         return res.status(200).json(leaderboard);
       });
     }
@@ -258,16 +258,16 @@ exports.addDummyUsers = async (req, res) => {
           isDummy: true
         }
       ];
-      
+
       const createdUsers = [];
       for (const dummyUser of dummyUsers) {
         const createdUser = await global.db.users.create(dummyUser);
         createdUsers.push(createdUser);
       }
-      
-      return res.status(201).json({ 
-        message: '더미 사용자가 추가되었습니다.', 
-        users: createdUsers 
+
+      return res.status(201).json({
+        message: '더미 사용자가 추가되었습니다.',
+        users: createdUsers
       });
     } else {
       // NeDB 사용
@@ -297,7 +297,7 @@ exports.addDummyUsers = async (req, res) => {
           createdAt: new Date()
         }
       ];
-      
+
       // 병렬로 더미 유저 추가
       Promise.all(dummyUsers.map(user => {
         return new Promise((resolve, reject) => {
@@ -312,19 +312,19 @@ exports.addDummyUsers = async (req, res) => {
           });
         });
       }))
-      .then(insertedUsers => {
-        return res.status(201).json({ 
-          message: '더미 사용자가 추가되었습니다.', 
-          users: insertedUsers 
+        .then(insertedUsers => {
+          return res.status(201).json({
+            message: '더미 사용자가 추가되었습니다.',
+            users: insertedUsers
+          });
+        })
+        .catch(error => {
+          logger.error('더미 유저 추가 중 오류:', error);
+          return res.status(500).json({ message: '더미 사용자 추가 중 오류가 발생했습니다.' });
         });
-      })
-      .catch(error => {
-        logger.error('더미 유저 추가 중 오류:', error);
-        return res.status(500).json({ message: '더미 사용자 추가 중 오류가 발생했습니다.' });
-      });
     }
   } catch (error) {
     logger.error('더미 유저 추가 중 예외 발생:', error);
     return res.status(500).json({ message: '서버 오류가 발생했습니다.' });
   }
-}; 
+};

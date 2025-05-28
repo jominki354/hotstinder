@@ -3,13 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import ReplayUploadModal from '../components/common/ReplayUploadModal';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { translateHeroName, translateMapName } from '../utils/heroTranslations';
 import './MatchDetailsPage.css'; // 새로운 CSS 파일
 
 const MatchDetailsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, setMatchProgress, currentMatchId } = useAuthStore();
-  
+
   // 매치 정보 상태
   const [matchInfo, setMatchInfo] = useState(location.state?.matchInfo || {
     blueTeam: [],
@@ -20,7 +22,7 @@ const MatchDetailsPage = () => {
     matchId: '',
     channelCreator: ''
   });
-  
+
   // 상태 변수들
   const [callingAdmin, setCallingAdmin] = useState(false);
   const [submittingReplay, setSubmittingReplay] = useState(false);
@@ -53,7 +55,7 @@ const MatchDetailsPage = () => {
         }
       }
     }
-    
+
     // body 클래스 제거
     document.body.classList.remove('queue-active');
   }, [location.state, navigate, currentMatchId]);
@@ -61,7 +63,7 @@ const MatchDetailsPage = () => {
   // 관리자 호출 처리
   const callAdmin = async () => {
     setCallingAdmin(true);
-    
+
     // 매치 ID 확인
     const matchId = matchInfo?.matchId || currentMatchId;
     if (!matchId) {
@@ -69,7 +71,7 @@ const MatchDetailsPage = () => {
       setCallingAdmin(false);
       return;
     }
-    
+
     try {
       // 실제 관리자 호출 API (임시 구현)
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -87,16 +89,16 @@ const MatchDetailsPage = () => {
     if (!window.confirm('정말로 매치를 취소하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
       return;
     }
-    
+
     // 매치 진행 중 상태 초기화
     setMatchProgress(false);
-    
+
     // localStorage에서 매치 정보 삭제
     localStorage.removeItem('matchInProgress');
     localStorage.removeItem('currentMatchId');
     localStorage.removeItem('lastMatchInfo');
     localStorage.removeItem('redirectedToMatch'); // 리디렉션 플래그도 초기화
-    
+
     // 메인 페이지로 이동
     navigate('/');
   };
@@ -104,7 +106,7 @@ const MatchDetailsPage = () => {
   // 리플레이 제출 처리
   const submitReplay = () => {
     setSubmittingReplay(true);
-    
+
     // 매치 ID가 있는지 확인
     const matchId = matchInfo?.matchId || currentMatchId;
     if (!matchId) {
@@ -112,7 +114,7 @@ const MatchDetailsPage = () => {
       setSubmittingReplay(false);
       return;
     }
-    
+
     // 리플레이 업로드 모달 표시
     setShowReplayModal(true);
     setSubmittingReplay(false);
@@ -121,18 +123,18 @@ const MatchDetailsPage = () => {
   // 리플레이 모달 닫기 핸들러
   const handleReplayModalClose = (success) => {
     setShowReplayModal(false);
-    
+
     // 업로드 성공 시 추가 작업
     if (success) {
       // 매치 진행 중 상태 초기화
       setMatchProgress(false);
-      
+
       // 모든 매치 관련 상태 초기화
       localStorage.removeItem('lastMatchInfo');
       localStorage.removeItem('matchInProgress');
       localStorage.removeItem('currentMatchId');
       localStorage.removeItem('redirectedToMatch'); // 리디렉션 플래그도 초기화
-      
+
       // 성공 메시지와 함께 대시보드로 이동
       alert('리플레이가 성공적으로 제출되었습니다! 매치 기록이 저장되었습니다.');
       navigate('/dashboard');
@@ -153,12 +155,12 @@ const MatchDetailsPage = () => {
     <div className="match-details-container">
       {/* 배경 그라데이션 */}
       <div className="match-details-background"></div>
-      
+
       {/* 메인 컨텐츠 */}
       <div className="match-details-content">
         {/* 헤더 */}
         <div className="match-details-header">
-          <button 
+          <button
             onClick={() => navigate('/findmatch')}
             className="match-details-back-btn"
           >
@@ -168,12 +170,12 @@ const MatchDetailsPage = () => {
             </svg>
             돌아가기
           </button>
-          
+
           <div className="match-details-title-section">
             <h1 className="match-details-title">매치 정보</h1>
             <p className="match-details-subtitle">진행 중인 게임의 상세 정보입니다</p>
           </div>
-          
+
           <div className="match-details-id">
             <span className="match-details-id-label">매치 ID</span>
             <span className="match-details-id-value">{matchInfo.matchId || currentMatchId}</span>
@@ -188,7 +190,7 @@ const MatchDetailsPage = () => {
               <h3>전장</h3>
             </div>
             <div className="match-details-card-content">
-              <div className="match-details-map-name">{matchInfo.map}</div>
+              <div className="match-details-map-name">{translateMapName(matchInfo.map)}</div>
             </div>
           </div>
 
@@ -245,11 +247,11 @@ const MatchDetailsPage = () => {
                 평균 MMR: <span>{matchInfo.redTeamAvgMmr}</span>
               </div>
             </div>
-            
+
             <div className="match-details-team-players">
               {matchInfo.redTeam.map((player, index) => (
-                <div 
-                  key={player.id || index} 
+                <div
+                  key={player.id || index}
                   className={`match-details-player ${index === 0 ? 'match-details-player-leader' : ''}`}
                 >
                   <div className="match-details-player-info">
@@ -262,6 +264,9 @@ const MatchDetailsPage = () => {
                     <div className="match-details-player-details">
                       <div className="match-details-player-name">{player.battletag}</div>
                       <div className="match-details-player-role">{player.role}</div>
+                      {player.hero && (
+                        <div className="match-details-player-hero">{translateHeroName(player.hero)}</div>
+                      )}
                     </div>
                   </div>
                   <div className="match-details-player-mmr">{player.mmr}</div>
@@ -288,11 +293,11 @@ const MatchDetailsPage = () => {
                 평균 MMR: <span>{matchInfo.blueTeamAvgMmr}</span>
               </div>
             </div>
-            
+
             <div className="match-details-team-players">
               {matchInfo.blueTeam.map((player, index) => (
-                <div 
-                  key={player.id || index} 
+                <div
+                  key={player.id || index}
                   className={`match-details-player ${index === 0 ? 'match-details-player-leader' : ''}`}
                 >
                   <div className="match-details-player-info">
@@ -305,6 +310,9 @@ const MatchDetailsPage = () => {
                     <div className="match-details-player-details">
                       <div className="match-details-player-name">{player.battletag}</div>
                       <div className="match-details-player-role">{player.role}</div>
+                      {player.hero && (
+                        <div className="match-details-player-hero">{translateHeroName(player.hero)}</div>
+                      )}
                     </div>
                   </div>
                   <div className="match-details-player-mmr">{player.mmr}</div>
@@ -338,7 +346,7 @@ const MatchDetailsPage = () => {
 
         {/* 액션 버튼들 */}
         <div className="match-details-actions">
-          <button 
+          <button
             onClick={submitReplay}
             disabled={submittingReplay}
             className="match-details-btn match-details-btn-primary"
@@ -350,8 +358,8 @@ const MatchDetailsPage = () => {
             </svg>
             {submittingReplay ? '처리 중...' : '리플레이 제출'}
           </button>
-          
-          <button 
+
+          <button
             onClick={callAdmin}
             disabled={callingAdmin}
             className="match-details-btn match-details-btn-warning"
@@ -361,8 +369,8 @@ const MatchDetailsPage = () => {
             </svg>
             {callingAdmin ? '요청 중...' : '관리자 호출'}
           </button>
-          
-          <button 
+
+          <button
             onClick={cancelMatch}
             className="match-details-btn match-details-btn-danger"
           >
@@ -374,10 +382,10 @@ const MatchDetailsPage = () => {
           </button>
         </div>
       </div>
-      
+
       {/* 리플레이 업로드 모달 */}
       {showReplayModal && (
-        <ReplayUploadModal 
+        <ReplayUploadModal
           isOpen={showReplayModal}
           onClose={handleReplayModalClose}
           matchId={matchInfo.matchId || currentMatchId}
@@ -387,4 +395,4 @@ const MatchDetailsPage = () => {
   );
 };
 
-export default MatchDetailsPage; 
+export default MatchDetailsPage;

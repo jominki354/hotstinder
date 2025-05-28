@@ -22,7 +22,7 @@ try {
     fs.writeFileSync(matchmakingDbPath, '', { encoding: 'utf8' });
     logger.info(`NeDBMatchmaking: 빈 데이터베이스 파일 생성됨 - ${matchmakingDbPath}`);
   }
-  
+
   // 읽기/쓰기 권한 확인
   fs.accessSync(matchmakingDbPath, fs.constants.R_OK | fs.constants.W_OK);
 } catch (err) {
@@ -85,7 +85,7 @@ const MatchmakingModel = {
   enqueue: (playerData) => {
     return new Promise((resolve, reject) => {
       // 이미 큐에 있는지 확인
-      db.findOne({ 
+      db.findOne({
         userId: playerData.userId,
         status: 'searching'
       }, (err, existing) => {
@@ -93,12 +93,12 @@ const MatchmakingModel = {
           logger.error('NeDBMatchmaking: 큐 검색 오류', err);
           return reject(err);
         }
-        
+
         if (existing) {
           logger.info(`플레이어가 이미 큐에 있습니다: ${playerData.nickname}`);
           return resolve(existing);
         }
-        
+
         // 새 큐 항목 생성
         const queueItem = {
           userId: playerData.userId,
@@ -114,23 +114,23 @@ const MatchmakingModel = {
           createdAt: new Date(),
           updatedAt: new Date()
         };
-        
+
         db.insert(queueItem, (err, newDoc) => {
           if (err) {
             logger.error('NeDBMatchmaking: 큐 추가 오류', err);
             return reject(err);
           }
-          
+
           // 데이터베이스 변경 후 저장 강제화
           db.persistence.compactDatafile();
-          
+
           logger.info(`플레이어가 큐에 추가됨: ${playerData.nickname}`);
           resolve(newDoc);
         });
       });
     });
   },
-  
+
   // 큐에서 플레이어 제거
   dequeue: (userId) => {
     return new Promise((resolve, reject) => {
@@ -139,11 +139,11 @@ const MatchmakingModel = {
           logger.error('NeDBMatchmaking: 큐 검색 오류', err);
           return reject(err);
         }
-        
+
         if (!doc) {
           return resolve(null);
         }
-        
+
         // 상태 업데이트
         db.update(
           { _id: doc._id },
@@ -154,14 +154,14 @@ const MatchmakingModel = {
               logger.error('NeDBMatchmaking: 큐 상태 업데이트 오류', err);
               return reject(err);
             }
-            
+
             // 업데이트된 문서 반환
             db.findOne({ _id: doc._id }, (err, updatedDoc) => {
               if (err) {
                 logger.error('NeDBMatchmaking: 업데이트된 문서 조회 오류', err);
                 return reject(err);
               }
-              
+
               logger.info(`플레이어가 큐에서 제거됨: ${doc.nickname}`);
               resolve(updatedDoc);
             });
@@ -170,7 +170,7 @@ const MatchmakingModel = {
       });
     });
   },
-  
+
   // 큐에 있는 모든 플레이어 조회
   getQueue: () => {
     return new Promise((resolve, reject) => {
@@ -185,7 +185,7 @@ const MatchmakingModel = {
         });
     });
   },
-  
+
   // 특정 플레이어가 큐에 있는지 확인
   isInQueue: (userId) => {
     return new Promise((resolve, reject) => {
@@ -198,7 +198,7 @@ const MatchmakingModel = {
       });
     });
   },
-  
+
   // 매치가 이루어진 플레이어들 상태 업데이트
   updateMatchedPlayers: (playerIds, matchId) => {
     return new Promise((resolve, reject) => {
@@ -211,14 +211,14 @@ const MatchmakingModel = {
             logger.error('NeDBMatchmaking: 매치 상태 업데이트 오류', err);
             return reject(err);
           }
-          
+
           logger.info(`${numUpdated}명의 플레이어가 매치되었습니다.`);
           resolve(numUpdated);
         }
       );
     });
   },
-  
+
   // 큐 통계 조회
   getQueueStats: () => {
     return new Promise((resolve, reject) => {
@@ -228,14 +228,14 @@ const MatchmakingModel = {
           logger.error('NeDBMatchmaking: 큐 통계 조회 오류', err);
           return reject(err);
         }
-        
+
         // 역할별 통계 - 이 부분은 NeDB에서는 복잡하므로 직접 계산
         db.find({ status: 'searching' }, (err, docs) => {
           if (err) {
             logger.error('NeDBMatchmaking: 큐 통계 조회 오류', err);
             return reject(err);
           }
-          
+
           // 역할별 통계 계산
           const roleCounts = {};
           for (const doc of docs) {
@@ -245,12 +245,12 @@ const MatchmakingModel = {
               }
             }
           }
-          
+
           const byRole = Object.entries(roleCounts).map(([role, count]) => ({
             _id: role,
             count
           })).sort((a, b) => a._id.localeCompare(b._id));
-          
+
           // MMR 구간별 통계
           const mmrRanges = [
             { min: 0, max: 1400, name: '브론즈' },
@@ -260,7 +260,7 @@ const MatchmakingModel = {
             { min: 2000, max: 2200, name: '다이아몬드' },
             { min: 2200, max: 10000, name: '마스터' },
           ];
-          
+
           // MMR 구간별 통계 계산
           const mmrCounts = {};
           for (const doc of docs) {
@@ -272,12 +272,12 @@ const MatchmakingModel = {
               }
             }
           }
-          
+
           const byMmr = mmrRanges.map(range => ({
             tier: range.name,
             count: mmrCounts[range.name] || 0
           }));
-          
+
           resolve({
             totalInQueue,
             byRole,
@@ -288,7 +288,7 @@ const MatchmakingModel = {
       });
     });
   },
-  
+
   // 큐 초기화
   clearQueue: () => {
     return new Promise((resolve, reject) => {
@@ -301,14 +301,14 @@ const MatchmakingModel = {
             logger.error('NeDBMatchmaking: 큐 초기화 오류', err);
             return reject(err);
           }
-          
+
           logger.info(`${numUpdated}명의 플레이어가 큐에서 제거되었습니다.`);
           resolve(numUpdated);
         }
       );
     });
   },
-  
+
   // 더미 플레이어 추가
   addDummyPlayers: (count = 5) => {
     return new Promise((resolve, reject) => {
@@ -316,7 +316,7 @@ const MatchmakingModel = {
       const dummies = [];
       const roles = ['탱커', '투사', '원거리 암살자', '근접 암살자', '지원가', '힐러'];
       const tiers = ['브론즈', '실버', '골드', '플래티넘', '다이아몬드', '마스터'];
-      
+
       for (let i = 0; i < count; i++) {
         const tier = tiers[Math.floor(Math.random() * tiers.length)];
         const mmr = 1000 + Math.floor(Math.random() * 1500); // 랜덤 MMR
@@ -324,7 +324,7 @@ const MatchmakingModel = {
         if (Math.random() > 0.7) {
           preferredRoles.push(roles[Math.floor(Math.random() * roles.length)]);
         }
-        
+
         dummies.push({
           userId: `dummy-${Date.now()}-${i}`,
           bnetId: `dummy-bnet-${Date.now()}-${i}`,
@@ -340,17 +340,17 @@ const MatchmakingModel = {
           updatedAt: new Date()
         });
       }
-      
+
       // 더미 플레이어 일괄 추가
       db.insert(dummies, (err, newDocs) => {
         if (err) {
           logger.error('NeDBMatchmaking: 더미 플레이어 추가 오류', err);
           return reject(err);
         }
-        
+
         // 데이터베이스 변경 후 저장 강제화
         db.persistence.compactDatafile();
-        
+
         logger.info(`${newDocs.length}명의 더미 플레이어가 큐에 추가되었습니다.`);
         resolve(newDocs);
       });
@@ -358,4 +358,4 @@ const MatchmakingModel = {
   }
 };
 
-module.exports = MatchmakingModel; 
+module.exports = MatchmakingModel;

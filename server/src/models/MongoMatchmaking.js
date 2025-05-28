@@ -57,16 +57,16 @@ class MatchmakingModel {
   static async enqueue(playerData) {
     try {
       // 이미 큐에 있는지 확인
-      const existing = await this.model.findOne({ 
+      const existing = await this.model.findOne({
         userId: playerData.userId,
         status: 'searching'
       });
-      
+
       if (existing) {
         logger.info(`플레이어가 이미 큐에 있습니다: ${playerData.nickname}`);
         return existing;
       }
-      
+
       // 새 큐 항목 생성
       const queueItem = new this.model({
         userId: playerData.userId,
@@ -78,7 +78,7 @@ class MatchmakingModel {
         joinedAt: new Date(),
         isDummy: playerData.isDummy || false
       });
-      
+
       await queueItem.save();
       logger.info(`플레이어가 큐에 추가됨: ${playerData.nickname}`);
       return queueItem;
@@ -87,7 +87,7 @@ class MatchmakingModel {
       throw error;
     }
   }
-  
+
   // 큐에서 플레이어 제거
   static async dequeue(userId) {
     try {
@@ -96,18 +96,18 @@ class MatchmakingModel {
         { status: 'canceled' },
         { new: true }
       );
-      
+
       if (result) {
         logger.info(`플레이어가 큐에서 제거됨: ${result.nickname}`);
       }
-      
+
       return result;
     } catch (error) {
       logger.error('큐 제거 중 오류:', error);
       throw error;
     }
   }
-  
+
   // 큐에 있는 모든 플레이어 조회
   static async getQueue() {
     try {
@@ -120,7 +120,7 @@ class MatchmakingModel {
       throw error;
     }
   }
-  
+
   // 특정 플레이어가 큐에 있는지 확인
   static async isInQueue(userId) {
     try {
@@ -128,14 +128,14 @@ class MatchmakingModel {
         userId,
         status: 'searching'
       });
-      
+
       return count > 0;
     } catch (error) {
       logger.error('큐 상태 확인 중 오류:', error);
       throw error;
     }
   }
-  
+
   // 매치가 이루어진 플레이어들 상태 업데이트
   static async updateMatchedPlayers(playerIds, matchId) {
     try {
@@ -143,7 +143,7 @@ class MatchmakingModel {
         { userId: { $in: playerIds }, status: 'searching' },
         { status: 'matched', matchId, matchedAt: new Date() }
       );
-      
+
       logger.info(`${result.modifiedCount}명의 플레이어가 매치되었습니다.`);
       return result.modifiedCount;
     } catch (error) {
@@ -151,7 +151,7 @@ class MatchmakingModel {
       throw error;
     }
   }
-  
+
   // 큐 통계 조회
   static async getQueueStats() {
     try {
@@ -162,7 +162,7 @@ class MatchmakingModel {
         { $group: { _id: '$preferredRoles', count: { $sum: 1 } } },
         { $sort: { _id: 1 } }
       ]);
-      
+
       // MMR 구간별 통계
       const mmrRanges = [
         { min: 0, max: 1400, name: '브론즈' },
@@ -172,20 +172,20 @@ class MatchmakingModel {
         { min: 2000, max: 2200, name: '다이아몬드' },
         { min: 2200, max: 10000, name: '마스터' },
       ];
-      
+
       const byMmr = [];
       for (const range of mmrRanges) {
         const count = await this.model.countDocuments({
           status: 'searching',
           mmr: { $gte: range.min, $lt: range.max }
         });
-        
+
         byMmr.push({
           tier: range.name,
           count
         });
       }
-      
+
       return {
         totalInQueue,
         byRole,
@@ -197,7 +197,7 @@ class MatchmakingModel {
       throw error;
     }
   }
-  
+
   // 큐 초기화 (관리자용)
   static async clearQueue() {
     try {
@@ -205,7 +205,7 @@ class MatchmakingModel {
         { status: 'searching' },
         { status: 'canceled', updatedAt: new Date() }
       );
-      
+
       logger.info(`큐가 초기화되었습니다. ${result.modifiedCount}명의 플레이어가 제거되었습니다.`);
       return result.modifiedCount;
     } catch (error) {
@@ -213,18 +213,18 @@ class MatchmakingModel {
       throw error;
     }
   }
-  
+
   // 더미 플레이어 추가 (테스트용)
   static async addDummyPlayers(count = 5) {
     try {
       const roles = ['탱커', '투사', '원거리 암살자', '근접 암살자', '서포터', '힐러'];
       const dummyPlayers = [];
-      
+
       for (let i = 0; i < count; i++) {
         const mmr = 1400 + Math.floor(Math.random() * 800); // 1400-2200 사이의 MMR
         const roleIndex = Math.floor(Math.random() * roles.length);
         const dummyId = `dummy-queue-${Date.now()}-${i}`;
-        
+
         dummyPlayers.push({
           userId: dummyId,
           bnetId: dummyId,
@@ -235,13 +235,13 @@ class MatchmakingModel {
           isDummy: true
         });
       }
-      
+
       const results = [];
       for (const dummy of dummyPlayers) {
         const result = await this.enqueue(dummy);
         results.push(result);
       }
-      
+
       logger.info(`${results.length}명의 더미 플레이어가 큐에 추가되었습니다.`);
       return results;
     } catch (error) {
@@ -256,4 +256,4 @@ matchmakingSchema.loadClass(MatchmakingModel);
 const Matchmaking = mongoose.model('Matchmaking', matchmakingSchema);
 MatchmakingModel.model = Matchmaking;
 
-module.exports = MatchmakingModel; 
+module.exports = MatchmakingModel;

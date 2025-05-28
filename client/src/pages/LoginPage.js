@@ -3,21 +3,14 @@ import React from 'react';
 const LoginPage = () => {
   // API 기본 URL (환경 변수 또는 기본값)
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-  
+
   const handleBattleNetLogin = (e) => {
     e.preventDefault();
-    
+
     // 새 창이나 현재 창에서 직접 URL 열기
     window.location.href = `${API_URL}/api/auth/bnet`;
   };
 
-  const handleDevLogin = (e) => {
-    e.preventDefault();
-    
-    // 개발자 모드 로그인 URL 직접 열기
-    window.location.href = `${API_URL}/api/auth/dev-login`;
-  };
-  
   return (
     <div className="max-w-4xl mx-auto py-6 sm:py-12 px-4 bg-slate-900 min-h-screen">
       <div className="text-center mb-8 sm:mb-12">
@@ -57,36 +50,24 @@ const LoginPage = () => {
               </li>
             </ul>
 
-            <button 
+            <button
               type="button"
               onClick={handleBattleNetLogin}
-              className="battlenet-button w-full mb-4"
+              className="battlenet-button w-full"
             >
               <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2C6.477 2 2 6.477 2 12C2 17.523 6.477 22 12 22C17.523 22 22 17.523 22 12C22 6.477 17.523 2 12 2ZM16.382 17.5C16.382 17.5 15.164 16.588 14.184 16C14.184 16 14.977 15.043 15.249 14.577C15.522 14.112 14.539 14.332 14.198 14.332C13.857 14.332 12.496 14.332 12.097 14.332C11.698 14.332 10.906 14.332 9.994 14.332C9.083 14.332 8.29 14.332 8.29 14.332C8.29 14.332 7.38 14.332 6.584 14.681C5.788 15.03 5.536 16.152 5.536 16.152C5.536 16.152 5.941 17 6.667 17.444C7.394 17.888 8.364 17.888 8.364 17.888H15.522C15.522 17.888 16.382 17.5 16.382 17.5ZM12.318 13.455C12.318 13.455 13.595 12.542 14.198 12.172C14.801 11.802 15.132 11.506 15.132 11.506C15.132 11.506 15.368 11.321 15.566 10.966C15.764 10.612 15.764 10.185 15.566 9.83C15.368 9.475 15.015 9.069 14.663 8.714C14.311 8.36 13.893 8.147 13.52 7.934C13.148 7.721 11.809 7.314 11.809 7.314C11.809 7.314 11.033 7.277 10.38 7.721C9.728 8.165 9.469 8.714 9.247 9.252C9.025 9.79 9.025 10.363 9.173 10.781C9.321 11.199 9.766 11.728 9.766 11.728C9.766 11.728 10.084 12.061 10.755 12.505C11.427 12.949 12.318 13.455 12.318 13.455Z" />
               </svg>
               배틀넷으로 로그인
             </button>
-            
-            {/* 개발 모드 로그인 버튼 */}
-            <button 
-              type="button"
-              onClick={handleDevLogin}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center transition-colors duration-200"
-            >
-              <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
-              개발자 모드 로그인 (테스트용)
-            </button>
           </div>
         </div>
 
         <div className="hidden md:block">
           <div className="relative">
-            <img 
-              src="https://blz-contentstack-images.akamaized.net/v3/assets/blt3e332b432769ff34/blt466dc9d442dfc64d/5e78e5a0b13e9663187c1857/heroes-of-the-storm.jpg" 
-              alt="Heroes of the Storm" 
+            <img
+              src="https://blz-contentstack-images.akamaized.net/v3/assets/blt3e332b432769ff34/blt466dc9d442dfc64d/5e78e5a0b13e9663187c1857/heroes-of-the-storm.jpg"
+              alt="Heroes of the Storm"
               className="rounded-lg shadow-xl w-full h-auto border border-indigo-900/30"
             />
             <div className="absolute bottom-0 left-0 p-6 bg-slate-900/70 rounded-bl-lg rounded-br-lg w-full">
@@ -142,4 +123,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage; 
+export default LoginPage;

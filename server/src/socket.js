@@ -5,7 +5,7 @@ const User = require('./models/user.model');
 // 소켓 인증 미들웨어
 const authenticateSocket = async (socket, next) => {
   const token = socket.handshake.auth.token;
-  
+
   if (!token) {
     return next(new Error('인증 토큰이 없습니다'));
   }
@@ -13,11 +13,11 @@ const authenticateSocket = async (socket, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id);
-    
+
     if (!user) {
       return next(new Error('사용자를 찾을 수 없습니다'));
     }
-    
+
     socket.user = user;
     next();
   } catch (error) {
@@ -35,10 +35,10 @@ const setupSocketIO = (httpServer) => {
           process.env.FRONTEND_URL || 'http://localhost:3000',
           'http://localhost:3000'
         ];
-        
+
         // origin이 없는 경우 허용
         if (!origin) return callback(null, true);
-        
+
         // 허용된 도메인인지 확인
         const isAllowed = allowedOrigins.some(allowedOrigin => {
           if (typeof allowedOrigin === 'string') {
@@ -48,7 +48,7 @@ const setupSocketIO = (httpServer) => {
           }
           return false;
         });
-        
+
         if (isAllowed) {
           callback(null, true);
         } else {
@@ -81,8 +81,8 @@ const setupSocketIO = (httpServer) => {
     socket.on('match:join', (matchId) => {
       // 매치 참가 로직
       socket.join(`match:${matchId}`);
-      io.to(`match:${matchId}`).emit('match:playerJoined', { 
-        matchId, 
+      io.to(`match:${matchId}`).emit('match:playerJoined', {
+        matchId,
         player: {
           id: socket.user._id,
           battleTag: socket.user.battleTag
@@ -111,4 +111,4 @@ const setupSocketIO = (httpServer) => {
   return io;
 };
 
-module.exports = { setupSocketIO }; 
+module.exports = { setupSocketIO };

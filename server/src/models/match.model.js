@@ -141,4 +141,4 @@ try {
   Match = mongoose.model('Match', matchSchema);
 }
 
-module.exports = Match; 
+module.exports = Match;

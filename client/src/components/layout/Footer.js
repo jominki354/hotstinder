@@ -43,14 +43,14 @@ const Footer = () => {
               <span className="text-white font-semibold text-lg ml-2">Tinder</span>
             </Link>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <p className="text-slate-400 text-sm">
               © {currentYear} HOTSTinder
             </p>
-            
+
             <div className="relative" ref={dropdownRef}>
-              <button 
+              <button
                 onClick={toggleAdminDropdown}
                 className="text-slate-400 text-sm hover:text-indigo-400 transition-colors flex items-center"
               >
@@ -59,27 +59,27 @@ const Footer = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              
+
               {adminDropdownOpen && (
                 <div className="absolute right-0 bottom-6 w-32 bg-slate-900 border border-slate-700 rounded shadow-lg py-1 z-10 animate-fadeIn">
                   {isAuthenticated ? (
-                    <button 
+                    <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-xs text-slate-400 hover:bg-slate-800 hover:text-white"
                     >
                       로그아웃
                     </button>
                   ) : (
-                    <Link 
-                      to="/admin-login" 
+                    <Link
+                      to="/admin-login"
                       className="block px-4 py-2 text-xs text-slate-400 hover:bg-slate-800 hover:text-white"
                     >
                       로그인
                     </Link>
                   )}
                   {isAuthenticated && user?.isAdmin && (
-                    <Link 
-                      to="/admin" 
+                    <Link
+                      to="/admin"
                       className="block px-4 py-2 text-xs text-green-500 hover:bg-slate-800 hover:text-green-400"
                     >
                       관리
@@ -95,4 +95,4 @@ const Footer = () => {
   );
 };
 
-export default Footer; 
+export default Footer;

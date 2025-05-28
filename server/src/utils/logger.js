@@ -52,7 +52,7 @@ const appendToLogFile = (filePath, message) => {
  */
 const logToConsole = (level, message, data) => {
   const timestamp = getTimestamp();
-  
+
   switch (level) {
     case 'ERROR':
       console.error(`[${timestamp}] [${level}] ${message}`, data || '');
@@ -80,7 +80,7 @@ const logger = {
     appendToLogFile(DEBUG_LOG, logMessage);
     logToConsole('INFO', message, data);
   },
-  
+
   /**
    * 경고 로깅
    * @param {string} message - 로그 메시지
@@ -91,23 +91,23 @@ const logger = {
     appendToLogFile(DEBUG_LOG, logMessage);
     logToConsole('WARN', message, data);
   },
-  
+
   /**
    * 오류 로깅
    * @param {string} message - 로그 메시지
    * @param {*} error - 오류 객체 또는 메시지
    */
   error(message, error) {
-    const errorDetails = error instanceof Error 
-      ? { message: error.message, stack: error.stack } 
+    const errorDetails = error instanceof Error
+      ? { message: error.message, stack: error.stack }
       : error;
-    
+
     const logMessage = formatLogMessage('ERROR', message, errorDetails);
     appendToLogFile(ERROR_LOG, logMessage);
     appendToLogFile(DEBUG_LOG, logMessage);
     logToConsole('ERROR', message, errorDetails);
   },
-  
+
   /**
    * 디버그 로깅
    * @param {string} message - 로그 메시지
@@ -120,7 +120,7 @@ const logger = {
       logToConsole('DEBUG', message, data);
     }
   },
-  
+
   /**
    * HTTP 요청 로깅
    * @param {Express.Request} req - Express 요청 객체
@@ -132,9 +132,9 @@ const logger = {
       ip: req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress,
       userAgent: req.get('User-Agent'),
     });
-    
+
     appendToLogFile(ACCESS_LOG, accessLog);
-    
+
     if (process.env.NODE_ENV !== 'production') {
       console.log(`\n--- 새 요청 ---`);
       console.log(`요청 URL: ${req.method} ${req.url}`);
@@ -144,4 +144,4 @@ const logger = {
   }
 };
 
-module.exports = logger; 
+module.exports = logger;

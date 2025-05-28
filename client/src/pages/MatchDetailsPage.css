@@ -451,6 +451,13 @@
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
+.match-details-player-hero {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 2px;
+}
+
 /* VS 구분선 */
 .match-details-vs {
   display: flex;

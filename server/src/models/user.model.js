@@ -17,7 +17,7 @@ const userSchema = new Schema({
   nickname: {
     type: String,
     required: false,
-    default: function() {
+    default: function () {
       // 배틀태그에서 닉네임 추출 (# 이전 부분)
       return this.battletag ? this.battletag.split('#')[0] : '';
     }
@@ -83,17 +83,17 @@ const userSchema = new Schema({
 });
 
 // 스태틱 메서드: 사용자 생성
-userSchema.statics.create = async function(userData) {
+userSchema.statics.create = async function (userData) {
   try {
     // 닉네임이 없으면 배틀태그에서 추출
     if (!userData.nickname && userData.battletag) {
       userData.nickname = userData.battletag.split('#')[0];
     }
-    
+
     // 타임스탬프 추가
     userData.createdAt = new Date();
     userData.lastLoginAt = new Date();
-    
+
     // 새 사용자 생성 및 저장
     const newUser = new this(userData);
     return await newUser.save();
@@ -104,14 +104,14 @@ userSchema.statics.create = async function(userData) {
 };
 
 // JWT 토큰 생성
-userSchema.methods.generateAuthToken = function() {
+userSchema.methods.generateAuthToken = function () {
   const payload = {
     id: this._id,
     bnetId: this.bnetId,
     battletag: this.battletag,
     isAdmin: this.isAdmin
   };
-  
+
   return jwt.sign(
     payload,
     process.env.JWT_SECRET || 'dev_jwt_secret',
@@ -120,7 +120,7 @@ userSchema.methods.generateAuthToken = function() {
 };
 
 // 승률 계산
-userSchema.methods.getWinRate = function() {
+userSchema.methods.getWinRate = function () {
   const total = this.wins + this.losses;
   if (total === 0) return 0;
   return Math.round((this.wins / total) * 100 * 10) / 10; // 소수점 한 자리까지
@@ -134,4 +134,4 @@ try {
   User = mongoose.model('User', userSchema);
 }
 
-module.exports = User; 
+module.exports = User;
