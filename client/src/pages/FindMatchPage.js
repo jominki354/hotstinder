@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link , useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import './FindMatchPage.css'; // CSS 파일 import 추가
+import ReplayUploadModal from '../components/common/ReplayUploadModal'; // 리플레이 업로드 모달 추가
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import QueueStatus from '../components/queue/QueueStatus';
-import ReplayUploadModal from '../components/common/ReplayUploadModal'; // 리플레이 업로드 모달 추가
 
 // QueueStatus 컴포넌트의 전역 queueTimeState를 가져오기 위한 함수
 const getGlobalQueueTimeState = () => {

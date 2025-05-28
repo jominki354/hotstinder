@@ -211,8 +211,7 @@ const QueueStatus = () => {
     isAuthenticated,
     matchInProgress,
     currentMatchId,
-    setMatchProgress,
-    clearMatchInfo
+    setMatchProgress
   } = useAuthStore();
   
   const navigate = useNavigate();
@@ -412,7 +411,6 @@ const QueueStatus = () => {
   useEffect(() => {
     // 상태 변경을 감지하기 위한 플래그
     const { inQueue: prevInQueue, matchInProgress: prevMatchInProgress } = prevQueueStateRef.current;
-    const stateChanged = prevInQueue !== inQueue || prevMatchInProgress !== matchInProgress;
     
     // 로그인 상태가 아니거나 특정 페이지에 있으면 팝업 숨김
     if (!isAuthenticated || location.pathname === '/matchmaking' || location.pathname === '/match-details') {

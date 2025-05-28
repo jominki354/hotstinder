@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React from 'react';
 
 const LoginPage = () => {
   // API 기본 URL (환경 변수 또는 기본값)
