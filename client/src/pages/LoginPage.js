@@ -3,15 +3,25 @@ import React from 'react';
 const LoginPage = () => {
   // API 기본 URL (환경에 따라 동적 설정)
   const getApiUrl = () => {
+    // 디버깅용 로그
+    console.log('=== 환경변수 디버깅 ===');
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+
     // 프로덕션 환경 (Vercel 배포)
     if (process.env.NODE_ENV === 'production') {
-      return process.env.REACT_APP_API_URL || 'https://hotstinder.vercel.app';
+      const url = process.env.REACT_APP_API_URL || 'https://hotstinder.vercel.app';
+      console.log('프로덕션 환경 - 사용할 URL:', url);
+      return url;
     }
     // 개발 환경
-    return process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    const url = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    console.log('개발 환경 - 사용할 URL:', url);
+    return url;
   };
 
   const API_URL = getApiUrl();
+  console.log('최종 API_URL:', API_URL);
 
   const handleBattleNetLogin = (e) => {
     e.preventDefault();
