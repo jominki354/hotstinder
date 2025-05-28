@@ -7,6 +7,7 @@
 - ✅ **인증**: Passport.js + JWT
 - ✅ **빌드 설정**: 완료
 - ✅ **API 라우팅**: 완료
+- ✅ **Vercel 설정**: Functions-only 방식으로 최적화
 
 ## 🔧 배포 단계
 
@@ -59,9 +60,44 @@ hotstinder/
 │   └── package.json      # 클라이언트 의존성
 ├── server/
 │   └── src/              # Express 서버 코드
-├── vercel.json           # Vercel 설정
-└── package.json          # 루트 의존성
+├── vercel.json           # Vercel 설정 (Functions-only)
+└── package.json          # 루트 의존성 + 빌드 스크립트
 ```
+
+## 🔄 Vercel 설정 최적화
+
+### Functions-Only 방식 사용
+Vercel 문서에 따라 `builds`와 `functions`의 충돌을 피하기 위해 **Functions-only** 방식을 사용합니다:
+
+```json
+{
+  "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "client/build",
+  "functions": {
+    "api/index.js": {
+      "runtime": "nodejs18.x",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/client/build/index.html"
+    }
+  ]
+}
+```
+
+### 주요 개선사항
+- ✅ **충돌 해결**: `builds` 제거하고 `functions`만 사용
+- ✅ **안정성**: Node.js 18.x 런타임 명시
+- ✅ **성능**: `rewrites` 사용으로 더 나은 라우팅
+- ✅ **호환성**: Vercel 권장사항 완전 준수
 
 ## 🔄 API 라우팅
 
@@ -99,6 +135,10 @@ hotstinder/
 2. **재배포**: 캐시 없이 완전 재배포 실행
 3. **로그 확인**: Vercel 대시보드에서 Function Logs 확인
 
+### "Conflicting functions and builds configuration" 오류
+- ✅ **해결됨**: `builds` 제거하고 `functions`만 사용
+- ✅ **Vercel 권장사항**: Functions 방식이 더 많은 기능 지원
+
 ### API 호출 실패
 1. **CORS 설정**: `FRONTEND_URL` 환경 변수 확인
 2. **MongoDB 연결**: `MONGODB_URI` 비밀번호 확인
@@ -126,4 +166,10 @@ hotstinder/
 - ✅ 매치메이킹 시스템
 - ✅ 리더보드
 - ✅ 관리자 패널
-- ✅ 리플레이 분석 
+- ✅ 리플레이 분석
+
+**최적화된 Vercel 설정:**
+- ✅ Functions-only 방식으로 충돌 방지
+- ✅ Node.js 18.x 안정성 확보
+- ✅ 효율적인 라우팅 구조
+- ✅ Vercel 권장사항 완전 준수 
