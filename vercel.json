@@ -18,11 +18,26 @@
     "api/auth/admin-login.js": {
       "maxDuration": 30
     },
-    "api/admin.js": {
-      "maxDuration": 60
-    },
     "api/admin/dashboard.js": {
       "maxDuration": 30
+    },
+    "api/admin/users.js": {
+      "maxDuration": 30
+    },
+    "api/admin/matches.js": {
+      "maxDuration": 30
+    },
+    "api/admin/delete-all-users.js": {
+      "maxDuration": 30
+    },
+    "api/admin/delete-all-matches.js": {
+      "maxDuration": 30
+    },
+    "api/admin/create-test-accounts.js": {
+      "maxDuration": 60
+    },
+    "api/admin/create-test-matches.js": {
+      "maxDuration": 60
     },
     "api/debug/env.js": {
       "maxDuration": 30
@@ -33,31 +48,59 @@
   },
   "rewrites": [
     {
+      "source": "/api/auth/bnet/callback",
+      "destination": "/api/auth/bnet/callback.js"
+    },
+    {
+      "source": "/api/auth/bnet",
+      "destination": "/api/auth/bnet.js"
+    },
+    {
+      "source": "/api/auth/me",
+      "destination": "/api/auth/me.js"
+    },
+    {
+      "source": "/api/auth/admin-login",
+      "destination": "/api/auth/admin-login.js"
+    },
+    {
+      "source": "/api/admin/dashboard",
+      "destination": "/api/admin/dashboard.js"
+    },
+    {
       "source": "/api/admin/users",
-      "destination": "/api/admin"
+      "destination": "/api/admin/users.js"
     },
     {
       "source": "/api/admin/matches",
-      "destination": "/api/admin"
+      "destination": "/api/admin/matches.js"
     },
     {
       "source": "/api/admin/delete-all-users",
-      "destination": "/api/admin"
+      "destination": "/api/admin/delete-all-users.js"
     },
     {
       "source": "/api/admin/delete-all-matches",
-      "destination": "/api/admin"
+      "destination": "/api/admin/delete-all-matches.js"
     },
     {
       "source": "/api/admin/create-test-accounts",
-      "destination": "/api/admin"
+      "destination": "/api/admin/create-test-accounts.js"
     },
     {
       "source": "/api/admin/create-test-matches",
-      "destination": "/api/admin"
+      "destination": "/api/admin/create-test-matches.js"
     },
     {
-      "source": "/((?!api).*)",
+      "source": "/api/debug/env",
+      "destination": "/api/debug/env.js"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
