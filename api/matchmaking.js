@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// MongoDB 연결 함수 (최적화된 설정)
+// MongoDB 연결 함수 (더 관대한 타임아웃 설정)
 const connectMongoDB = async () => {
   if (mongoose.connections[0].readyState) {
     return;
@@ -10,15 +10,18 @@ const connectMongoDB = async () => {
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000, // 10초 타임아웃
-      socketTimeoutMS: 45000, // 45초 소켓 타임아웃
-      maxPoolSize: 10, // 연결 풀 크기
-      minPoolSize: 2, // 최소 연결 수
-      maxIdleTimeMS: 30000, // 30초 후 유휴 연결 해제
+      serverSelectionTimeoutMS: 30000, // 30초로 증가
+      socketTimeoutMS: 60000, // 60초로 증가
+      connectTimeoutMS: 30000, // 연결 타임아웃 30초
+      maxPoolSize: 5, // 연결 풀 크기 줄임
+      minPoolSize: 1, // 최소 연결 수 줄임
+      maxIdleTimeMS: 60000, // 60초 후 유휴 연결 해제
       bufferCommands: false, // 연결 대기 중 명령 버퍼링 비활성화
-      bufferMaxEntries: 0 // 버퍼 크기 제한
+      bufferMaxEntries: 0, // 버퍼 크기 제한
+      retryWrites: true, // 재시도 활성화
+      retryReads: true // 읽기 재시도 활성화
     });
-    console.log('MongoDB 연결 성공 (최적화됨)');
+    console.log('MongoDB 연결 성공 (관대한 타임아웃)');
   } catch (error) {
     console.error('MongoDB 연결 실패:', error);
     throw error;
@@ -237,6 +240,17 @@ const translateHeroName = (heroName) => {
 };
 
 module.exports = async function handler(req, res) {
+  // 요청 타임아웃 설정 (Vercel Functions 최대 시간)
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      console.error('API 타임아웃 발생');
+      res.status(504).json({
+        error: '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
+        timeout: true
+      });
+    }
+  }, 25000); // 25초 타임아웃
+
   try {
     console.log('Vercel /api/matchmaking 요청 처리:', req.method, req.url);
 
@@ -248,11 +262,19 @@ module.exports = async function handler(req, res) {
 
     // OPTIONS 요청 처리
     if (req.method === 'OPTIONS') {
+      clearTimeout(timeoutId);
       return res.status(200).end();
     }
 
-    // MongoDB 연결
-    await connectMongoDB();
+    // MongoDB 연결 (타임아웃 포함)
+    console.log('MongoDB 연결 시도 중...');
+    await Promise.race([
+      connectMongoDB(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('MongoDB 연결 타임아웃')), 15000)
+      )
+    ]);
+    console.log('MongoDB 연결 완료');
 
     const { pathname } = new URL(req.url, `http://${req.headers.host}`);
     const pathParts = pathname.split('/').filter(Boolean);
