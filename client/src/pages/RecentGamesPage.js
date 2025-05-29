@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { fetchRecentGames } from '../utils/api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { translateHeroName, translateMapName } from '../utils/heroTranslations';
 
@@ -39,14 +39,17 @@ const RecentGamesPage = () => {
     return mapIcons[translatedMapName] || '🗺️'; // 매핑이 없으면 기본 지도 아이콘 사용
   };
 
-  const fetchRecentGames = useCallback(async (page = 1) => {
+  const fetchRecentGamesData = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setRefreshing(true);
 
       // 캐싱 방지 및 페이지 정보 추가
-      const timestamp = new Date().getTime();
-      const response = await axios.get(`/api/matchmaking/recent-games?limit=${GAMES_PER_PAGE}&page=${page}&t=${timestamp}`);
+      const response = await fetchRecentGames({
+        limit: GAMES_PER_PAGE,
+        page: page,
+        t: Date.now()
+      });
 
       // 정상적인 응답인지 확인
       if (response && response.data) {
@@ -93,6 +96,7 @@ const RecentGamesPage = () => {
     } catch (err) {
       console.error('최근 게임 데이터 가져오기 오류:', err);
       setError('최근 게임 데이터를 불러오는데 실패했습니다.');
+      setRecentGames([]); // 오류 시 빈 배열로 설정
     } finally {
       setLoading(false);
       setTimeout(() => setRefreshing(false), 500); // 애니메이션 효과를 위한 지연
@@ -101,8 +105,8 @@ const RecentGamesPage = () => {
 
   // 페이지 변경 시 데이터 다시 로드
   useEffect(() => {
-    fetchRecentGames(currentPage);
-  }, [currentPage, fetchRecentGames]);
+    fetchRecentGamesData(currentPage);
+  }, [currentPage, fetchRecentGamesData]);
 
   // 페이지 이동 함수
   const goToPage = (page) => {
@@ -135,7 +139,7 @@ const RecentGamesPage = () => {
           <p className="text-red-400 mb-4">{error}</p>
           <p className="text-gray-400 mb-4">잠시 후 다시 시도해주세요.</p>
           <button
-            onClick={() => fetchRecentGames(currentPage)}
+            onClick={() => fetchRecentGamesData(currentPage)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
           >
             다시 시도
@@ -168,7 +172,7 @@ const RecentGamesPage = () => {
           </div>
           <div className="flex items-center">
             <button
-              onClick={() => fetchRecentGames(currentPage)}
+              onClick={() => fetchRecentGamesData(currentPage)}
               disabled={refreshing}
               className={`flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
               aria-label="새로고침"

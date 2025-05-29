@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { fetchLeaderboard, fetchAllUsers } from '../utils/api';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -32,8 +32,11 @@ const LeaderboardPage = () => {
 
         // API 요청 시도 - 캐싱 방지를 위한 타임스탬프 추가
         console.log('리더보드 데이터 요청 중...');
-        const timestamp = new Date().getTime();
-        const res = await axios.get(`/api/users/leaderboard?minGames=1&limit=${MAX_DISPLAY_RANK}&t=${timestamp}`);
+        const res = await fetchLeaderboard({
+          minGames: 1,
+          limit: MAX_DISPLAY_RANK,
+          t: Date.now()
+        });
 
         // 응답이 유효한 배열인지 확인
         if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
@@ -94,8 +97,10 @@ const LeaderboardPage = () => {
       try {
         console.log('전체 유저 목록 불러오는 중...');
         // API 요청 - 캐싱 방지를 위한 타임스탬프 추가
-        const timestamp = new Date().getTime();
-        const res = await axios.get(`/api/users/all?limit=${MAX_DISPLAY_RANK}&t=${timestamp}`);
+        const res = await fetchAllUsers({
+          limit: MAX_DISPLAY_RANK,
+          t: Date.now()
+        });
 
         if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
           console.log(`전체 유저 데이터 로드 성공: ${res.data.length}명의 플레이어`);
@@ -330,7 +335,7 @@ const LeaderboardPage = () => {
                 return (
                   <tr
                     key={player.id || index}
-                    className={`hover:bg-slate-700 transition-colors 
+                    className={`hover:bg-slate-700 transition-colors
                       ${index === 0 ? 'bg-slate-700 bg-opacity-50' : ''}
                       ${index < 3 ? 'border-l-4 border-yellow-500' : ''}`}
                   >

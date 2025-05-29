@@ -142,4 +142,87 @@ export const fetchAllUsers = async (params = {}) => {
   return apiWithRetry(config, 2);
 };
 
+// 관리자 API 호출 함수들
+export const fetchAdminUsers = async (params = {}, token) => {
+  const config = {
+    method: 'GET',
+    url: '/api/admin/users',
+    params: {
+      page: 1,
+      limit: 10,
+      t: Date.now(), // 캐시 방지
+      ...params
+    },
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    timeout: 45000 // 45초 타임아웃
+  };
+
+  return apiWithRetry(config, 3);
+};
+
+export const fetchAdminMatches = async (params = {}, token) => {
+  const config = {
+    method: 'GET',
+    url: '/api/admin/matches',
+    params: {
+      page: 1,
+      limit: 10,
+      t: Date.now(), // 캐시 방지
+      ...params
+    },
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    timeout: 45000 // 45초 타임아웃
+  };
+
+  return apiWithRetry(config, 3);
+};
+
+export const fetchAdminDashboard = async (token) => {
+  const config = {
+    method: 'GET',
+    url: '/api/admin/dashboard',
+    params: {
+      t: Date.now() // 캐시 방지
+    },
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    timeout: 45000 // 45초 타임아웃
+  };
+
+  return apiWithRetry(config, 3);
+};
+
+// 관리자 사용자 삭제
+export const deleteAdminUser = async (userId, token) => {
+  const config = {
+    method: 'DELETE',
+    url: `/api/admin/users/${userId}`,
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    timeout: 30000
+  };
+
+  return apiWithRetry(config, 2);
+};
+
+// 관리자 매치 삭제
+export const deleteAdminMatch = async (matchId, token) => {
+  const config = {
+    method: 'DELETE',
+    url: `/api/admin/matches/${matchId}`,
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    timeout: 30000
+  };
+
+  return apiWithRetry(config, 2);
+};
+
 export default api;

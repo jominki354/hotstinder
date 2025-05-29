@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { translateHeroName, translateMapName } from '../utils/heroTranslations';
+import { fetchAdminDashboard } from '../utils/api';
 
 const AdminPage = () => {
   const { isAuthenticated, user, token } = useAuthStore();
@@ -30,28 +31,31 @@ const AdminPage = () => {
   const [analysisLogs, setAnalysisLogs] = useState([]);
 
   useEffect(() => {
-    // 관리자 확인
     if (!isAuthenticated || !user.isAdmin) {
       setError('관리자 권한이 필요합니다');
       setLoading(false);
       return;
     }
 
-    // 대시보드 통계 가져오기
-    const fetchDashboardStats = async () => {
-      try {
-        const response = await axios.get('/api/admin/dashboard');
-        setStats(response.data);
-        setLoading(false);
-      } catch (err) {
-        console.error('통계 데이터 가져오기 오류:', err);
-        setError('통계 데이터를 가져오는데 실패했습니다.');
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardStats();
+    fetchDashboardData();
   }, [isAuthenticated, user]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+
+      const response = await fetchAdminDashboard(token);
+      setStats(response.data);
+      setError('');
+    } catch (err) {
+      console.error('대시보드 데이터 가져오기 오류:', err);
+      setError('대시보드 데이터를 가져오는데 실패했습니다.');
+      toast.error('대시보드 데이터를 가져오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 테스트 계정 생성 함수
   const createTestAccounts = async () => {

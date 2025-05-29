@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import axios from 'axios';
+import { fetchLeaderboard } from '../utils/api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const HomePage = () => {
@@ -13,10 +13,11 @@ const HomePage = () => {
     const fetchTopPlayers = async () => {
       try {
         setLeaderboardLoading(true);
-        const response = await axios.get('/api/users/leaderboard?limit=5');
+        const response = await fetchLeaderboard({ limit: 5 });
         setTopPlayers(response.data);
       } catch (err) {
         console.error('상위 플레이어 데이터 가져오기 오류:', err);
+        setTopPlayers([]); // 오류 시 빈 배열로 설정
       } finally {
         setLeaderboardLoading(false);
       }
