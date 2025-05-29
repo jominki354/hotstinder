@@ -38,6 +38,8 @@ const userSchema = new mongoose.Schema({
   losses: { type: Number, default: 0 },
   preferredRoles: [String],
   favoriteHeroes: [String],
+  isAdmin: { type: Boolean, default: false },
+  isSuperAdmin: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   lastLoginAt: { type: Date, default: Date.now }
 });
@@ -120,6 +122,8 @@ module.exports = async function handler(req, res) {
       losses: user.losses,
       preferredRoles: user.preferredRoles,
       favoriteHeroes: user.favoriteHeroes,
+      isAdmin: user.isAdmin || false,
+      isSuperAdmin: user.isSuperAdmin || false,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt
     };

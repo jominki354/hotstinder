@@ -15,6 +15,9 @@
     "api/auth/me.js": {
       "maxDuration": 30
     },
+    "api/auth/admin-login.js": {
+      "maxDuration": 30
+    },
     "api/debug/env.js": {
       "maxDuration": 30
     }
@@ -31,6 +34,10 @@
     {
       "source": "/api/auth/me",
       "destination": "/api/auth/me.js"
+    },
+    {
+      "source": "/api/auth/admin-login",
+      "destination": "/api/auth/admin-login.js"
     },
     {
       "source": "/api/debug/env",
