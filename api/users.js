@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 
-// MongoDB 연결 함수
+// MongoDB 연결 함수 (최적화된 설정)
 const connectMongoDB = async () => {
   if (mongoose.connections[0].readyState) {
     return;
@@ -11,8 +11,15 @@ const connectMongoDB = async () => {
     await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 10000, // 10초 타임아웃
+      socketTimeoutMS: 45000, // 45초 소켓 타임아웃
+      maxPoolSize: 10, // 연결 풀 크기
+      minPoolSize: 2, // 최소 연결 수
+      maxIdleTimeMS: 30000, // 30초 후 유휴 연결 해제
+      bufferCommands: false, // 연결 대기 중 명령 버퍼링 비활성화
+      bufferMaxEntries: 0 // 버퍼 크기 제한
     });
-    console.log('MongoDB 연결 성공');
+    console.log('MongoDB 연결 성공 (최적화됨)');
   } catch (error) {
     console.error('MongoDB 연결 실패:', error);
     throw error;
