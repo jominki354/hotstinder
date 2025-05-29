@@ -60,10 +60,11 @@ module.exports = async function handler(req, res) {
       return res.status(200).end();
     }
 
-    const { pathname } = new URL(req.url, `http://${req.headers.host}`);
+    const { pathname, searchParams } = new URL(req.url, `http://${req.headers.host}`);
+    const action = searchParams.get('action');
 
     // POST /api/test?action=create-sample-data
-    if (req.method === 'POST' && req.query.action === 'create-sample-data') {
+    if (req.method === 'POST' && action === 'create-sample-data') {
       await connectMongoDB();
 
       // 기존 사용자 수 확인
