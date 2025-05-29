@@ -18,6 +18,15 @@
     "api/auth/admin-login.js": {
       "maxDuration": 30
     },
+    "api/admin/dashboard.js": {
+      "maxDuration": 30
+    },
+    "api/admin/create-test-accounts.js": {
+      "maxDuration": 60
+    },
+    "api/admin/create-test-matches.js": {
+      "maxDuration": 60
+    },
     "api/debug/env.js": {
       "maxDuration": 30
     }
@@ -38,6 +47,18 @@
     {
       "source": "/api/auth/admin-login",
       "destination": "/api/auth/admin-login.js"
+    },
+    {
+      "source": "/api/admin/dashboard",
+      "destination": "/api/admin/dashboard.js"
+    },
+    {
+      "source": "/api/admin/create-test-accounts",
+      "destination": "/api/admin/create-test-accounts.js"
+    },
+    {
+      "source": "/api/admin/create-test-matches",
+      "destination": "/api/admin/create-test-matches.js"
     },
     {
       "source": "/api/debug/env",
