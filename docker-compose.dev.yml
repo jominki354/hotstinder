@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 서비스 (개발용)
+  postgres:
+    image: postgres:15-alpine
+    container_name: hotstinder-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hotstinder
+      POSTGRES_USER: hotstinder_user
+      POSTGRES_PASSWORD: hotstinder_password
+      POSTGRES_ROOT_PASSWORD: postgres_root_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - hotstinder-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hotstinder_user -d hotstinder"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # 서버 서비스 (개발용 - 핫 리로드)
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: hotstinder-server-dev
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - USE_POSTGRESQL=true
+      - DATABASE_URL=postgresql://hotstinder_user:hotstinder_password@postgres:5432/hotstinder
+      - BNET_CLIENT_ID=${BNET_CLIENT_ID}
+      - BNET_CLIENT_SECRET=${BNET_CLIENT_SECRET}
+      - BNET_CALLBACK_URL=${BNET_CALLBACK_URL:-http://localhost:5000/api/auth/bnet/callback}
+      - BNET_REGION=${BNET_REGION:-kr}
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret}
+      - SESSION_SECRET=${SESSION_SECRET:-dev-session-secret}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@hotstinder.com}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-50MB}
+      - UPLOAD_PATH=${UPLOAD_PATH:-./uploads}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./server/src:/app/src:ro
+      - ./server/package.json:/app/package.json:ro
+      - server_dev_uploads:/app/uploads
+      - server_dev_logs:/app/logs
+      - server_dev_data:/app/data
+    networks:
+      - hotstinder-dev-network
+
+  # 클라이언트 서비스 (개발용 - 핫 리로드)
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    container_name: hotstinder-client-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./client/src:/app/src:ro
+      - ./client/public:/app/public:ro
+      - ./client/package.json:/app/package.json:ro
+    networks:
+      - hotstinder-dev-network
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  server_dev_uploads:
+    driver: local
+  server_dev_logs:
+    driver: local
+  server_dev_data:
+    driver: local
+
+networks:
+  hotstinder-dev-network:
+    driver: bridge

@@ -1,7 +1,5 @@
 // 인증 미들웨어
 const jwt = require('jsonwebtoken');
-const User = require('../models/user.model');
-const NeDBUser = require('../models/NeDBUser');
 const logger = require('../utils/logger');
 
 const authenticateToken = async (req, res, next) => {
@@ -25,35 +23,17 @@ const authenticateToken = async (req, res, next) => {
         // 사용자 찾기
         let user;
 
-        // MongoDB 또는 NeDB에서 사용자 조회
-        if (global.useNeDB) {
-          // NeDB에서 사용자 조회
-          logger.debug('NeDB에서 사용자 조회 시도', { id: decoded.id });
+        // PostgreSQL에서 사용자 조회
+        if (global.db && global.db.User) {
+          logger.debug('PostgreSQL에서 사용자 조회 시도', { id: decoded.id });
 
           try {
-            if (decoded.id) {
-              user = await NeDBUser.findById(decoded.id);
-            }
-          } catch (nedbErr) {
-            logger.error('NeDB 사용자 조회 오류:', nedbErr);
+            user = await global.db.User.findByPk(decoded.id);
+          } catch (dbErr) {
+            logger.error('PostgreSQL 사용자 조회 오류:', dbErr);
           }
         } else {
-          // MongoDB에서 사용자 조회
-          logger.debug('MongoDB에서 사용자 조회 시도', { id: decoded.id });
-
-          try {
-            // bnetId로 사용자 조회 시도
-            if (decoded.id) {
-              user = await User.findOne({ bnetId: decoded.id });
-
-              // bnetId로 찾지 못한 경우 _id로 조회
-              if (!user && decoded.id) {
-                user = await User.findById(decoded.id);
-              }
-            }
-          } catch (mongoErr) {
-            logger.error('MongoDB 사용자 조회 오류:', mongoErr);
-          }
+          logger.error('데이터베이스가 초기화되지 않았습니다');
         }
 
         // 사용자를 찾았는지 확인
@@ -61,8 +41,8 @@ const authenticateToken = async (req, res, next) => {
           // 요청 객체에 사용자 정보 추가
           req.user = user;
           logger.debug('JWT 인증 성공', {
-            userId: user._id,
-            battletag: user.battletag || user.battleTag
+            userId: user.id,
+            battleTag: user.battleTag
           });
           return next();
         } else {

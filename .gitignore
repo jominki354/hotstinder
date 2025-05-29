@@ -76,5 +76,7 @@ server/uploads/
 
 # 캐시 파일
 .cache/
-.parcel-cache/ 
+.parcel-cache/
 .vercel
+
+/generated/prisma

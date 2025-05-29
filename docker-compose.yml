@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 서비스
+  postgres:
+    image: postgres:15-alpine
+    container_name: hotstinder-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hotstinder
+      POSTGRES_USER: hotstinder_user
+      POSTGRES_PASSWORD: hotstinder_password
+      POSTGRES_ROOT_PASSWORD: postgres_root_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - hotstinder-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hotstinder_user -d hotstinder"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # 애플리케이션 서비스
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hotstinder-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - USE_POSTGRESQL=true
+      - DATABASE_URL=postgresql://hotstinder_user:hotstinder_password@postgres:5432/hotstinder
+      - BNET_CLIENT_ID=2555749aa63d40d79055409e12a9b191
+      - BNET_CLIENT_SECRET=3c7ddrNaG7p5mUHK1XziVskdxGoHA21R
+      - BNET_CALLBACK_URL=http://localhost:5000/api/auth/bnet/callback
+      - BNET_REGION=kr
+      - JWT_SECRET=hotstinder_jwt_secret
+      - SESSION_SECRET=hotstinder_session_secret
+      - JWT_EXPIRES_IN=7d
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=1231
+      - ADMIN_EMAIL=admin@hotstinder.com
+      - FRONTEND_URL=http://localhost:5000
+      - MAX_FILE_SIZE=50MB
+      - UPLOAD_PATH=./uploads
+      - LOG_LEVEL=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - app_uploads:/app/server/uploads
+      - app_logs:/app/server/logs
+      - app_data:/app/server/data
+    networks:
+      - hotstinder-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+  app_uploads:
+    driver: local
+  app_logs:
+    driver: local
+  app_data:
+    driver: local
+
+networks:
+  hotstinder-network:
+    driver: bridge

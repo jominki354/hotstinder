@@ -2,6 +2,7 @@ import axios from 'axios';
 
 // API 기본 설정
 const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
   timeout: 30000, // 30초 타임아웃 (DB 서버가 느릴 수 있음)
   headers: {
     'Content-Type': 'application/json',

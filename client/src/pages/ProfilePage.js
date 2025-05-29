@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 
+// Axios 기본 설정
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const ProfilePage = () => {
   const { user, refreshUser, deleteAccount } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);

@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { translateHeroName, translateMapName } from '../utils/heroTranslations';
-import { fetchAdminDashboard } from '../utils/api';
+
+// Axios 기본 설정
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const AdminPage = () => {
   const { isAuthenticated, user, token } = useAuthStore();
@@ -30,6 +32,51 @@ const AdminPage = () => {
   const [analysisError, setAnalysisError] = useState(null);
   const [analysisLogs, setAnalysisLogs] = useState([]);
 
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+
+      console.log('🔍 대시보드 데이터 요청 시작');
+      console.log('📍 API URL:', axios.defaults.baseURL);
+      console.log('🔑 토큰 존재:', !!token);
+      console.log('👤 사용자 정보:', user);
+
+      const response = await axios.get('/api/admin/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        params: {
+          t: Date.now() // 캐시 방지용 타임스탬프
+        }
+      });
+
+      console.log('✅ 대시보드 응답 성공:', response.data);
+      setStats(response.data);
+      setError('');
+    } catch (err) {
+      console.error('❌ 대시보드 데이터 가져오기 오류:', err);
+      console.error('📊 오류 상세:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message,
+        config: {
+          url: err.config?.url,
+          method: err.config?.method,
+          baseURL: err.config?.baseURL
+        }
+      });
+      setError('대시보드 데이터를 가져오는데 실패했습니다.');
+      toast.error('대시보드 데이터를 가져오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!isAuthenticated || !user.isAdmin) {
       setError('관리자 권한이 필요합니다');
@@ -38,24 +85,7 @@ const AdminPage = () => {
     }
 
     fetchDashboardData();
-  }, [isAuthenticated, user]);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-
-      const response = await fetchAdminDashboard(token);
-      setStats(response.data);
-      setError('');
-    } catch (err) {
-      console.error('대시보드 데이터 가져오기 오류:', err);
-      setError('대시보드 데이터를 가져오는데 실패했습니다.');
-      toast.error('대시보드 데이터를 가져오는데 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isAuthenticated, user, fetchDashboardData]);
 
   // 테스트 계정 생성 함수
   const createTestAccounts = async () => {

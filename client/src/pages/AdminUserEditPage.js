@@ -3,6 +3,9 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 
+// Axios 기본 설정
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const AdminUserEditPage = () => {
   const { isAuthenticated, user } = useAuthStore();
   const { userId } = useParams();

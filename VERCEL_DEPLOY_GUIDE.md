@@ -171,4 +171,107 @@ Vercel 문서에 따라 `builds`와 `functions`의 충돌을 피하기 위해 **
 - ✅ Functions-only 방식으로 충돌 방지
 - ✅ 기본 Node.js 런타임으로 자동 최신 버전 사용
 - ✅ 효율적인 라우팅 구조
-- ✅ Vercel 권장사항 완전 준수 
+- ✅ Vercel 권장사항 완전 준수
+
+## 📋 배포 전 체크리스트
+
+### 1. 환경 변수 설정
+Vercel 대시보드에서 다음 환경 변수들을 설정해야 합니다:
+
+#### 🔐 인증 관련
+- `BNET_CLIENT_ID`: Battle.net OAuth 클라이언트 ID
+- `BNET_CLIENT_SECRET`: Battle.net OAuth 클라이언트 시크릿
+- `BNET_CALLBACK_URL`: `https://your-domain.vercel.app/api/auth/bnet/callback`
+- `JWT_SECRET`: JWT 토큰 암호화 키
+- `SESSION_SECRET`: 세션 암호화 키
+
+#### 🗄️ 데이터베이스 관련 (PostgreSQL)
+- `USE_POSTGRESQL`: `true`
+- `USE_MONGODB`: `false`
+- `DATABASE_URL`: PostgreSQL 연결 URL
+- `POSTGRES_PRISMA_URL`: Prisma용 PostgreSQL URL (connection pooling)
+- `POSTGRES_URL_NON_POOLING`: Direct PostgreSQL URL
+
+#### 🌐 기타 설정
+- `NODE_ENV`: `production`
+- `FRONTEND_URL`: `https://your-domain.vercel.app`
+- `REACT_APP_API_URL`: `https://your-domain.vercel.app`
+- `LOG_LEVEL`: `info`
+
+### 2. PostgreSQL 데이터베이스 설정
+
+#### 🎯 권장: Neon PostgreSQL
+1. Vercel 대시보드 → Storage → Connect Database
+2. "Create New" → "Neon" 선택
+3. 자동으로 환경 변수가 설정됩니다:
+   - `DATABASE_URL`
+   - `POSTGRES_PRISMA_URL`
+   - `POSTGRES_URL_NON_POOLING`
+
+#### 🔄 대안: Supabase PostgreSQL
+1. Vercel 대시보드 → Storage → Connect Database
+2. "Create New" → "Supabase" 선택
+3. 환경 변수 자동 설정
+
+### 3. Battle.net OAuth 앱 설정
+1. [Battle.net Developer Portal](https://develop.battle.net/)에서 새 OAuth 앱 생성
+2. **Redirect URI**: `https://your-domain.vercel.app/api/auth/bnet/callback`
+3. 클라이언트 ID와 시크릿을 Vercel 환경 변수에 설정
+
+### 4. 배포 명령어
+```bash
+# Vercel CLI 설치 (전역)
+npm install -g vercel
+
+# 프로젝트 연결 및 배포
+vercel
+
+# 환경 변수 동기화
+vercel env pull .env.local
+```
+
+## 🔧 배포 후 설정
+
+### 1. 데이터베이스 마이그레이션
+배포 후 자동으로 Sequelize가 테이블을 생성합니다.
+
+### 2. 도메인 설정
+1. Vercel 대시보드에서 커스텀 도메인 추가
+2. Battle.net OAuth 앱의 Redirect URI 업데이트
+3. 환경 변수의 URL들 업데이트
+
+### 3. 모니터링
+- Vercel Functions 로그 확인
+- PostgreSQL 연결 상태 모니터링
+- 에러 로그 확인
+
+## 🚨 주의사항
+
+1. **환경 변수 보안**: 민감한 정보는 Vercel 환경 변수로만 관리
+2. **데이터베이스 백업**: 정기적인 PostgreSQL 백업 설정
+3. **도메인 변경**: 도메인 변경 시 OAuth 설정도 함께 업데이트
+4. **로그 모니터링**: 프로덕션 환경에서 에러 로그 정기 확인
+
+## 📊 성능 최적화
+
+1. **Connection Pooling**: Neon의 connection pooling 활용
+2. **Edge Functions**: 가능한 경우 Edge Runtime 사용
+3. **캐싱**: 적절한 캐싱 전략 구현
+4. **이미지 최적화**: Vercel Image Optimization 활용
+
+## 🔍 트러블슈팅
+
+### 데이터베이스 연결 오류
+- 환경 변수 확인
+- PostgreSQL 서버 상태 확인
+- 네트워크 연결 확인
+
+### OAuth 인증 오류
+- Redirect URI 정확성 확인
+- 클라이언트 ID/Secret 확인
+- 도메인 설정 확인
+
+### 빌드 오류
+- 의존성 버전 확인
+- Node.js 버전 호환성 확인
+- 환경 변수 누락 확인

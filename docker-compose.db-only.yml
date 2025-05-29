@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hotstinder-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hotstinder
+      POSTGRES_USER: kooingh354
+      POSTGRES_PASSWORD: 674512@Alsrl
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kooingh354 -d hotstinder"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres_dev_data:
+    driver: local

@@ -1,14 +1,12 @@
 const BnetStrategy = require('passport-bnet').Strategy;
-const User = require('../models/user.model');
-const NeDBUser = require('../models/NeDBUser');
 const logger = require('../utils/logger');
 const jwt = require('jsonwebtoken');
 
 module.exports = (passport, memoryUsers) => {
   // 사용자 세션 직렬화
   passport.serializeUser((user, done) => {
-    logger.debug('사용자 직렬화:', { _id: user._id, battletag: user.battletag });
-    done(null, user._id);
+    logger.debug('사용자 직렬화:', { id: user.id, battleTag: user.battleTag });
+    done(null, user.id);
   });
 
   // 사용자 세션 역직렬화
@@ -18,59 +16,18 @@ module.exports = (passport, memoryUsers) => {
 
       let user = null;
 
-      if (global.useNeDB) {
-        // NeDB에서 사용자 찾기
-        user = await NeDBUser.findById(id);
+      if (global.db && global.db.User) {
+        // PostgreSQL에서 사용자 찾기
+        user = await global.db.User.findByPk(id);
 
         if (user) {
-          // NeDB 사용자에게 generateAuthToken 메서드 추가
-          user.generateAuthToken = function () {
-            return NeDBUser.generateAuthToken(this);
-          };
-
-          logger.debug('NeDB에서 사용자 찾음:', { id, battletag: user.battletag });
+          logger.debug('PostgreSQL에서 사용자 찾음:', { id, battleTag: user.battleTag });
           return done(null, user);
-        }
-      } else {
-        // MongoDB에서 사용자 찾기
-        user = await User.findById(id);
-
-        if (user) {
-          // MongoDB 사용자에게 generateAuthToken 메서드 추가 (Mongoose 메서드가 없는 경우)
-          if (!user.generateAuthToken) {
-            user.generateAuthToken = function () {
-              const jwt = require('jsonwebtoken');
-              const payload = {
-                id: this._id,
-                bnetId: this.bnetId,
-                battletag: this.battletag,
-                isAdmin: this.isAdmin
-              };
-
-              return jwt.sign(
-                payload,
-                process.env.JWT_SECRET || 'dev_jwt_secret',
-                { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-              );
-            };
-          }
-
-          logger.debug('MongoDB에서 사용자 찾음:', { id, battletag: user.battletag });
-          return done(null, user);
-        }
-
-        // 메모리에서도 찾아봅니다 (메모리 저장소 사용 시)
-        if (!user && memoryUsers) {
-          memoryUsers.forEach((u) => {
-            if (u._id === id) {
-              user = u;
-            }
-          });
         }
       }
 
       if (user) {
-        logger.debug('사용자 역직렬화:', { id, battletag: user.battletag });
+        logger.debug('사용자 역직렬화:', { id, battleTag: user.battleTag });
         return done(null, user);
       } else {
         logger.warn('사용자를 찾을 수 없음:', { id });
@@ -114,53 +71,33 @@ module.exports = (passport, memoryUsers) => {
       let user;
       let isNewUser = false;
 
-      // MongoDB에서 사용자 찾기 또는 생성
-      user = await User.findOne({ bnetId: profile.id });
+      if (!global.db || !global.db.User) {
+        logger.error('데이터베이스가 초기화되지 않았습니다');
+        return done(new Error('데이터베이스가 초기화되지 않았습니다'), null);
+      }
+
+      // PostgreSQL에서 사용자 찾기 또는 생성
+      user = await global.db.User.findOne({ where: { bnetId: profile.id } });
 
       if (!user) {
         // 새 사용자 생성
-        user = new User({
+        user = await global.db.User.create({
           bnetId: profile.id,
-          battletag: profile.battletag,
+          battleTag: profile.battletag,
           email: profile.email || '',
-          accessToken,
-          refreshToken,
           isProfileComplete: false,
           mmr: 1500,
           wins: 0,
           losses: 0,
           preferredRoles: [],
-          favoriteHeroes: []
+          lastLoginAt: new Date()
         });
-        await user.save();
         isNewUser = true;
-        logger.info('새 사용자 등록 (MongoDB):', { battletag: user.battletag });
+        logger.info('새 사용자 등록 (PostgreSQL):', { battleTag: user.battleTag });
       } else {
-        // 액세스 토큰 업데이트
-        user.accessToken = accessToken;
-        user.refreshToken = refreshToken;
-        user.lastLoginAt = new Date();
-        await user.save();
-        logger.debug('기존 사용자 로그인 (MongoDB):', { battletag: user.battletag });
-      }
-
-      // MongoDB 사용자에게 generateAuthToken 메서드 추가 (Mongoose 메서드가 없는 경우)
-      if (!user.generateAuthToken) {
-        user.generateAuthToken = function () {
-          const jwt = require('jsonwebtoken');
-          const payload = {
-            id: this._id,
-            bnetId: this.bnetId,
-            battletag: this.battletag,
-            isAdmin: this.isAdmin
-          };
-
-          return jwt.sign(
-            payload,
-            process.env.JWT_SECRET || 'dev_jwt_secret',
-            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-          );
-        };
+        // 마지막 로그인 시간 업데이트
+        await user.update({ lastLoginAt: new Date() });
+        logger.debug('기존 사용자 로그인 (PostgreSQL):', { battleTag: user.battleTag });
       }
 
       // isNewUser 플래그 추가

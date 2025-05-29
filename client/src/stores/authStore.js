@@ -123,6 +123,20 @@ export const useAuthStore = create((set, get) => ({
       normalizedUser.previousTier = 'placement';
     }
 
+    // 관리자 권한 처리 - PostgreSQL과 MongoDB 호환
+    if (normalizedUser.role === 'admin') {
+      // PostgreSQL: role 필드가 'admin'인 경우
+      normalizedUser.isAdmin = true;
+      normalizedUser.isSuperAdmin = true;
+    } else if (normalizedUser.isAdmin === true) {
+      // MongoDB: isAdmin 필드가 true인 경우 (기존 로직 유지)
+      normalizedUser.isAdmin = true;
+    } else {
+      // 기본값: 관리자가 아님
+      normalizedUser.isAdmin = false;
+      normalizedUser.isSuperAdmin = false;
+    }
+
     // isProfileComplete 필드 처리 - 서버 데이터를 우선시
     if (normalizedUser.profileComplete === true || normalizedUser.isProfileComplete === true) {
       normalizedUser.isProfileComplete = true;
@@ -135,6 +149,12 @@ export const useAuthStore = create((set, get) => ({
     }
 
     console.log('표준화된 사용자 정보:', normalizedUser);
+    console.log('관리자 권한 매핑:', {
+      originalRole: userData.role,
+      originalIsAdmin: userData.isAdmin,
+      normalizedIsAdmin: normalizedUser.isAdmin,
+      normalizedIsSuperAdmin: normalizedUser.isSuperAdmin
+    });
 
     return normalizedUser;
   },

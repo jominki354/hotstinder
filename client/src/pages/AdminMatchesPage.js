@@ -4,6 +4,9 @@ import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
+// Axios 기본 설정
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 const AdminMatchesPage = () => {
   const { isAuthenticated, user } = useAuthStore();
   const navigate = useNavigate();

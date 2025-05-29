@@ -5,6 +5,9 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { translateHeroName } from '../utils/heroTranslations';
 
+// Axios 기본 설정
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 // 역할별 영웅 분류 및 아이콘 URL
 const HERO_DATA = {
   '탱커': [

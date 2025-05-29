@@ -7,6 +7,9 @@ import ReplayUploadModal from '../components/common/ReplayUploadModal'; // 리�
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import QueueStatus from '../components/queue/QueueStatus';
 
+// Axios 기본 설정
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 // QueueStatus 컴포넌트의 전역 queueTimeState를 가져오기 위한 함수
 const getGlobalQueueTimeState = () => {
   if (window.queueTimeState) {
