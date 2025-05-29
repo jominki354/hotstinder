@@ -50,14 +50,39 @@ const connectMongoDB = async () => {
   if (isConnected) return;
 
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
+    console.log('MongoDB 연결 시도:', process.env.MONGODB_URI ? 'URI 설정됨' : 'URI 없음');
+
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI 환경 변수가 설정되지 않음');
+    }
+
+    // MongoDB URI 유효성 검사
+    const uri = process.env.MONGODB_URI;
+    if (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://')) {
+      throw new Error('유효하지 않은 MongoDB URI 형식');
+    }
+
+    await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 10000, // 10초 타임아웃
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      retryWrites: true,
+      w: 'majority'
     });
+
     isConnected = true;
     console.log('MongoDB 연결 성공');
   } catch (error) {
-    console.error('MongoDB 연결 실패:', error);
+    console.error('MongoDB 연결 실패:', {
+      message: error.message,
+      code: error.code,
+      name: error.name
+    });
+
+    // MongoDB 연결 실패 시에도 계속 진행 (임시 사용자 생성)
+    console.log('MongoDB 없이 임시 사용자로 진행');
     throw error;
   }
 };
@@ -244,41 +269,91 @@ module.exports = async function handler(req, res) {
 
     // MongoDB 연결
     console.log('MongoDB 연결 시도...');
-    await connectMongoDB();
-    console.log('MongoDB 연결 완료');
+    let mongoConnected = false;
+    try {
+      await connectMongoDB();
+      console.log('MongoDB 연결 완료');
+      mongoConnected = true;
+    } catch (mongoError) {
+      console.error('MongoDB 연결 실패, 임시 사용자로 진행:', mongoError.message);
+      mongoConnected = false;
+    }
 
-    // 사용자 찾기 또는 생성
-    let user = await User.findOne({ bnetId: profile.id });
+    let user;
     let isNewUser = false;
 
-    if (!user) {
-      // 새 사용자 생성
-      user = new User({
+    if (mongoConnected) {
+      // MongoDB 연결 성공 시 정상 처리
+      user = await User.findOne({ bnetId: profile.id });
+
+      if (!user) {
+        // 새 사용자 생성
+        user = new User({
+          bnetId: profile.id,
+          battletag: profile.battletag,
+          email: profile.email || '',
+          accessToken: access_token,
+          isProfileComplete: false,
+          mmr: 1500,
+          wins: 0,
+          losses: 0,
+          preferredRoles: [],
+          favoriteHeroes: []
+        });
+        await user.save();
+        isNewUser = true;
+        console.log('새 사용자 생성:', { battletag: user.battletag, id: user._id });
+      } else {
+        // 기존 사용자 업데이트
+        user.accessToken = access_token;
+        user.lastLoginAt = new Date();
+        await user.save();
+        console.log('기존 사용자 로그인:', { battletag: user.battletag, id: user._id });
+      }
+
+      // JWT 토큰 생성
+      const token = user.generateAuthToken();
+      console.log('JWT 토큰 생성 성공:', { tokenLength: token.length, userId: user._id });
+    } else {
+      // MongoDB 연결 실패 시 임시 사용자 생성
+      console.log('임시 사용자 객체 생성');
+      const tempUser = {
+        _id: `temp_${profile.id}`,
         bnetId: profile.id,
         battletag: profile.battletag,
         email: profile.email || '',
-        accessToken: access_token,
         isProfileComplete: false,
         mmr: 1500,
         wins: 0,
         losses: 0,
         preferredRoles: [],
-        favoriteHeroes: []
-      });
-      await user.save();
-      isNewUser = true;
-      console.log('새 사용자 생성:', { battletag: user.battletag, id: user._id });
-    } else {
-      // 기존 사용자 업데이트
-      user.accessToken = access_token;
-      user.lastLoginAt = new Date();
-      await user.save();
-      console.log('기존 사용자 로그인:', { battletag: user.battletag, id: user._id });
+        favoriteHeroes: [],
+        generateAuthToken: function() {
+          return jwt.sign(
+            {
+              id: this._id,
+              bnetId: this.bnetId,
+              battletag: this.battletag,
+              isAdmin: false,
+              isTemporary: true
+            },
+            process.env.JWT_SECRET || 'fallback-secret',
+            { expiresIn: '1h' } // 임시 사용자는 1시간만 유효
+          );
+        }
+      };
+
+      user = tempUser;
+      console.log('임시 사용자 생성:', { battletag: user.battletag, id: user._id });
     }
 
     // JWT 토큰 생성
     const token = user.generateAuthToken();
-    console.log('JWT 토큰 생성 성공:', { tokenLength: token.length, userId: user._id });
+    console.log('JWT 토큰 생성 성공:', {
+      tokenLength: token.length,
+      userId: user._id,
+      isTemporary: !mongoConnected
+    });
 
     // 성공 리디렉션
     const redirectUrl = `${process.env.FRONTEND_URL || 'https://hotstinder.vercel.app'}/auth/success?token=${token}`;
