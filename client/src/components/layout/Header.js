@@ -159,6 +159,7 @@ const Header = () => {
             <Link to="/" className="text-slate-300 hover:text-white">홈</Link>
             <Link to="/leaderboard" className="text-slate-300 hover:text-white">리더보드</Link>
             <Link to="/recent-games" className="text-slate-300 hover:text-white">최근 게임</Link>
+            <Link to="/debug" className="text-slate-300 hover:text-white">디버깅</Link>
 
             {/* 관리자가 아닐 때만 매치 찾기 링크 활성화 */}
             {isAuthenticated && !isAdmin ? (
@@ -255,6 +256,7 @@ const Header = () => {
           <Link to="/" className="block py-2 text-slate-300 hover:text-white">홈</Link>
           <Link to="/leaderboard" className="block py-2 text-slate-300 hover:text-white">리더보드</Link>
           <Link to="/recent-games" className="block py-2 text-slate-300 hover:text-white">최근 게임</Link>
+          <Link to="/debug" className="block py-2 text-slate-300 hover:text-white">디버깅</Link>
 
           {/* 관리자가 아닐 때만 매치 찾기 링크 활성화 */}
           {isAuthenticated && !isAdmin ? (

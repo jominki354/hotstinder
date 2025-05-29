@@ -311,4 +311,114 @@ async function tryMatchmaking(userId) {
   }
 }
 
+/**
+ * @route   GET /api/matchmaking/recent-games
+ * @desc    최근 게임 목록 조회
+ * @access  Public
+ */
+router.get('/recent-games', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50); // 최대 50개
+    const offset = (page - 1) * limit;
+
+    logger.info('최근 게임 목록 조회 요청:', {
+      page,
+      limit,
+      offset
+    });
+
+    // 최근 완료된 매치들 조회 (간단한 버전)
+    const { count, rows: matches } = await global.db.Match.findAndCountAll({
+      where: {
+        status: 'completed'
+      },
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    // 매치 데이터 포맷팅 (참가자 정보는 별도로 조회)
+    const recentGames = [];
+
+    for (const match of matches) {
+      // 각 매치의 참가자 정보 조회
+      const participants = await global.db.MatchParticipant.findAll({
+        where: { matchId: match.id },
+        include: [
+          {
+            model: global.db.User,
+            as: 'user',
+            attributes: ['id', 'battleTag', 'nickname']
+          }
+        ]
+      });
+
+      // 팀별로 플레이어 분류
+      const redTeam = [];
+      const blueTeam = [];
+
+      participants.forEach(participant => {
+        const playerData = {
+          id: participant.id,
+          userId: participant.userId,
+          battletag: participant.user?.battleTag || 'Unknown',
+          nickname: participant.user?.nickname,
+          hero: participant.hero,
+          role: participant.role,
+          kills: participant.kills || 0,
+          deaths: participant.deaths || 0,
+          assists: participant.assists || 0
+        };
+
+        if (participant.team === 1) {
+          redTeam.push(playerData);
+        } else if (participant.team === 2) {
+          blueTeam.push(playerData);
+        }
+      });
+
+      recentGames.push({
+        id: match.id,
+        map: match.mapName,
+        gameMode: match.gameMode || 'Storm League',
+        winner: match.winner,
+        gameDuration: match.gameDuration,
+        status: match.status,
+        createdAt: match.createdAt,
+        redTeam,
+        blueTeam,
+        playerCount: participants.length
+      });
+    }
+
+    logger.info('최근 게임 목록 조회 성공:', {
+      totalCount: count,
+      returnedCount: recentGames.length,
+      page,
+      totalPages: Math.ceil(count / limit)
+    });
+
+    res.json({
+      games: recentGames,
+      pagination: {
+        total: count,
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        limit
+      }
+    });
+
+  } catch (err) {
+    logger.error('최근 게임 목록 조회 오류:', {
+      error: err.message,
+      stack: err.stack
+    });
+    res.status(500).json({
+      message: '최근 게임 데이터를 가져오는데 실패했습니다.',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
+
 module.exports = router;

@@ -75,7 +75,8 @@ module.exports = (sequelize) => {
       field: 'updated_at'
     }
   }, {
-    tableName: 'matches'
+    tableName: 'matches',
+    timestamps: false
   });
 
   return Match;

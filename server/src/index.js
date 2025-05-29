@@ -22,6 +22,8 @@ const matchRoutes = require('./routes/match.routes');
 const matchmakingRoutes = require('./routes/matchmaking.routes');
 const adminRoutes = require('./routes/admin.routes');
 const replayRoutes = require('./routes/replay.routes');
+const leaderboardRoutes = require('./routes/leaderboard.routes');
+const debugRoutes = require('./routes/debug.routes');
 
 // 설정 및 유틸리티 가져오기
 const configPassport = require('./config/passport');
@@ -168,10 +170,11 @@ app.get('/api/health', (req, res) => {
 // API 라우트
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/matches', matchRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/matchmaking', matchmakingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/replay', replayRoutes);
+app.use('/api/debug', debugRoutes);
 
 // 프로덕션 환경 또는 Docker 환경에서 클라이언트 정적 파일 서빙
 if (process.env.NODE_ENV === 'production' || process.env.USE_POSTGRESQL === 'true') {

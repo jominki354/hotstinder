@@ -73,6 +73,7 @@ module.exports = (sequelize) => {
     }
   }, {
     tableName: 'users',
+    timestamps: false,
     hooks: {
       beforeCreate: async (user) => {
         if (user.password) {

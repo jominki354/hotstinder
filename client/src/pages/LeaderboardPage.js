@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchLeaderboard, fetchAllUsers } from '../utils/api';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import axios from 'axios';
 
 const LeaderboardPage = () => {
   const [leaderboardData, setLeaderboardData] = useState([]);
@@ -25,115 +26,21 @@ const LeaderboardPage = () => {
   };
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchLeaderboard = async () => {
       try {
         setLoading(true);
-        setError(null);
-
-        // API 요청 시도 - 캐싱 방지를 위한 타임스탬프 추가
-        console.log('리더보드 데이터 요청 중...');
-        const res = await fetchLeaderboard({
-          minGames: 1,
-          limit: MAX_DISPLAY_RANK,
-          t: Date.now()
-        });
-
-        // 응답이 유효한 배열인지 확인
-        if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-          console.log(`리더보드 데이터 로드 성공: ${res.data.length}명의 플레이어`);
-
-          // 유효한 데이터만 필터링
-          const validData = res.data.filter(item =>
-            item && typeof item === 'object' &&
-            (item.nickname || item.battletag || item.mmr)
-          );
-
-          if (validData.length > 0) {
-            // 최대 30명까지만 표시
-            const limitedData = validData.slice(0, MAX_DISPLAY_RANK);
-            setLeaderboardData(limitedData);
-            setIsUsingAllUsers(false);
-            setRetryCount(0); // 성공적으로 로드했으므로 재시도 카운터 초기화
-            return; // 성공했으므로 함수 종료
-          } else {
-            console.warn('유효한 플레이어 데이터가 없습니다');
-          }
-        } else {
-          console.warn('리더보드 데이터가 비어있거나 유효하지 않음:', res?.data);
-        }
-
-        // 리더보드 데이터 로드에 실패한 경우, 재시도 또는 대체 API 사용
-        if (retryCount < 3) {
-          console.log(`리더보드 데이터 재시도 (${retryCount + 1}/3)...`);
-          setRetryCount(prev => prev + 1);
-          setTimeout(() => {
-            setLoading(false); // 로딩 상태 리셋
-          }, 500); // 0.5초 대기 후 재시도
-        } else {
-          console.log('최대 재시도 횟수 도달, 전체 유저 목록으로 대체');
-          await fetchAllUsersAsFallback();
-        }
-      } catch (err) {
-        console.error('리더보드 데이터 로드 실패:', err);
-
-        // 네트워크 오류 또는 서버 오류 발생 시
-        if (retryCount < 3) {
-          console.log(`리더보드 데이터 재시도 (${retryCount + 1}/3)...`);
-          setRetryCount(prev => prev + 1);
-          setTimeout(() => {
-            setLoading(false); // 로딩 상태 리셋
-          }, 500); // 0.5초 대기 후 재시도
-        } else {
-          console.log('최대 재시도 횟수 도달, 전체 유저 목록으로 대체');
-          await fetchAllUsersAsFallback();
-        }
+        const response = await axios.get('/api/leaderboard');
+        setLeaderboardData(response.data);
+      } catch (error) {
+        console.error('리더보드 조회 오류:', error);
+        setError('서버 연결에 실패했습니다.');
       } finally {
         setLoading(false);
       }
     };
 
-    // 리더보드 API 실패 시 전체 유저 목록으로 대체하는 함수
-    const fetchAllUsersAsFallback = async () => {
-      try {
-        console.log('전체 유저 목록 불러오는 중...');
-        // API 요청 - 캐싱 방지를 위한 타임스탬프 추가
-        const res = await fetchAllUsers({
-          limit: MAX_DISPLAY_RANK,
-          t: Date.now()
-        });
-
-        if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-          console.log(`전체 유저 데이터 로드 성공: ${res.data.length}명의 플레이어`);
-
-          // 유효한 데이터만 필터링
-          const validData = res.data.filter(item =>
-            item && typeof item === 'object' &&
-            (item.nickname || item.battletag || item.mmr)
-          );
-
-          if (validData.length > 0) {
-            // 최대 30명까지만 표시
-            const limitedData = validData.slice(0, MAX_DISPLAY_RANK);
-            setLeaderboardData(limitedData);
-            setIsUsingAllUsers(true);
-            toast.info('전체 유저 목록을 표시합니다 (최대 30명)', { autoClose: 5000 });
-            return; // 성공했으므로 함수 종료
-          }
-        }
-
-        // 여기까지 왔다면 유효한 데이터를 받지 못한 것임
-        console.error('전체 유저 데이터도 비어있거나 유효하지 않음:', res?.data);
-        setError('데이터를 불러올 수 없습니다. 나중에 다시 시도해주세요.');
-        setLeaderboardData([]);
-      } catch (err) {
-        console.error('전체 유저 데이터 로드 실패:', err);
-        setError('서버 연결에 실패했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
-        setLeaderboardData([]);
-      }
-    };
-
-    fetchUserData();
-  }, [retryCount]);
+    fetchLeaderboard();
+  }, []);
 
   // 데이터 유효성 검사 및 보정
   const validatePlayerData = (player, index) => {

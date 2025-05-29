@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { fetchRecentGames } from '../utils/api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { translateHeroName, translateMapName } from '../utils/heroTranslations';
+import axios from 'axios';
 
 const RecentGamesPage = () => {
   const [recentGames, setRecentGames] = useState([]);
@@ -45,17 +46,18 @@ const RecentGamesPage = () => {
       setRefreshing(true);
 
       // 캐싱 방지 및 페이지 정보 추가
-      const response = await fetchRecentGames({
-        limit: GAMES_PER_PAGE,
-        page: page,
-        t: Date.now()
+      const response = await axios.get('/api/matchmaking/recent-games', {
+        params: {
+          page: page,
+          limit: GAMES_PER_PAGE
+        }
       });
 
       // 정상적인 응답인지 확인
       if (response && response.data) {
         // 데이터 유효성 검사 후 저장
-        const validGames = Array.isArray(response.data)
-          ? response.data.filter(game => game && game.id)
+        const validGames = Array.isArray(response.data.games)
+          ? response.data.games.filter(game => game && game.id)
           : [];
 
         // 시간 역순 정렬 (최신 순)

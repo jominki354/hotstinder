@@ -84,85 +84,56 @@ const isAdmin = (req, res, next) => {
 };
 
 /**
- * @route   GET /api/users/leaderboard
- * @desc    유저 리더보드 조회
+ * @route   GET /api/leaderboard
+ * @desc    리더보드 조회 (호환성을 위한 별칭)
  * @access  Public
  */
 router.get('/leaderboard', async (req, res) => {
   try {
-    // 최소 게임 수 필터 (기본값: 1)
-    const minGames = parseInt(req.query.minGames) || 1;
-    const limit = parseInt(req.query.limit) || 100;
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
 
-    if (!global.db || !global.db.User) {
-      logger.error('데이터베이스가 초기화되지 않았습니다');
-      return res.json([]);
-    }
+    logger.debug('리더보드 조회 요청:', { limit });
 
-    try {
-      // PostgreSQL에서 사용자 데이터 가져오기
-      const users = await global.db.User.findAll({
-        order: [['mmr', 'DESC']],
-        limit: limit
-      });
+    const users = await global.db.User.findAll({
+      attributes: [
+        'id',
+        'battleTag',
+        'nickname',
+        'mmr',
+        'wins',
+        'losses',
+        'previousTier'
+      ],
+      order: [['mmr', 'DESC']],
+      limit
+    });
 
-      logger.debug(`리더보드용 사용자 ${users.length}명 조회됨`);
+    logger.debug(`리더보드용 사용자 ${users.length}명 조회됨`);
 
-      // 유효한 사용자만 필터링 (최소 게임 수 이상의 게임을 플레이한 사용자)
-      const filteredUsers = users.filter(user => {
-        const totalGames = (user.wins || 0) + (user.losses || 0);
-        return totalGames >= minGames;
-      });
+    const leaderboard = users.map((user, index) => ({
+      rank: index + 1,
+      id: user.id,
+      battletag: user.battleTag,
+      nickname: user.nickname,
+      mmr: user.mmr || 0,
+      wins: user.wins || 0,
+      losses: user.losses || 0,
+      winRate: user.wins > 0 ? ((user.wins / (user.wins + user.losses)) * 100).toFixed(1) : '0.0',
+      tier: user.previousTier || 'Unranked'
+    }));
 
-      // 리더보드 정보로 변환
-      const leaderboard = filteredUsers.map((user, index) => {
-        const wins = user.wins || 0;
-        const losses = user.losses || 0;
-        const totalGames = wins + losses;
-        const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : '0.0';
+    logger.info(`리더보드 조회 성공: ${leaderboard.length}명`);
 
-        // 주요 역할 결정
-        let mainRole = '없음';
-        if (user.preferredRoles && Array.isArray(user.preferredRoles) && user.preferredRoles.length > 0) {
-          mainRole = user.preferredRoles[0];
-        }
-
-        // 티어 계산
-        let tier = '브론즈';
-        const mmr = user.mmr || 1500;
-        if (mmr >= 2500) tier = '그랜드마스터';
-        else if (mmr >= 2200) tier = '마스터';
-        else if (mmr >= 2000) tier = '다이아몬드';
-        else if (mmr >= 1800) tier = '플래티넘';
-        else if (mmr >= 1600) tier = '골드';
-        else if (mmr >= 1400) tier = '실버';
-
-        return {
-          rank: index + 1,
-          id: user.id,
-          nickname: user.nickname || (user.battleTag ? user.battleTag.split('#')[0] : `유저${index+1}`),
-          battleTag: user.battleTag,
-          mmr: mmr,
-          wins: wins,
-          losses: losses,
-          winRate: parseFloat(winRate),
-          mainRole: mainRole,
-          tier: tier,
-          totalGames: totalGames
-        };
-      });
-
-      logger.info(`리더보드 조회 성공: ${leaderboard.length}명`);
-      res.json(leaderboard);
-
-    } catch (dbErr) {
-      logger.error('PostgreSQL 리더보드 조회 오류:', dbErr);
-      return res.json([]);
-    }
-
-  } catch (error) {
-    logger.error('리더보드 조회 중 오류:', error);
-    res.status(500).json({ message: '서버 오류가 발생했습니다.' });
+    res.json(leaderboard);
+  } catch (err) {
+    logger.error('리더보드 조회 오류:', {
+      error: err.message,
+      stack: err.stack
+    });
+    res.status(500).json({
+      message: '리더보드 데이터를 가져오는데 실패했습니다.',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 

@@ -84,6 +84,7 @@ module.exports = (sequelize) => {
     }
   }, {
     tableName: 'match_participants',
+    timestamps: false,
     indexes: [
       {
         unique: true,
