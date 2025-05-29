@@ -88,7 +88,7 @@ const generateRandomMMR = () => {
 };
 
 const generateRandomRoles = () => {
-  const allRoles = ['Tank', 'Bruiser', 'Melee Assassin', 'Ranged Assassin', 'Healer', 'Support'];
+  const allRoles = ['탱커', '투사', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '브루저', '전체'];
   const numRoles = Math.floor(Math.random() * 3) + 1;
   const shuffled = allRoles.sort(() => 0.5 - Math.random());
   return shuffled.slice(0, numRoles);

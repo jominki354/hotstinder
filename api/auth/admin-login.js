@@ -98,9 +98,9 @@ module.exports = async function handler(req, res) {
     // 하드코딩된 관리자 계정 확인 (임시)
     const adminCredentials = {
       username: 'admin',
-      password: 'hotstinder2024!',
-      battletag: 'Admin#0000',
-      bnetId: 'admin_account'
+      password: '1231',
+      battletag: 'Admin#1231',
+      bnetId: 'admin_new'
     };
 
     if (username === adminCredentials.username && password === adminCredentials.password) {

@@ -1067,8 +1067,8 @@ router.post('/create-test-accounts', authenticateAdmin, async (req, res) => {
     const { count = 10 } = req.body; // 기본값은 10개 계정
     const createdAccounts = [];
 
-    // 유효한 역할 목록 (MongoUser.js에 정의된 값)
-    const roles = ['원거리 암살자', '근접 암살자', '전사', '서포터', '특수병', '탱커', '힐러'];
+    // 유효한 역할 목록 (user.model.js에 정의된 enum 값과 일치)
+    const roles = ['탱커', '투사', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '브루저', '전체'];
 
     // 히어로즈 오브 더 스톰 영웅 목록
     const heroes = [
@@ -1192,8 +1192,8 @@ router.post('/create-test-matches', authenticateAdmin, async (req, res) => {
       'Volskaya Foundry', 'Warhead Junction'
     ];
 
-    // 히어로즈 오브 더 스톰 역할 목록 (MongoUser.js에 정의된 값)
-    const roles = ['원거리 암살자', '근접 암살자', '전사', '서포터', '특수병', '탱커', '힐러'];
+    // 히어로즈 오브 더 스톰 역할 목록 (user.model.js에 정의된 enum 값과 일치)
+    const matchRoles = ['탱커', '투사', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '브루저', '전체'];
 
     // 히어로즈 오브 더 스톰 영웅 목록 (역할별)
     const heroesByRole = {
@@ -1201,9 +1201,9 @@ router.post('/create-test-matches', authenticateAdmin, async (req, res) => {
       '힐러': ['Alexstrasza', 'Ana', 'Anduin', 'Auriel', 'Brightwing', 'Deckard', 'Kharazim', 'Li Li', 'Lt. Morales', 'Lucio', 'Malfurion', 'Rehgar', 'Stukov', 'Uther', 'Whitemane'],
       '원거리 암살자': ['Chromie', 'Falstad', 'Fenix', 'Genji', 'Gul\'dan', 'Hanzo', 'Jaina', 'Junkrat', 'Kael\'thas', 'Li-Ming', 'Lunara', 'Nova', 'Orphea', 'Raynor', 'Sylvanas', 'Tracer', 'Tychus', 'Valla', 'Zagara', 'Zul\'jin'],
       '근접 암살자': ['Alarak', 'Butcher', 'Illidan', 'Kerrigan', 'Maiev', 'Malthael', 'Murky', 'Qhira', 'Samuro', 'Valeera', 'Zeratul'],
-      '전사': ['Artanis', 'Chen', 'D.Va', 'Deathwing', 'Dehaka', 'Leoric', 'Sonya', 'Thrall', 'Xul', 'Yrel'],
+      '투사': ['Artanis', 'Chen', 'D.Va', 'Deathwing', 'Dehaka', 'Leoric', 'Sonya', 'Thrall', 'Xul', 'Yrel'],
       '서포터': ['Abathur', 'Medivh', 'Tassadar', 'Zarya'],
-      '특수병': ['The Lost Vikings', 'Cho', 'Gall', 'Greymane', 'Probius']
+      '브루저': ['The Lost Vikings', 'Cho', 'Gall', 'Greymane', 'Probius']
     };
 
     // 모든 사용자 가져오기
@@ -1257,7 +1257,7 @@ router.post('/create-test-matches', authenticateAdmin, async (req, res) => {
           blueRole = essentialRoles[j];
         } else {
           // 남은 역할은 공격 역할로 설정
-          const dpsRoles = ['원거리 암살자', '근접 암살자', '전사'];
+          const dpsRoles = ['원거리 암살자', '근접 암살자', '투사'];
           blueRole = dpsRoles[Math.floor(Math.random() * dpsRoles.length)];
         }
         assignedRoles.blue.push(blueRole);
@@ -1268,7 +1268,7 @@ router.post('/create-test-matches', authenticateAdmin, async (req, res) => {
           redRole = essentialRoles[j];
         } else {
           // 남은 역할은 공격 역할로 설정
-          const dpsRoles = ['원거리 암살자', '근접 암살자', '전사'];
+          const dpsRoles = ['원거리 암살자', '근접 암살자', '투사'];
           redRole = dpsRoles[Math.floor(Math.random() * dpsRoles.length)];
         }
         assignedRoles.red.push(redRole);
@@ -1412,7 +1412,7 @@ router.post('/create-test-matches', authenticateAdmin, async (req, res) => {
 
       // 매치 데이터 생성
       const matchData = {
-        title: `테스트 매치 #${i + 1}`,
+        title: `테스트 매치 #${Date.now()}_${i}`, // 고유한 제목으로 변경
         description: `자동 생성된 테스트 매치입니다.`,
         map,
         teams: {
@@ -1424,7 +1424,6 @@ router.post('/create-test-matches', authenticateAdmin, async (req, res) => {
           duration: matchDuration * 60 // 초 단위
         },
         status: 'completed',
-        winner: winner,
         createdBy: adminUser._id,
         createdAt: new Date(Date.now() - Math.floor(Math.random() * 86400000)), // 최근 24시간 내
         mmrChanges: [],

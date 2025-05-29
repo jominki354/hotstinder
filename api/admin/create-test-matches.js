@@ -115,7 +115,7 @@ const getRandomMap = () => {
 };
 
 const getRandomRole = () => {
-  const roles = ['Tank', 'Bruiser', 'Melee Assassin', 'Ranged Assassin', 'Healer', 'Support'];
+  const roles = ['탱커', '투사', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '브루저', '전체'];
   return roles[Math.floor(Math.random() * roles.length)];
 };
 

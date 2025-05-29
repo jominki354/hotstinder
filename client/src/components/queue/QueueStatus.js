@@ -1009,7 +1009,7 @@ const QueueStatus = () => {
   }, [isAuthenticated]); // isAuthenticated가 변경될 때만 재실행
 
   // 대기열에 없거나 매치 중이 아니거나 로그인 상태가 아니거나 매치메이킹 페이지인 경우 아무것도 보여주지 않음
-  if (!isVisible || !isAuthenticated || location.pathname === '/matchmaking') return null;
+  if (!isVisible || !isAuthenticated || location.pathname === '/matchmaking' || location.pathname === '/match-details') return null;
 
   return (
     <div

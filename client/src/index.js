@@ -48,8 +48,10 @@ axios.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // 현재 페이지가 로그인 페이지가 아닌 경우에만 리다이렉트
-      if (window.location.pathname !== '/login') {
+
+      // 관리자 로그인 페이지에서는 자동 리다이렉트하지 않음
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/admin-login') {
         window.location.href = '/login';
       }
     }

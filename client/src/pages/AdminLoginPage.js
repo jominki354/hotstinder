@@ -39,11 +39,30 @@ const AdminLoginPage = () => {
           navigate('/admin');
         }, 500);
       } else {
-        throw new Error('로그인 응답에 토큰이 없습니다.');
+        // 응답은 성공했지만 토큰이 없는 경우
+        setError('로그인 응답에 토큰이 없습니다. 관리자에게 문의하세요.');
       }
     } catch (err) {
       console.error('관리자 로그인 오류:', err);
-      setError(err.response?.data?.message || '로그인에 실패했습니다. 아이디와 비밀번호를 확인해주세요.');
+
+      // 에러 메시지 설정 (페이지 이동 없이)
+      if (err.response?.status === 401) {
+        setError('아이디 또는 비밀번호가 일치하지 않습니다.');
+      } else if (err.response?.status === 403) {
+        setError('관리자 권한이 없습니다.');
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.code === 'NETWORK_ERROR' || !err.response) {
+        setError('서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.');
+      } else {
+        setError('로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      }
+
+      // 폼 데이터 초기화 (보안상 비밀번호만)
+      setFormData(prev => ({
+        ...prev,
+        password: ''
+      }));
     } finally {
       setLoading(false);
     }
