@@ -77,3 +77,4 @@ server/uploads/
 # 캐시 파일
 .cache/
 .parcel-cache/ 
+.vercel
