@@ -21,6 +21,18 @@
     "api/admin/dashboard.js": {
       "maxDuration": 30
     },
+    "api/admin/users.js": {
+      "maxDuration": 30
+    },
+    "api/admin/matches.js": {
+      "maxDuration": 30
+    },
+    "api/admin/delete-all-users.js": {
+      "maxDuration": 30
+    },
+    "api/admin/delete-all-matches.js": {
+      "maxDuration": 30
+    },
     "api/admin/create-test-accounts.js": {
       "maxDuration": 60
     },
@@ -51,6 +63,22 @@
     {
       "source": "/api/admin/dashboard",
       "destination": "/api/admin/dashboard.js"
+    },
+    {
+      "source": "/api/admin/users",
+      "destination": "/api/admin/users.js"
+    },
+    {
+      "source": "/api/admin/matches",
+      "destination": "/api/admin/matches.js"
+    },
+    {
+      "source": "/api/admin/delete-all-users",
+      "destination": "/api/admin/delete-all-users.js"
+    },
+    {
+      "source": "/api/admin/delete-all-matches",
+      "destination": "/api/admin/delete-all-matches.js"
     },
     {
       "source": "/api/admin/create-test-accounts",

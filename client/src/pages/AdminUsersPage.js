@@ -44,6 +44,9 @@ const AdminUsersPage = () => {
           sortBy,
           sortDirection,
           search: searchTerm
+        },
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
@@ -67,7 +70,11 @@ const AdminUsersPage = () => {
 
     try {
       setProcessing(true);
-      const response = await axios.delete('/api/admin/delete-all-users');
+      const response = await axios.delete('/api/admin/delete-all-users', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       toast.success(response.data.message);
 
       // 목록 새로고침
@@ -124,7 +131,11 @@ const AdminUsersPage = () => {
   // 단일 사용자 삭제
   const deleteUser = async (userId) => {
     try {
-      await axios.delete(`/api/admin/users/${userId}`);
+      await axios.delete(`/api/admin/users/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       // 목록에서 삭제된 사용자 제거
       setUsers(users.filter(user => user._id !== userId));
       setSelectedUsers(selectedUsers.filter(id => id !== userId));
@@ -138,7 +149,11 @@ const AdminUsersPage = () => {
   // 다중 사용자 삭제
   const deleteSelectedUsers = async () => {
     try {
-      await axios.post('/api/admin/users/delete', { userIds: selectedUsers });
+      await axios.post('/api/admin/users/delete', { userIds: selectedUsers }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       // 목록에서 삭제된 사용자들 제거
       setUsers(users.filter(user => !selectedUsers.includes(user._id)));
       setSelectedUsers([]);
