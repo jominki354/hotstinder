@@ -14,6 +14,9 @@
     },
     "api/auth/me.js": {
       "maxDuration": 30
+    },
+    "api/debug/env.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
@@ -28,6 +31,10 @@
     {
       "source": "/api/auth/me",
       "destination": "/api/auth/me.js"
+    },
+    {
+      "source": "/api/debug/env",
+      "destination": "/api/debug/env.js"
     },
     {
       "source": "/api/(.*)",
