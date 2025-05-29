@@ -1,7 +1,6 @@
 require('dotenv').config();
 const passport = require('passport');
-const session = require('express-session');
-const MemoryStore = require('memorystore')(session);
+const jwt = require('jsonwebtoken');
 
 // Passport 설정
 passport.use('bnet', new (require('passport-bnet').Strategy)({
@@ -32,35 +31,33 @@ passport.deserializeUser((user, done) => {
 });
 
 module.exports = function handler(req, res) {
-  // 세션 설정
-  const sessionMiddleware = session({
-    secret: process.env.SESSION_SECRET || 'dev_session_secret',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 86400000,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-    },
-    store: new MemoryStore({
-      checkPeriod: 86400000
-    })
-  });
+  try {
+    console.log('Vercel Battle.net 인증 시작');
 
-  // 세션 초기화
-  sessionMiddleware(req, res, () => {
-    // Passport 초기화
-    passport.initialize()(req, res, () => {
-      passport.session()(req, res, () => {
-        // state 매개변수 생성
-        req.session.state = Math.random().toString(36).substring(2, 15) +
-                           Math.random().toString(36).substring(2, 15);
+    // state를 JWT로 생성 (세션 대신)
+    const stateData = {
+      timestamp: Date.now(),
+      random: Math.random().toString(36).substring(2, 15)
+    };
 
-        // 배틀넷 인증 시작
-        passport.authenticate('bnet', {
-          state: req.session.state
-        })(req, res);
-      });
-    });
-  });
-}; 
+    const state = jwt.sign(stateData, process.env.JWT_SECRET || 'fallback-secret', { expiresIn: '10m' });
+
+    console.log('State 생성:', { stateLength: state.length });
+
+    // Battle.net OAuth URL 직접 생성
+    const authUrl = `https://kr.battle.net/oauth/authorize?` +
+      `response_type=code&` +
+      `client_id=${process.env.BNET_CLIENT_ID}&` +
+      `redirect_uri=${encodeURIComponent(process.env.BNET_CALLBACK_URL || 'https://hotstinder.vercel.app/api/auth/bnet/callback')}&` +
+      `state=${encodeURIComponent(state)}`;
+
+    console.log('Battle.net 리다이렉트 URL:', authUrl);
+
+    // Battle.net으로 리다이렉트
+    res.redirect(authUrl);
+
+  } catch (error) {
+    console.error('Battle.net 인증 시작 오류:', error);
+    res.redirect(`${process.env.FRONTEND_URL || 'https://hotstinder.vercel.app'}/login?error=auth_start_failed`);
+  }
+};
