@@ -7,10 +7,20 @@ const AuthSuccessPage = () => {
   const [status, setStatus] = useState('processing');
   const [message, setMessage] = useState('인증 처리 중...');
 
+  // API URL 가져오기 함수
+  const getApiUrl = () => {
+    if (process.env.NODE_ENV === 'production') {
+      return process.env.REACT_APP_API_URL || 'https://hotstinder.vercel.app';
+    }
+    return process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  };
+
   useEffect(() => {
     const token = searchParams.get('token');
     const error = searchParams.get('error');
     const redirect = searchParams.get('redirect');
+
+    console.log('AuthSuccessPage - 받은 파라미터:', { token: token ? 'exists' : 'null', error, redirect });
 
     if (error) {
       setStatus('error');
@@ -37,17 +47,35 @@ const AuthSuccessPage = () => {
 
     if (token) {
       try {
-        // 토큰을 localStorage에 저장
-        localStorage.setItem('authToken', token);
+        console.log('AuthSuccessPage - 토큰 저장 중:', { tokenLength: token.length });
 
-        // 사용자 정보를 가져와서 검증
-        fetch('/api/user/me', {
+        // 토큰을 localStorage에 저장 (authStore와 일관성 유지)
+        localStorage.setItem('token', token);
+
+        const apiUrl = getApiUrl();
+        console.log('AuthSuccessPage - API URL:', apiUrl);
+
+        // 사용자 정보를 가져와서 검증 - 절대 URL 사용
+        fetch(`${apiUrl}/api/auth/me`, {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
         })
-          .then(response => response.json())
+          .then(response => {
+            console.log('AuthSuccessPage - API 응답 상태:', response.status);
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return response.json();
+          })
           .then(data => {
+            console.log('AuthSuccessPage - API 응답 데이터:', data);
+
             if (data.user) {
               setStatus('success');
               setMessage(`환영합니다, ${data.user.battletag}님!`);
@@ -61,9 +89,12 @@ const AuthSuccessPage = () => {
             }
           })
           .catch(error => {
-            console.error('사용자 정보 조회 실패:', error);
+            console.error('AuthSuccessPage - 사용자 정보 조회 실패:', error);
             setStatus('error');
             setMessage('사용자 정보를 가져오는데 실패했습니다.');
+
+            // 토큰 제거
+            localStorage.removeItem('token');
 
             setTimeout(() => {
               navigate('/login');
@@ -71,7 +102,7 @@ const AuthSuccessPage = () => {
           });
 
       } catch (error) {
-        console.error('토큰 처리 오류:', error);
+        console.error('AuthSuccessPage - 토큰 처리 오류:', error);
         setStatus('error');
         setMessage('토큰 처리 중 오류가 발생했습니다.');
 
@@ -133,10 +164,7 @@ const AuthSuccessPage = () => {
         )}
 
         {status === 'error' && (
-          <div>
-            <p className="text-sm text-gray-400 mb-4">
-              잠시 후 로그인 페이지로 이동합니다...
-            </p>
+          <div className="mt-4">
             <button
               onClick={() => navigate('/login')}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"

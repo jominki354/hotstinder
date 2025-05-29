@@ -23,7 +23,7 @@ module.exports = (passport, memoryUsers) => {
         user = await NeDBUser.findById(id);
 
         if (user) {
-          // 사용자 인스턴스에 generateAuthToken 메서드 추가
+          // NeDB 사용자에게 generateAuthToken 메서드 추가
           user.generateAuthToken = function () {
             return NeDBUser.generateAuthToken(this);
           };
@@ -34,6 +34,30 @@ module.exports = (passport, memoryUsers) => {
       } else {
         // MongoDB에서 사용자 찾기
         user = await User.findById(id);
+
+        if (user) {
+          // MongoDB 사용자에게 generateAuthToken 메서드 추가 (Mongoose 메서드가 없는 경우)
+          if (!user.generateAuthToken) {
+            user.generateAuthToken = function () {
+              const jwt = require('jsonwebtoken');
+              const payload = {
+                id: this._id,
+                bnetId: this.bnetId,
+                battletag: this.battletag,
+                isAdmin: this.isAdmin
+              };
+
+              return jwt.sign(
+                payload,
+                process.env.JWT_SECRET || 'dev_jwt_secret',
+                { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+              );
+            };
+          }
+
+          logger.debug('MongoDB에서 사용자 찾음:', { id, battletag: user.battletag });
+          return done(null, user);
+        }
 
         // 메모리에서도 찾아봅니다 (메모리 저장소 사용 시)
         if (!user && memoryUsers) {
@@ -46,11 +70,6 @@ module.exports = (passport, memoryUsers) => {
       }
 
       if (user) {
-        // 사용자 인스턴스에 generateAuthToken 메서드 추가
-        user.generateAuthToken = function () {
-          return NeDBUser.generateAuthToken(this);
-        };
-
         logger.debug('사용자 역직렬화:', { id, battletag: user.battletag });
         return done(null, user);
       } else {
@@ -95,7 +114,6 @@ module.exports = (passport, memoryUsers) => {
       let user;
       let isNewUser = false;
 
-      // MongoDB만 사용하도록 수정
       // MongoDB에서 사용자 찾기 또는 생성
       user = await User.findOne({ bnetId: profile.id });
 
@@ -126,15 +144,24 @@ module.exports = (passport, memoryUsers) => {
         logger.debug('기존 사용자 로그인 (MongoDB):', { battletag: user.battletag });
       }
 
-      // 사용자 인스턴스에 JWT 토큰 생성 메서드 추가
-      user.generateAuthToken = function () {
-        const token = jwt.sign(
-          { id: this._id, bnetId: this.bnetId },
-          process.env.JWT_SECRET || 'your-jwt-secret',
-          { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-        );
-        return token;
-      };
+      // MongoDB 사용자에게 generateAuthToken 메서드 추가 (Mongoose 메서드가 없는 경우)
+      if (!user.generateAuthToken) {
+        user.generateAuthToken = function () {
+          const jwt = require('jsonwebtoken');
+          const payload = {
+            id: this._id,
+            bnetId: this.bnetId,
+            battletag: this.battletag,
+            isAdmin: this.isAdmin
+          };
+
+          return jwt.sign(
+            payload,
+            process.env.JWT_SECRET || 'dev_jwt_secret',
+            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+          );
+        };
+      }
 
       // isNewUser 플래그 추가
       user.isNewUser = isNewUser;

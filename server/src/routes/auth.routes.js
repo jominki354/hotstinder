@@ -49,6 +49,27 @@ router.get('/bnet/callback',
   },
   async (req, res) => {
     try {
+      logger.info('=== Battle.net 콜백 처리 시작 ===');
+      logger.debug('요청 정보:', {
+        sessionID: req.sessionID,
+        user: req.user ? {
+          id: req.user._id,
+          bnetId: req.user.bnetId,
+          battletag: req.user.battletag,
+          isNewUser: req.user.isNewUser
+        } : null,
+        query: req.query,
+        headers: {
+          'user-agent': req.headers['user-agent'],
+          'x-forwarded-for': req.headers['x-forwarded-for']
+        }
+      });
+
+      if (!req.user) {
+        logger.error('Battle.net 콜백에서 사용자 정보가 없습니다');
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
+      }
+
       // 사용자 로그인 로그 기록
       const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
       const userAgent = req.headers['user-agent'];
@@ -64,23 +85,66 @@ router.get('/bnet/callback',
         details: 'Battle.net OAuth 로그인'
       };
 
+      logger.debug('로그 데이터 생성:', logData);
+
       // MongoDB 로그 저장
       try {
         await UserLog.create(logData);
+        logger.debug('사용자 로그 저장 성공');
       } catch (logErr) {
         logger.error('로그 생성 중 오류:', logErr);
       }
 
-      // 토큰 생성
+      // 토큰 생성 시도
+      logger.debug('토큰 생성 시도 중...');
+
+      if (!req.user.generateAuthToken) {
+        logger.error('generateAuthToken 메서드가 없습니다:', {
+          userType: typeof req.user,
+          userKeys: Object.keys(req.user),
+          hasGenerateAuthToken: !!req.user.generateAuthToken
+        });
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=token_error`);
+      }
+
       const token = req.user.generateAuthToken();
+      logger.info('토큰 생성 성공:', {
+        tokenLength: token ? token.length : 0,
+        tokenPreview: token ? token.substring(0, 20) + '...' : 'null'
+      });
 
       // 클라이언트로 리디렉션
-      res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${token}`);
+      const redirectUrl = `${process.env.FRONTEND_URL}/auth/success?token=${token}`;
+      logger.info('클라이언트로 리디렉션:', { redirectUrl });
+
+      res.redirect(redirectUrl);
+
+      logger.info('=== Battle.net 콜백 처리 완료 ===');
     } catch (error) {
-      console.error('로그인 로그 기록 중 오류:', error);
+      logger.error('=== Battle.net 콜백 처리 중 오류 ===', {
+        error: error.message,
+        stack: error.stack,
+        user: req.user ? {
+          id: req.user._id,
+          bnetId: req.user.bnetId,
+          battletag: req.user.battletag
+        } : null
+      });
+
       // 에러가 있어도 로그인 처리는 계속 진행
-      const token = req.user.generateAuthToken();
-      res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${token}`);
+      try {
+        if (req.user && req.user.generateAuthToken) {
+          const token = req.user.generateAuthToken();
+          logger.info('오류 발생 후 토큰 생성 재시도 성공');
+          res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${token}`);
+        } else {
+          logger.error('오류 발생 후 토큰 생성 불가능');
+          res.redirect(`${process.env.FRONTEND_URL}/login?error=token_error`);
+        }
+      } catch (retryError) {
+        logger.error('토큰 생성 재시도 실패:', retryError);
+        res.redirect(`${process.env.FRONTEND_URL}/login?error=token_error`);
+      }
     }
   }
 );
@@ -288,28 +352,45 @@ function getUserWinRate(user) {
  */
 router.get('/me', async (req, res) => {
   try {
+    logger.info('=== /api/auth/me 요청 처리 시작 ===');
+
     // 인증 토큰 확인
     const authHeader = req.headers.authorization;
+    logger.debug('Authorization 헤더:', { authHeader: authHeader ? 'Bearer ' + authHeader.substring(7, 27) + '...' : 'null' });
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.warn('인증 토큰이 없거나 형식이 잘못됨');
       return res.status(401).json({ message: '인증 토큰이 필요합니다' });
     }
 
     const token = authHeader.split(' ')[1];
+    logger.debug('토큰 추출 완료:', { tokenLength: token.length, tokenPreview: token.substring(0, 20) + '...' });
 
     // 토큰 검증
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // 로그 추가
-    logger.debug('토큰 검증 결과:', {
-      userId: decoded.id,
-      idType: typeof decoded.id,
-      isAdmin: decoded.isAdmin
-    });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      logger.debug('토큰 검증 성공:', {
+        userId: decoded.id,
+        idType: typeof decoded.id,
+        isAdmin: decoded.isAdmin,
+        bnetId: decoded.bnetId,
+        battletag: decoded.battletag
+      });
+    } catch (jwtError) {
+      logger.error('JWT 토큰 검증 실패:', {
+        error: jwtError.message,
+        tokenPreview: token.substring(0, 20) + '...'
+      });
+      return res.status(401).json({ message: '인증에 실패했습니다' });
+    }
 
     let user;
 
     // MongoDB만 사용하도록 수정
     try {
+      logger.debug('사용자 조회 시작:', { decodedId: decoded.id, isAdmin: decoded.isAdmin });
+
       // 관리자 로그인인 경우 _id로 직접 조회
       if (decoded.isAdmin && mongoose.Types.ObjectId.isValid(decoded.id)) {
         logger.debug('관리자 계정 조회 시도 (ObjectId):', decoded.id);
@@ -321,6 +402,8 @@ router.get('/me', async (req, res) => {
             isAdmin: user.isAdmin,
             battleTag: user.battleTag || user.battletag
           });
+        } else {
+          logger.debug('관리자 계정 조회 실패 - ObjectId로 찾을 수 없음');
         }
       }
 
@@ -329,18 +412,42 @@ router.get('/me', async (req, res) => {
         logger.debug('bnetId로 사용자 조회 시도:', decoded.id);
         user = await User.findOne({ bnetId: decoded.id }).select('-accessToken -refreshToken -adminPassword');
 
+        if (user) {
+          logger.debug('bnetId로 사용자 조회 성공:', {
+            id: user._id,
+            bnetId: user.bnetId,
+            battletag: user.battletag
+          });
+        } else {
+          logger.debug('bnetId로 사용자 조회 실패');
+        }
+
         // bnetId로 찾을 수 없는 경우 _id로 조회
         if (!user && mongoose.Types.ObjectId.isValid(decoded.id)) {
           logger.debug('ObjectId로 사용자 조회 시도:', decoded.id);
           user = await User.findById(decoded.id).select('-accessToken -refreshToken -adminPassword');
+
+          if (user) {
+            logger.debug('ObjectId로 사용자 조회 성공:', {
+              id: user._id,
+              battletag: user.battletag
+            });
+          } else {
+            logger.debug('ObjectId로 사용자 조회 실패');
+          }
         }
       }
     } catch (findErr) {
-      logger.error('사용자 조회 오류:', findErr);
+      logger.error('사용자 조회 중 데이터베이스 오류:', findErr);
     }
 
     if (!user) {
-      logger.warn('사용자를 찾을 수 없음:', { decodedId: decoded.id, isAdmin: decoded.isAdmin });
+      logger.warn('사용자를 찾을 수 없음:', {
+        decodedId: decoded.id,
+        isAdmin: decoded.isAdmin,
+        bnetId: decoded.bnetId,
+        battletag: decoded.battletag
+      });
       return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
     }
 
@@ -383,11 +490,20 @@ router.get('/me', async (req, res) => {
       }
     };
 
-    logger.debug('/api/auth/me 응답 데이터:', responseData);
+    logger.info('/api/auth/me 응답 성공:', {
+      userId: responseData.user.id,
+      battletag: responseData.user.battletag,
+      isAdmin: responseData.user.isAdmin
+    });
 
     res.json(responseData);
+
+    logger.info('=== /api/auth/me 요청 처리 완료 ===');
   } catch (err) {
-    console.error('사용자 인증 오류:', err);
+    logger.error('=== /api/auth/me 처리 중 오류 ===', {
+      error: err.message,
+      stack: err.stack
+    });
     return res.status(401).json({ message: '인증에 실패했습니다' });
   }
 });
