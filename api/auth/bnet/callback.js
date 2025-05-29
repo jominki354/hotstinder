@@ -64,16 +64,12 @@ const connectMongoDB = async () => {
 
     console.log('MongoDB 연결 옵션 설정...');
     const connectOptions = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 30000, // 30초로 증가
       connectTimeoutMS: 30000, // 30초로 증가
       socketTimeoutMS: 30000, // 30초로 증가
       maxPoolSize: 10,
       retryWrites: true,
-      w: 'majority',
-      bufferCommands: false, // Serverless 환경에서 중요
-      bufferMaxEntries: 0 // Serverless 환경에서 중요
+      w: 'majority'
     };
 
     console.log('MongoDB 연결 시작...');
