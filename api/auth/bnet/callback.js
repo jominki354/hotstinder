@@ -62,23 +62,35 @@ const connectMongoDB = async () => {
       throw new Error('유효하지 않은 MongoDB URI 형식');
     }
 
-    await mongoose.connect(uri, {
+    console.log('MongoDB 연결 옵션 설정...');
+    const connectOptions = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000, // 10초 타임아웃
-      connectTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 30000, // 30초로 증가
+      connectTimeoutMS: 30000, // 30초로 증가
+      socketTimeoutMS: 30000, // 30초로 증가
       maxPoolSize: 10,
       retryWrites: true,
-      w: 'majority'
-    });
+      w: 'majority',
+      bufferCommands: false, // Serverless 환경에서 중요
+      bufferMaxEntries: 0 // Serverless 환경에서 중요
+    };
+
+    console.log('MongoDB 연결 시작...');
+    const startTime = Date.now();
+
+    await mongoose.connect(uri, connectOptions);
+
+    const connectionTime = Date.now() - startTime;
+    console.log(`MongoDB 연결 성공 (${connectionTime}ms)`);
 
     isConnected = true;
-    console.log('MongoDB 연결 성공');
   } catch (error) {
     console.error('MongoDB 연결 실패:', {
       message: error.message,
       code: error.code,
-      name: error.name
+      name: error.name,
+      stack: error.stack
     });
 
     // MongoDB 연결 실패 시에도 계속 진행 (임시 사용자 생성)
