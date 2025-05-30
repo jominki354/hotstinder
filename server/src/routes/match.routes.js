@@ -76,14 +76,33 @@ router.get('/', authenticate, async (req, res) => {
 
     const matchList = matches.map(match => ({
       id: match.id,
+      _id: match.id,
       status: match.status,
       gameMode: match.gameMode,
       mapName: match.mapName,
       maxPlayers: match.maxPlayers,
       currentPlayers: match.currentPlayers,
       averageMmr: match.averageMmr,
-      creator: match.creator,
-      participants: match.participants,
+      creator: match.creator ? {
+        id: match.creator.id,
+        _id: match.creator.id,
+        battleTag: match.creator.battleTag,
+        battletag: match.creator.battleTag,
+        nickname: match.creator.nickname
+      } : null,
+      participants: match.participants ? match.participants.map(p => ({
+        id: p.id,
+        _id: p.id,
+        userId: p.userId,
+        user: p.user ? {
+          id: p.user.id,
+          _id: p.user.id,
+          battleTag: p.user.battleTag,
+          battletag: p.user.battleTag,
+          nickname: p.user.nickname,
+          mmr: p.user.mmr
+        } : null
+      })) : [],
       createdAt: match.createdAt,
       startedAt: match.startedAt,
       endedAt: match.endedAt

@@ -32,14 +32,12 @@ module.exports = (sequelize) => {
     },
     createdAt: {
       type: DataTypes.DATE,
-      field: 'created_at'
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      field: 'updated_at'
+      field: 'created_at',
+      defaultValue: DataTypes.NOW
     }
   }, {
-    tableName: 'user_logs'
+    tableName: 'user_logs',
+    timestamps: false
   });
 
   return UserLog;

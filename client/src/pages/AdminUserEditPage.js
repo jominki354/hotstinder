@@ -66,24 +66,31 @@ const AdminUserEditPage = () => {
     try {
       setLoading(true);
       const response = await axios.get(`/api/admin/users/${userId}`);
+
+      console.log('사용자 데이터 응답:', response.data);
       setUserData(response.data);
 
-      // 폼 데이터 초기화
+      // 폼 데이터 초기화 - 안전한 기본값 설정 및 타입 변환
       setFormData({
-        battletag: response.data.battletag || '',
-        nickname: response.data.nickname || '',
-        email: response.data.email || '',
-        mmr: response.data.mmr || 1500,
-        wins: response.data.wins || 0,
-        losses: response.data.losses || 0,
-        previousTier: response.data.previousTier || 'placement',
-        favoriteHeroes: response.data.favoriteHeroes || [],
-        isAdmin: response.data.isAdmin || false
+        battletag: String(response.data.battletag || response.data.battleTag || ''),
+        nickname: String(response.data.nickname || ''),
+        email: String(response.data.email || ''),
+        mmr: Number(response.data.mmr) || 1500,
+        wins: Number(response.data.wins) || 0,
+        losses: Number(response.data.losses) || 0,
+        previousTier: String(response.data.previousTier || 'placement'),
+        favoriteHeroes: Array.isArray(response.data.favoriteHeroes) ? response.data.favoriteHeroes : [],
+        isAdmin: Boolean(response.data.isAdmin || response.data.role === 'admin')
       });
 
       // 매치 히스토리 가져오기
-      const matchesResponse = await axios.get(`/api/admin/users/${userId}/matches`);
-      setMatchHistory(matchesResponse.data);
+      try {
+        const matchesResponse = await axios.get(`/api/admin/users/${userId}/matches`);
+        setMatchHistory(Array.isArray(matchesResponse.data) ? matchesResponse.data : []);
+      } catch (matchErr) {
+        console.warn('매치 히스토리 가져오기 실패:', matchErr);
+        setMatchHistory([]);
+      }
 
       setLoading(false);
     } catch (err) {
@@ -98,10 +105,11 @@ const AdminUserEditPage = () => {
     try {
       setLogsLoading(true);
       const response = await axios.get(`/api/admin/users/${userId}/logs`);
-      setUserLogs(response.data);
+      setUserLogs(Array.isArray(response.data) ? response.data : []);
       setLogsLoading(false);
     } catch (err) {
-      console.error('사용자 로그 가져오기 오류:', err);
+      console.warn('사용자 로그 가져오기 실패:', err);
+      setUserLogs([]);
       setLogsLoading(false);
     }
   };
@@ -375,18 +383,18 @@ const AdminUserEditPage = () => {
                   <div className="flex justify-between mb-1">
                     <span className="text-gray-400">승률</span>
                     <span className="text-white font-medium">
-                      {formData.wins + formData.losses > 0
-                        ? `${Math.round((formData.wins / (formData.wins + formData.losses)) * 100)}%`
+                      {Number(formData.wins || 0) + Number(formData.losses || 0) > 0
+                        ? `${Math.round((Number(formData.wins || 0) / (Number(formData.wins || 0) + Number(formData.losses || 0))) * 100)}%`
                         : '-'}
                     </span>
                   </div>
-                  {formData.wins + formData.losses > 0 && (
+                  {Number(formData.wins || 0) + Number(formData.losses || 0) > 0 && (
                     <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
                       <div
                         className="bg-green-500 h-full"
                         style={{
                           width: `${Math.round(
-                            (formData.wins / (formData.wins + formData.losses)) * 100
+                            (Number(formData.wins || 0) / (Number(formData.wins || 0) + Number(formData.losses || 0))) * 100
                           )}%`
                         }}
                       ></div>
@@ -398,25 +406,25 @@ const AdminUserEditPage = () => {
                   <div className="bg-slate-700/50 p-3 rounded">
                     <div className="text-gray-400 text-sm mb-1">총 게임</div>
                     <div className="text-white text-lg font-semibold">
-                      {formData.wins + formData.losses}
+                      {Number(formData.wins || 0) + Number(formData.losses || 0)}
                     </div>
                   </div>
                   <div className="bg-slate-700/50 p-3 rounded">
                     <div className="text-gray-400 text-sm mb-1">MMR</div>
                     <div className="text-white text-lg font-semibold">
-                      {formData.mmr}
+                      {Number(formData.mmr || 1500)}
                     </div>
                   </div>
                   <div className="bg-green-900/30 p-3 rounded">
                     <div className="text-green-400 text-sm mb-1">승리</div>
                     <div className="text-white text-lg font-semibold">
-                      {formData.wins}
+                      {Number(formData.wins || 0)}
                     </div>
                   </div>
                   <div className="bg-red-900/30 p-3 rounded">
                     <div className="text-red-400 text-sm mb-1">패배</div>
                     <div className="text-white text-lg font-semibold">
-                      {formData.losses}
+                      {Number(formData.losses || 0)}
                     </div>
                   </div>
                 </div>
@@ -445,38 +453,41 @@ const AdminUserEditPage = () => {
                         {userLogs.map(log => {
                           // 브라우저 정보 파싱
                           let browserInfo = '알 수 없음';
-                          if (log.userAgent) {
-                            if (log.userAgent.includes('Chrome')) {
+                          const userAgent = String(log.userAgent || '');
+                          if (userAgent) {
+                            if (userAgent.includes('Chrome')) {
                               browserInfo = 'Chrome';
-                            } else if (log.userAgent.includes('Firefox')) {
+                            } else if (userAgent.includes('Firefox')) {
                               browserInfo = 'Firefox';
-                            } else if (log.userAgent.includes('Safari')) {
+                            } else if (userAgent.includes('Safari')) {
                               browserInfo = 'Safari';
-                            } else if (log.userAgent.includes('Edge')) {
+                            } else if (userAgent.includes('Edge')) {
                               browserInfo = 'Edge';
-                            } else if (log.userAgent.includes('MSIE') || log.userAgent.includes('Trident')) {
+                            } else if (userAgent.includes('MSIE') || userAgent.includes('Trident')) {
                               browserInfo = 'IE';
                             }
                           }
 
                           return (
-                            <tr key={log._id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                            <tr key={String(log.id || log._id || Math.random())} className="border-b border-slate-700/50 hover:bg-slate-700/30">
                               <td className="py-2">
-                                {new Date(log.timestamp).toLocaleString()}
+                                {log.createdAt || log.timestamp ?
+                                  new Date(log.createdAt || log.timestamp).toLocaleString() :
+                                  '알 수 없음'}
                               </td>
                               <td className="py-2">
-                                {log.action === 'login' ? '로그인' :
-                                  log.action === 'admin_login' ? '관리자 로그인' :
-                                    log.action === 'logout' ? '로그아웃' :
-                                      log.action === 'profile_update' ? '프로필 수정' : '기타'}
+                                {String(log.action) === 'login' ? '로그인' :
+                                  String(log.action) === 'admin_login' ? '관리자 로그인' :
+                                    String(log.action) === 'logout' ? '로그아웃' :
+                                      String(log.action) === 'profile_update' ? '프로필 수정' : '기타'}
                               </td>
                               <td className="py-2 text-xs font-mono">
-                                <span title={log.ipAddress}>
-                                  {log.ipAddress}
+                                <span title={String(log.ipAddress || '')}>
+                                  {String(log.ipAddress || 'N/A')}
                                 </span>
                               </td>
                               <td className="py-2">
-                                <span title={log.userAgent || '정보 없음'}>
+                                <span title={userAgent || '정보 없음'}>
                                   {browserInfo}
                                 </span>
                               </td>
@@ -497,18 +508,18 @@ const AdminUserEditPage = () => {
                 {matchHistory.length > 0 ? (
                   <ul className="space-y-3">
                     {matchHistory.slice(0, 5).map(match => (
-                      <li key={match._id} className="border-l-4 border-indigo-500 pl-3 py-1">
+                      <li key={String(match.id || match._id || Math.random())} className="border-l-4 border-indigo-500 pl-3 py-1">
                         <Link
-                          to={`/admin/matches/${match._id}`}
+                          to={`/admin/matches/${String(match.id || match._id)}`}
                           className="text-white hover:text-indigo-300 transition"
                         >
-                          <div className="font-medium">{match.map}</div>
+                          <div className="font-medium">{String(match.map || '알 수 없는 맵')}</div>
                           <div className="flex justify-between text-sm">
-                            <span className={match.playerTeam === match.winner ? 'text-green-400' : 'text-red-400'}>
-                              {match.playerTeam === match.winner ? '승리' : '패배'}
+                            <span className={String(match.playerTeam) === String(match.winner) ? 'text-green-400' : 'text-red-400'}>
+                              {String(match.playerTeam) === String(match.winner) ? '승리' : '패배'}
                             </span>
                             <span className="text-gray-400">
-                              {new Date(match.createdAt).toLocaleDateString()}
+                              {match.createdAt ? new Date(match.createdAt).toLocaleDateString() : '알 수 없음'}
                             </span>
                           </div>
                         </Link>

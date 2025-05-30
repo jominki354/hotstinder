@@ -155,31 +155,36 @@ const Header = () => {
 
         {/* 데스크톱 메뉴 - 오른쪽 */}
         <div className="hidden md:flex justify-end">
-          <nav className="flex items-center space-x-6">
-            <Link to="/" className="text-slate-300 hover:text-white">홈</Link>
-            <Link to="/leaderboard" className="text-slate-300 hover:text-white">리더보드</Link>
-            <Link to="/recent-games" className="text-slate-300 hover:text-white">최근 게임</Link>
-            <Link to="/debug" className="text-slate-300 hover:text-white">디버깅</Link>
+          <nav className="flex items-center space-x-4">
+            <Link to="/" className="text-slate-300 hover:text-white text-sm">홈</Link>
+            <Link to="/leaderboard" className="text-slate-300 hover:text-white text-sm">리더보드</Link>
+            <Link to="/recent-games" className="text-slate-300 hover:text-white text-sm">최근 게임</Link>
 
-            {/* 관리자가 아닐 때만 매치 찾기 링크 활성화 */}
-            {isAuthenticated && !isAdmin ? (
+            {/* 관리자 전용 링크 */}
+            {user?.isAdmin && (
+              <Link to="/admin" className="text-yellow-400 hover:text-yellow-300 text-sm">관리자</Link>
+            )}
+
+            {/* 관리자가 아닐 때만 매치 찾기 버튼 표시 */}
+            {isAuthenticated && !isAdmin && (
               <button
                 onClick={handleMatchFindingClick}
-                className="text-slate-300 hover:text-white transition-colors"
+                className="text-slate-300 hover:text-white transition-colors text-sm"
               >
                 {matchInProgress ? '진행 중인 매치' : '매치 찾기'}
               </button>
-            ) : isAuthenticated && isAdmin ? (
-              <span className="text-slate-500 cursor-not-allowed">매치 찾기</span>
-            ) : (
-              <Link to="/login" className="text-slate-300 hover:text-white">매치 찾기</Link>
+            )}
+
+            {/* 로그인하지 않은 사용자에게만 매치 찾기 링크 표시 */}
+            {!isAuthenticated && (
+              <Link to="/login" className="text-slate-300 hover:text-white text-sm">매치 찾기</Link>
             )}
 
             {isAuthenticated ? (
               <div className="relative">
                 <button
                   onClick={toggleDropdown}
-                  className="text-slate-300 hover:text-white flex items-center focus:outline-none"
+                  className="text-slate-300 hover:text-white flex items-center focus:outline-none text-sm"
                 >
                   계정
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -220,7 +225,7 @@ const Header = () => {
                 )}
               </div>
             ) : (
-              <Link to="/login" className="text-slate-300 hover:text-white">로그인</Link>
+              <Link to="/login" className="text-slate-300 hover:text-white text-sm">로그인</Link>
             )}
           </nav>
         </div>
@@ -256,19 +261,24 @@ const Header = () => {
           <Link to="/" className="block py-2 text-slate-300 hover:text-white">홈</Link>
           <Link to="/leaderboard" className="block py-2 text-slate-300 hover:text-white">리더보드</Link>
           <Link to="/recent-games" className="block py-2 text-slate-300 hover:text-white">최근 게임</Link>
-          <Link to="/debug" className="block py-2 text-slate-300 hover:text-white">디버깅</Link>
 
-          {/* 관리자가 아닐 때만 매치 찾기 링크 활성화 */}
-          {isAuthenticated && !isAdmin ? (
+          {/* 관리자 전용 링크 */}
+          {user?.isAdmin && (
+            <Link to="/admin" className="block py-2 text-yellow-400 hover:text-yellow-300">관리자</Link>
+          )}
+
+          {/* 관리자가 아닐 때만 매치 찾기 버튼 표시 */}
+          {isAuthenticated && !isAdmin && (
             <button
               onClick={handleMatchFindingClick}
               className="block w-full text-left py-2 text-slate-300 hover:text-white transition-colors"
             >
               {matchInProgress ? '진행 중인 매치' : '매치 찾기'}
             </button>
-          ) : isAuthenticated && isAdmin ? (
-            <span className="block py-2 text-slate-500 cursor-not-allowed">매치 찾기</span>
-          ) : (
+          )}
+
+          {/* 로그인하지 않은 사용자에게만 매치 찾기 링크 표시 */}
+          {!isAuthenticated && (
             <Link to="/login" className="block py-2 text-slate-300 hover:text-white">매치 찾기</Link>
           )}
 

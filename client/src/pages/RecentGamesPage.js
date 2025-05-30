@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { fetchRecentGames } from '../utils/api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { translateHeroName, translateMapName } from '../utils/heroTranslations';
+import { translateHero, translateMap, translateTeam } from '../utils/hotsTranslations';
 import axios from 'axios';
 
 const RecentGamesPage = () => {
@@ -18,7 +17,7 @@ const RecentGamesPage = () => {
   // 맵 이름에 따라 적절한 아이콘 반환
   const getMapIcon = (mapName) => {
     // 한국어로 번역된 맵 이름으로 아이콘 매핑
-    const translatedMapName = translateMapName(mapName);
+    const translatedMapName = translateMap(mapName);
     const mapIcons = {
       '용의 둥지': '🐉',
       '저주받은 골짜기': '👻',
@@ -55,13 +54,83 @@ const RecentGamesPage = () => {
 
       // 정상적인 응답인지 확인
       if (response && response.data) {
+        // 서버에서 games 배열로 응답하는 경우와 직접 배열로 응답하는 경우 모두 처리
+        const gamesData = response.data.games || response.data;
+
         // 데이터 유효성 검사 후 저장
-        const validGames = Array.isArray(response.data.games)
-          ? response.data.games.filter(game => game && game.id)
+        const validGames = Array.isArray(gamesData)
+          ? gamesData.filter(game => game && game.id)
           : [];
 
+        // 데이터 구조 정규화 (PostgreSQL과 MongoDB 응답 모두 처리)
+        const normalizedGames = validGames.map(game => {
+          // PostgreSQL 서버 응답 구조 (redTeam, blueTeam이 직접 배열)
+          if (Array.isArray(game.redTeam) && Array.isArray(game.blueTeam)) {
+            // 레드팀 MMR 평균 계산
+            const redTeamMmrs = game.redTeam
+              .map(player => player.mmrAfter || player.mmrBefore || 1500)
+              .filter(mmr => mmr > 0);
+            const redAvgMmr = redTeamMmrs.length > 0
+              ? Math.round(redTeamMmrs.reduce((sum, mmr) => sum + mmr, 0) / redTeamMmrs.length)
+              : 1500;
+
+            // 블루팀 MMR 평균 계산
+            const blueTeamMmrs = game.blueTeam
+              .map(player => player.mmrAfter || player.mmrBefore || 1500)
+              .filter(mmr => mmr > 0);
+            const blueAvgMmr = blueTeamMmrs.length > 0
+              ? Math.round(blueTeamMmrs.reduce((sum, mmr) => sum + mmr, 0) / blueTeamMmrs.length)
+              : 1500;
+
+            return {
+              ...game,
+              redTeam: {
+                name: '레드팀',
+                avgMmr: redAvgMmr,
+                players: game.redTeam.map(player => ({
+                  id: player.id,
+                  nickname: player.nickname || player.battletag || '알 수 없음',
+                  hero: player.hero || '알 수 없음',
+                  role: player.role || '알 수 없음',
+                  kills: player.kills || 0,
+                  deaths: player.deaths || 0,
+                  assists: player.assists || 0,
+                  heroDamage: player.heroDamage || 0,
+                  siegeDamage: player.siegeDamage || 0,
+                  healing: player.healing || 0,
+                  mmrAfter: player.mmrAfter || 1500,
+                  mmrBefore: player.mmrBefore || 1500,
+                  mmrChange: player.mmrChange || 0
+                }))
+              },
+              blueTeam: {
+                name: '블루팀',
+                avgMmr: blueAvgMmr,
+                players: game.blueTeam.map(player => ({
+                  id: player.id,
+                  nickname: player.nickname || player.battletag || '알 수 없음',
+                  hero: player.hero || '알 수 없음',
+                  role: player.role || '알 수 없음',
+                  kills: player.kills || 0,
+                  deaths: player.deaths || 0,
+                  assists: player.assists || 0,
+                  heroDamage: player.heroDamage || 0,
+                  siegeDamage: player.siegeDamage || 0,
+                  healing: player.healing || 0,
+                  mmrAfter: player.mmrAfter || 1500,
+                  mmrBefore: player.mmrBefore || 1500,
+                  mmrChange: player.mmrChange || 0
+                }))
+              }
+            };
+          }
+
+          // MongoDB API 응답 구조 (이미 정규화된 구조) 또는 이미 정규화된 PostgreSQL 응답
+          return game;
+        });
+
         // 시간 역순 정렬 (최신 순)
-        const sortedGames = [...validGames].sort((a, b) => {
+        const sortedGames = [...normalizedGames].sort((a, b) => {
           // 날짜 문자열로부터 Date 객체 생성
           let dateA, dateB;
 
@@ -80,17 +149,28 @@ const RecentGamesPage = () => {
           return dateB - dateA; // 내림차순 (최신이 먼저)
         });
 
-        setRecentGames(sortedGames);
+        if (response.data && response.data.games) {
+          console.log('[DEBUG] 최근 게임 데이터:', response.data.games.slice(0, 3)); // 처음 3개 게임만 로그
 
-        // 총 게임 수 업데이트 (서버에서 제공하는 경우 사용)
-        if (response.headers['x-total-count']) {
-          setTotalGames(parseInt(response.headers['x-total-count']));
+          // 특정 매치 ID 디버깅
+          const targetMatch = response.data.games.find(game => game.id === '4223fae8-cedf-409f-92ee-18920a35c867');
+          if (targetMatch) {
+            console.log('[DEBUG] 타겟 매치 정보:', {
+              id: targetMatch.id,
+              winner: targetMatch.winner,
+              winnerType: typeof targetMatch.winner,
+              map: targetMatch.map,
+              redTeam: targetMatch.redTeam?.players?.length || 0,
+              blueTeam: targetMatch.blueTeam?.players?.length || 0
+            });
+          }
+
+          setRecentGames(sortedGames);
+          setTotalGames(response.data.pagination?.total || response.data.games.length);
         } else {
-          // 헤더에 없는 경우 기본값으로 설정
-          setTotalGames(Math.max(sortedGames.length, totalGames));
+          setRecentGames([]);
+          setError('응답 데이터 형식이 올바르지 않습니다.');
         }
-
-        setError(null);
       } else {
         setRecentGames([]);
         setError('응답 데이터 형식이 올바르지 않습니다.');
@@ -165,7 +245,7 @@ const RecentGamesPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 pt-8 pb-12">
+    <div className="container mx-auto px-4 pt-8 pb-12 max-w-7xl">
       <div className="bg-slate-800/60 backdrop-blur-sm rounded-xl shadow-xl p-6 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
@@ -187,8 +267,8 @@ const RecentGamesPage = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 mb-8">
-          {recentGames.map((game) => (
+        <div className="space-y-6">
+          {Array.isArray(recentGames) && recentGames.length > 0 ? recentGames.map((game) => (
             <div
               key={game.id}
               className={`bg-slate-900/80 rounded-lg shadow-lg overflow-hidden transition-all duration-200 hover:shadow-indigo-500/20 hover:shadow-xl border border-slate-700 ${selectedMatch && selectedMatch.id === game.id ? 'ring-2 ring-indigo-500' : ''}`}
@@ -201,8 +281,9 @@ const RecentGamesPage = () => {
                   <div className="flex-shrink-0 w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center">
                     <span className="text-xl">{getMapIcon(game.map)}</span>
                   </div>
+
                   <div>
-                    <h3 className="text-lg font-bold text-white">{translateMapName(game.map)}</h3>
+                    <h3 className="text-lg font-bold text-white">{translateMap(game.map)}</h3>
                     <div className="flex items-center gap-2 text-gray-400 text-sm">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a2 2 0 012-2z" />
@@ -218,29 +299,51 @@ const RecentGamesPage = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-3 md:justify-end">
+                <div className="flex flex-col md:flex-row items-center gap-4">
                   <div className="flex items-center gap-4">
-                    <div className={`px-4 py-2 rounded-lg font-medium ${game.winner === 'red' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-slate-700/50 text-slate-300 border border-slate-600'}`}>
-                      <span className="hidden sm:inline">레드팀</span>
-                      <span className="sm:hidden">R</span>: {game.redTeam.avgMmr}
+                    {/* 레드팀 */}
+                    <div className={`px-6 py-3 rounded-lg font-medium relative transition-all duration-200 ${
+                      (game.winner === 'red' || game.winner === 'Red' || game.winner === 'RED' || game.winner === 1 || game.winner === '1')
+                        ? 'bg-gradient-to-r from-red-600/60 to-red-500/50 text-red-100 border-2 border-red-400 shadow-xl shadow-red-500/50 ring-2 ring-red-400/30 scale-102 transform'
+                        : 'bg-slate-700/50 text-slate-300 border border-slate-600 hover:bg-slate-600/50'
+                    }`}>
+                      {(game.winner === 'red' || game.winner === 'Red' || game.winner === 'RED' || game.winner === 1 || game.winner === '1') && (
+                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-red-900 text-xs px-2 py-1 rounded-full font-bold shadow-lg border border-yellow-300 z-10">
+                          👑 승리
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-400 font-bold text-xl">🔴</span>
+                        <span className="hidden sm:inline font-bold text-lg">레드팀</span>
+                        <span className="sm:hidden font-bold text-lg">R</span>
+                        <span className="text-sm opacity-75">MMR:</span>
+                        <span className="font-bold text-xl">{game.redTeam?.avgMmr || 1500}</span>
+                      </div>
                     </div>
 
                     <div className="flex flex-col items-center">
-                      <span className="text-slate-500 text-xs">VS</span>
-                      {game.winner && (
-                        <div className="mt-1 text-xs font-medium text-center">
-                          {game.winner === 'red' ? (
-                            <span className="text-red-400">승리 ←</span>
-                          ) : (
-                            <span className="text-blue-400">→ 승리</span>
-                          )}
-                        </div>
-                      )}
+                      <span className="text-slate-400 text-xl font-bold">VS</span>
+                      <div className="w-12 h-1 bg-gradient-to-r from-red-500 via-slate-500 to-blue-500 mt-1 rounded-full"></div>
                     </div>
 
-                    <div className={`px-4 py-2 rounded-lg font-medium ${game.winner === 'blue' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-slate-700/50 text-slate-300 border border-slate-600'}`}>
-                      <span className="hidden sm:inline">블루팀</span>
-                      <span className="sm:hidden">B</span>: {game.blueTeam.avgMmr}
+                    {/* 블루팀 */}
+                    <div className={`px-6 py-3 rounded-lg font-medium relative transition-all duration-200 ${
+                      (game.winner === 'blue' || game.winner === 'Blue' || game.winner === 'BLUE' || game.winner === 0 || game.winner === '0')
+                        ? 'bg-gradient-to-r from-blue-600/60 to-blue-500/50 text-blue-100 border-2 border-blue-400 shadow-xl shadow-blue-500/50 ring-2 ring-blue-400/30 scale-102 transform'
+                        : 'bg-slate-700/50 text-slate-300 border border-slate-600 hover:bg-slate-600/50'
+                    }`}>
+                      {(game.winner === 'blue' || game.winner === 'Blue' || game.winner === 'BLUE' || game.winner === 0 || game.winner === '0') && (
+                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-yellow-500 text-blue-900 text-xs px-2 py-1 rounded-full font-bold shadow-lg border border-yellow-300 z-10">
+                          👑 승리
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-400 font-bold text-xl">🔵</span>
+                        <span className="hidden sm:inline font-bold text-lg">블루팀</span>
+                        <span className="sm:hidden font-bold text-lg">B</span>
+                        <span className="text-sm opacity-75">MMR:</span>
+                        <span className="font-bold text-xl">{game.blueTeam?.avgMmr || 1500}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -264,31 +367,46 @@ const RecentGamesPage = () => {
                 </div>
               </div>
 
+              {/* 매치 상세 정보 (선택된 경우에만 표시) */}
               {selectedMatch && selectedMatch.id === game.id && (
                 <div className="p-5 bg-slate-900/50">
-                  <div className="flex flex-col md:flex-row gap-6">
+                  <div className="space-y-6">
                     {/* 레드 팀 */}
-                    <div className={`w-full md:w-1/2 p-4 rounded-lg ${game.winner === 'red' ? 'bg-red-900/20 border border-red-800/30' : 'bg-slate-800/50 border border-slate-700/30'}`}>
-                      <div className="flex justify-between items-center mb-3">
-                        <h4 className="text-red-300 font-bold">레드 팀</h4>
-                        {game.winner === 'red' && <div className="bg-red-600 text-white text-xs px-3 py-1 rounded-full font-medium">승리</div>}
+                    <div className={`w-full p-6 rounded-xl transition-all duration-200 ${
+                      (game.winner === 'red' || game.winner === 'Red' || game.winner === 'RED' || game.winner === 1 || game.winner === '1')
+                        ? 'bg-gradient-to-br from-red-900/30 to-red-800/20 border-2 border-red-600/50 shadow-lg shadow-red-500/20'
+                        : 'bg-slate-800/60 border border-slate-700/50'
+                    }`}>
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-red-400 text-2xl">🔴</span>
+                          <h4 className="text-xl font-bold text-red-300">레드팀</h4>
+                          <span className="text-slate-400 text-sm">평균 MMR: {game.redTeam?.avgMmr || 1500}</span>
+                          {(game.winner === 'red' || game.winner === 'Red' || game.winner === 'RED' || game.winner === 1 || game.winner === '1') && (
+                            <span className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-red-900 px-2 py-1 rounded-full text-xs font-bold ml-2">
+                              👑 승리
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
+                      <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
                             <tr className="text-slate-400 border-b border-slate-700/50">
-                              <th className="text-left py-3 px-2 font-medium text-base">플레이어</th>
-                              <th className="text-left py-3 px-2 font-medium text-base">영웅</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">K</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">D</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">A</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">영웅 피해</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">공성 피해</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">치유량</th>
+                              <th className="text-left py-3 px-3 font-medium text-sm min-w-[120px]">플레이어</th>
+                              <th className="text-left py-3 px-3 font-medium text-sm min-w-[100px]">영웅</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">킬</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">데스</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">어시</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">레벨</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="영웅 피해량">영웅딜</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="공성 피해량">공성딜</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="치유량">힐량</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="경험치 기여도">경험치</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {game.redTeam.players.map((player, index) => {
+                            {Array.isArray(game.redTeam?.players) && game.redTeam.players.map((player, index) => {
                               // 레드팀에서 MMR이 가장 높은 플레이어 확인
                               const isHighestMmr = player.mmrAfter &&
                                 Math.max(...game.redTeam.players
@@ -297,48 +415,77 @@ const RecentGamesPage = () => {
 
                               return (
                                 <tr key={`red-${index}`} className="border-b border-slate-700/30 hover:bg-red-900/10">
-                                  <td className="py-3 px-2 text-white">
+                                  <td className="py-3 px-3 text-white">
                                     <div className="flex items-center">
-                                      {isHighestMmr && <span className="text-yellow-400 mr-1">👑</span>}
-                                      <span className="truncate text-base">{player.nickname}</span>
+                                      {isHighestMmr && <span className="text-yellow-400 mr-2 text-sm">👑</span>}
+                                      <span className="text-sm whitespace-nowrap" title={player.nickname || '알 수 없음'}>
+                                        {player.nickname || '알 수 없음'}
+                                      </span>
                                     </div>
                                   </td>
-                                  <td className="py-3 px-2 text-red-300 text-base">{translateHeroName(player.hero)}</td>
-                                  <td className="py-3 px-2 text-center text-green-400 font-bold text-base">{player.kills || 0}</td>
-                                  <td className="py-3 px-2 text-center text-red-400 font-bold text-base">{player.deaths || 0}</td>
-                                  <td className="py-3 px-2 text-center text-yellow-400 font-bold text-base">{player.assists || 0}</td>
-                                  <td className="py-3 px-2 text-center text-orange-400 text-base">{(player.heroDamage || 0).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-center text-cyan-400 text-base">{(player.siegeDamage || 0).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-center text-green-400 text-base">{(player.healing || 0).toLocaleString()}</td>
+                                  <td className="py-3 px-3 text-red-300 text-sm whitespace-nowrap" title={translateHero(player.hero) || '알 수 없음'}>
+                                    {translateHero(player.hero) || '알 수 없음'}
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-green-400 font-bold text-sm">{player.kills || 0}</td>
+                                  <td className="py-3 px-3 text-center text-red-400 font-bold text-sm">{player.deaths || 0}</td>
+                                  <td className="py-3 px-3 text-center text-yellow-400 font-bold text-sm">{player.assists || 0}</td>
+                                  <td className="py-3 px-3 text-center text-indigo-400 font-bold text-sm">{player.level || 0}</td>
+                                  <td className="py-3 px-3 text-center text-orange-400 text-sm" title={`영웅 피해량: ${(player.heroDamage || 0).toLocaleString()}`}>
+                                    <div className="font-semibold">{(player.heroDamage || 0).toLocaleString()}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-cyan-400 text-sm" title={`공성 피해량: ${(player.siegeDamage || 0).toLocaleString()}`}>
+                                    <div className="font-semibold">{(player.siegeDamage || 0).toLocaleString()}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-purple-400 text-sm" title={`치유량: ${(player.healing || 0).toLocaleString()}`}>
+                                    <div className="font-semibold">{(player.healing || 0).toLocaleString()}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-green-300 text-sm" title={`경험치 기여도: ${(player.experience || 0).toLocaleString()}`}>
+                                    <div className="font-semibold">{(player.experience || 0).toLocaleString()}</div>
+                                  </td>
                                 </tr>
-                              );})}
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
                     </div>
 
                     {/* 블루 팀 */}
-                    <div className={`w-full md:w-1/2 p-4 rounded-lg ${game.winner === 'blue' ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-slate-800/50 border border-slate-700/30'}`}>
-                      <div className="flex justify-between items-center mb-3">
-                        <h4 className="text-blue-300 font-bold">블루 팀</h4>
-                        {game.winner === 'blue' && <div className="bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-medium">승리</div>}
+                    <div className={`w-full p-6 rounded-xl transition-all duration-200 ${
+                      (game.winner === 'blue' || game.winner === 'Blue' || game.winner === 'BLUE' || game.winner === 0 || game.winner === '0')
+                        ? 'bg-gradient-to-br from-blue-900/30 to-blue-800/20 border-2 border-blue-600/50 shadow-lg shadow-blue-500/20'
+                        : 'bg-slate-800/60 border border-slate-700/50'
+                    }`}>
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-blue-400 text-2xl">🔵</span>
+                          <h4 className="text-xl font-bold text-blue-300">블루팀</h4>
+                          <span className="text-slate-400 text-sm">평균 MMR: {game.blueTeam?.avgMmr || 1500}</span>
+                          {(game.winner === 'blue' || game.winner === 'Blue' || game.winner === 'BLUE' || game.winner === 0 || game.winner === '0') && (
+                            <span className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-blue-900 px-2 py-1 rounded-full text-xs font-bold ml-2">
+                              👑 승리
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
+                      <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
                             <tr className="text-slate-400 border-b border-slate-700/50">
-                              <th className="text-left py-3 px-2 font-medium text-base">플레이어</th>
-                              <th className="text-left py-3 px-2 font-medium text-base">영웅</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">K</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">D</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">A</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">영웅 피해</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">공성 피해</th>
-                              <th className="text-center py-3 px-2 font-medium text-base">치유량</th>
+                              <th className="text-left py-3 px-3 font-medium text-sm min-w-[120px]">플레이어</th>
+                              <th className="text-left py-3 px-3 font-medium text-sm min-w-[100px]">영웅</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">킬</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">데스</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">어시</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">레벨</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="영웅 피해량">영웅딜</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="공성 피해량">공성딜</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="치유량">힐량</th>
+                              <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="경험치 기여도">경험치</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {game.blueTeam.players.map((player, index) => {
+                            {Array.isArray(game.blueTeam?.players) && game.blueTeam.players.map((player, index) => {
                               // 블루팀에서 MMR이 가장 높은 플레이어 확인
                               const isHighestMmr = player.mmrAfter &&
                                 Math.max(...game.blueTeam.players
@@ -347,21 +494,36 @@ const RecentGamesPage = () => {
 
                               return (
                                 <tr key={`blue-${index}`} className="border-b border-slate-700/30 hover:bg-blue-900/10">
-                                  <td className="py-3 px-2 text-white">
+                                  <td className="py-3 px-3 text-white">
                                     <div className="flex items-center">
-                                      {isHighestMmr && <span className="text-yellow-400 mr-1">👑</span>}
-                                      <span className="truncate text-base">{player.nickname}</span>
+                                      {isHighestMmr && <span className="text-yellow-400 mr-2 text-sm">👑</span>}
+                                      <span className="text-sm whitespace-nowrap" title={player.nickname || '알 수 없음'}>
+                                        {player.nickname || '알 수 없음'}
+                                      </span>
                                     </div>
                                   </td>
-                                  <td className="py-3 px-2 text-blue-300 text-base">{translateHeroName(player.hero)}</td>
-                                  <td className="py-3 px-2 text-center text-green-400 font-bold text-base">{player.kills || 0}</td>
-                                  <td className="py-3 px-2 text-center text-red-400 font-bold text-base">{player.deaths || 0}</td>
-                                  <td className="py-3 px-2 text-center text-yellow-400 font-bold text-base">{player.assists || 0}</td>
-                                  <td className="py-3 px-2 text-center text-orange-400 text-base">{(player.heroDamage || 0).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-center text-cyan-400 text-base">{(player.siegeDamage || 0).toLocaleString()}</td>
-                                  <td className="py-3 px-2 text-center text-green-400 text-base">{(player.healing || 0).toLocaleString()}</td>
+                                  <td className="py-3 px-3 text-blue-300 text-sm whitespace-nowrap" title={translateHero(player.hero) || '알 수 없음'}>
+                                    {translateHero(player.hero) || '알 수 없음'}
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-green-400 font-bold text-sm">{player.kills || 0}</td>
+                                  <td className="py-3 px-3 text-center text-red-400 font-bold text-sm">{player.deaths || 0}</td>
+                                  <td className="py-3 px-3 text-center text-yellow-400 font-bold text-sm">{player.assists || 0}</td>
+                                  <td className="py-3 px-3 text-center text-indigo-400 font-bold text-sm">{player.level || 0}</td>
+                                  <td className="py-3 px-3 text-center text-orange-400 text-sm" title={`영웅 피해량: ${(player.heroDamage || 0).toLocaleString()}`}>
+                                    <div className="font-semibold">{(player.heroDamage || 0).toLocaleString()}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-cyan-400 text-sm" title={`공성 피해량: ${(player.siegeDamage || 0).toLocaleString()}`}>
+                                    <div className="font-semibold">{(player.siegeDamage || 0).toLocaleString()}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-purple-400 text-sm" title={`치유량: ${(player.healing || 0).toLocaleString()}`}>
+                                    <div className="font-semibold">{(player.healing || 0).toLocaleString()}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center text-green-300 text-sm" title={`경험치 기여도: ${(player.experience || 0).toLocaleString()}`}>
+                                    <div className="font-semibold">{(player.experience || 0).toLocaleString()}</div>
+                                  </td>
                                 </tr>
-                              );})}
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -370,7 +532,12 @@ const RecentGamesPage = () => {
                 </div>
               )}
             </div>
-          ))}
+          )) : (
+            <div className="bg-slate-800 rounded-lg p-8 text-center">
+              <p className="text-gray-400 mb-4">표시할 게임이 없습니다.</p>
+              <p className="text-gray-500">게임이 완료되면 이곳에 표시됩니다.</p>
+            </div>
+          )}
         </div>
 
         {/* 페이지네이션 */}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { translateHeroName, translateMapName } from '../utils/heroTranslations';
+import { translateHero, translateMap, translateTeam } from '../utils/hotsTranslations';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 // Axios 기본 설정
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -11,6 +12,7 @@ axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000
 const AdminPage = () => {
   const { isAuthenticated, user, token } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard'); // 기본 탭을 대시보드로 설정
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalMatches: 0,
@@ -31,6 +33,33 @@ const AdminPage = () => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [analysisError, setAnalysisError] = useState(null);
   const [analysisLogs, setAnalysisLogs] = useState([]);
+
+  // 디버깅 관련 상태
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugData, setDebugData] = useState({
+    endpoints: null,
+    database: null,
+    models: null,
+    testResults: null
+  });
+  const [debugError, setDebugError] = useState(null);
+
+  const navigate = useNavigate();
+
+  // 디버깅용 로그 추가
+  useEffect(() => {
+    console.log('🔍 AdminPage - activeTab 변경:', activeTab);
+  }, [activeTab]);
+
+  // 페이지 로드 시 기본 탭 확인
+  useEffect(() => {
+    console.log('🔍 AdminPage - 컴포넌트 마운트, 기본 탭:', activeTab);
+    // 강제로 dashboard 탭으로 설정
+    if (activeTab !== 'dashboard') {
+      console.log('🔧 기본 탭을 dashboard로 강제 설정');
+      setActiveTab('dashboard');
+    }
+  }, []);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -197,6 +226,12 @@ const AdminPage = () => {
       setLastActionMessage('리플레이 분석이 완료되었습니다.');
       toast.success('리플레이 분석이 완료되었습니다!');
 
+      // 디버깅을 위한 콘솔 출력
+      console.log('🎮 리플레이 분석 결과:', response.data.analysisResult);
+      console.log('📊 메타데이터:', response.data.analysisResult?.metadata);
+      console.log('👥 팀 데이터:', response.data.analysisResult?.teams);
+      console.log('📈 통계:', response.data.analysisResult?.statistics);
+
     } catch (err) {
       console.error('리플레이 분석 오류:', err);
       const errorData = err.response?.data;
@@ -242,7 +277,7 @@ const AdminPage = () => {
 
   // 전장명 한글 변환 함수
   const getKoreanMapName = (mapName) => {
-    return translateMapName(mapName);
+    return translateMap(mapName);
   };
 
   // 시뮬레이션 매치 여부 판별 함수
@@ -285,9 +320,490 @@ const AdminPage = () => {
     return false;
   };
 
+  // 클라이언트 에러를 서버로 전송하는 함수
+  const reportClientError = async (error, context = {}) => {
+    try {
+      await axios.post('/api/debug/client-error', {
+        error: error.message || String(error),
+        stack: error.stack || 'No stack trace',
+        component: 'AdminPage',
+        action: context.action || 'unknown',
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        url: window.location.href,
+        context
+      });
+      console.log('✅ 에러가 서버에 리포팅되었습니다:', error.message);
+    } catch (reportError) {
+      console.warn('❌ 에러 리포팅 실패:', reportError);
+    }
+  };
+
+  // React 에러 캐치
+  useEffect(() => {
+    const handleError = (event) => {
+      console.error('🔴 전역 에러 캐치:', event.error);
+      reportClientError(event.error, { action: 'global-error', type: 'unhandled-error' });
+    };
+
+    const handleRejection = (event) => {
+      console.error('🔴 Promise 거부 캐치:', event.reason);
+      reportClientError(new Error(event.reason), { action: 'global-error', type: 'unhandled-rejection' });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
+  // 안전한 값 렌더링 함수
+  const safeRender = (value) => {
+    try {
+      if (value === null || value === undefined) return '-';
+      if (typeof value === 'object') return JSON.stringify(value);
+      return String(value);
+    } catch (error) {
+      reportClientError(error, { action: 'safeRender', value: typeof value });
+      return 'Error rendering value';
+    }
+  };
+
+  // 안전한 날짜 렌더링 함수
+  const safeRenderDate = (value) => {
+    try {
+      if (!value) return '없음';
+      if (typeof value === 'object') return new Date().toLocaleString();
+      return String(value);
+    } catch (error) {
+      reportClientError(error, { action: 'safeRenderDate', value: typeof value });
+      return '날짜 오류';
+    }
+  };
+
+  // 디버그 데이터 로드 함수
+  const loadDebugData = async (type) => {
+    setDebugLoading(true);
+    setDebugError(null);
+
+    try {
+      let response;
+      switch (type) {
+        case 'endpoints':
+          response = await axios.get('/api/debug/endpoints');
+          break;
+        case 'database':
+          response = await axios.get('/api/debug/database');
+          break;
+        case 'models':
+          response = await axios.get('/api/debug/models');
+          break;
+        case 'test':
+          response = await axios.get('/api/debug/test-endpoints');
+          break;
+        default:
+          throw new Error('Unknown data type');
+      }
+
+      setDebugData(prev => ({
+        ...prev,
+        [type === 'test' ? 'testResults' : type]: response.data
+      }));
+    } catch (err) {
+      console.error(`${type} 데이터 로드 오류:`, err);
+      setDebugError(`${type} 데이터를 불러오는데 실패했습니다: ${err.message}`);
+
+      // 클라이언트 에러를 서버로 전송
+      try {
+        await axios.post('/api/debug/client-error', {
+          error: err.message,
+          stack: err.stack,
+          component: 'AdminPage',
+          action: `loadDebugData(${type})`,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          url: window.location.href
+        });
+      } catch (reportError) {
+        console.warn('에러 리포팅 실패:', reportError);
+      }
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
+  // 탭 변경 시 디버그 데이터 로드
+  useEffect(() => {
+    if (activeTab.startsWith('debug-')) {
+      const debugType = activeTab.replace('debug-', '');
+      loadDebugData(debugType === 'test' ? 'test' : debugType);
+    } else if (activeTab === 'users') {
+      // 사용자 관리 페이지로 이동
+      navigate('/admin/users');
+    } else if (activeTab === 'matches') {
+      // 매치 관리 페이지로 이동
+      navigate('/admin/matches');
+    }
+  }, [activeTab, navigate]);
+
+  // 상태에 따른 색상 반환
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'available':
+      case 'connected':
+      case true:
+        return 'text-green-400';
+      case 'error':
+      case 'disconnected':
+      case false:
+        return 'text-red-400';
+      default:
+        return 'text-yellow-400';
+    }
+  };
+
+  // HTTP 메서드에 따른 색상 반환
+  const getMethodColor = (method) => {
+    switch (method) {
+      case 'GET':
+        return 'bg-green-600';
+      case 'POST':
+        return 'bg-blue-600';
+      case 'PUT':
+        return 'bg-yellow-600';
+      case 'DELETE':
+        return 'bg-red-600';
+      default:
+        return 'bg-gray-600';
+    }
+  };
+
+  // 엔드포인트 탭 렌더링
+  const renderEndpointsTab = () => {
+    if (!debugData.endpoints) return null;
+
+    return (
+      <div className="space-y-6">
+        {/* 요약 정보 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-2">총 엔드포인트</h3>
+            <p className="text-3xl font-bold text-blue-400">{safeRender(debugData.endpoints.totalEndpoints)}</p>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-2">사용 가능</h3>
+            <p className="text-3xl font-bold text-green-400">{safeRender(debugData.endpoints.availableEndpoints)}</p>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-2">오류</h3>
+            <p className="text-3xl font-bold text-red-400">{safeRender(debugData.endpoints.errorEndpoints)}</p>
+          </div>
+        </div>
+
+        {/* 엔드포인트 목록 */}
+        <div className="bg-slate-800 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-700">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">메서드</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">경로</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">설명</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">인증 필요</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">상태</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700">
+                {debugData.endpoints.endpoints && debugData.endpoints.endpoints.map((endpoint, index) => (
+                  <tr key={index} className="hover:bg-slate-700">
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-xs font-medium text-white rounded ${getMethodColor(endpoint.method)}`}>
+                        {safeRender(endpoint.method)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-white font-mono">{safeRender(endpoint.path)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{safeRender(endpoint.description)}</td>
+                    <td className="px-4 py-3 text-center">
+                      {endpoint.requiresAuth ? (
+                        <span className="text-yellow-400">✓</span>
+                      ) : (
+                        <span className="text-gray-500">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`font-medium ${getStatusColor(endpoint.status)}`}>
+                        {safeRender(endpoint.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 데이터베이스 탭 렌더링
+  const renderDatabaseTab = () => {
+    if (!debugData.database) return null;
+
+    return (
+      <div className="space-y-6">
+        {/* 연결 정보 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-4">연결 정보</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-400">상태:</span>
+                <span className={`font-medium ${getStatusColor(debugData.database.status)}`}>
+                  {debugData.database.status}
+                </span>
+        </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">데이터베이스:</span>
+                <span className="text-white">{safeRender(debugData.database.database)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">호스트:</span>
+                <span className="text-white">{safeRender(debugData.database.host)}:{safeRender(debugData.database.port)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">사용자:</span>
+                <span className="text-white">{safeRender(debugData.database.user)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-4">통계</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-400">테이블 수:</span>
+                <span className="text-blue-400 font-bold">{safeRender(debugData.database.tablesCount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">모델 수:</span>
+                <span className="text-green-400 font-bold">{safeRender(debugData.database.modelsCount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">오류 수:</span>
+                <span className="text-red-400 font-bold">{safeRender(debugData.database.errors?.length || 0)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 오류 목록 */}
+        {debugData.database.errors && debugData.database.errors.length > 0 && (
+          <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-red-400 mb-2">오류 목록</h3>
+            <ul className="space-y-1">
+              {debugData.database.errors.map((error, index) => (
+                <li key={index} className="text-red-300 text-sm">{safeRender(error)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 테이블 목록 */}
+        <div className="bg-slate-800 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-white mb-4">테이블 목록</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {debugData.database.tables && debugData.database.tables.map((table, index) => (
+              <div key={index} className="bg-slate-700 p-3 rounded">
+                <h4 className="font-medium text-white">{safeRender(table.table_name)}</h4>
+                <p className="text-sm text-gray-400">스키마: {safeRender(table.table_schema)}</p>
+                {debugData.database.tableDetails && debugData.database.tableDetails[table.table_name] && (
+                  <p className="text-xs text-blue-400 mt-1">
+                    컬럼 {safeRender(debugData.database.tableDetails[table.table_name].length)}개
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 모델 탭 렌더링
+  const renderModelsTab = () => {
+    if (!debugData.models) return null;
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-slate-800 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-white mb-2">모델 개수</h3>
+          <p className="text-3xl font-bold text-blue-400">{safeRender(debugData.models.modelsCount)}</p>
+        </div>
+
+        <div className="space-y-4">
+          {debugData.models.models && Object.entries(debugData.models.models).map(([modelName, modelInfo]) => (
+            <div key={modelName} className="bg-slate-800 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-white mb-4">{safeRender(modelName)}</h3>
+
+              {modelInfo.error ? (
+                <div className="text-red-400">오류: {safeRender(modelInfo.error)}</div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-gray-300 mb-2">테이블명: {safeRender(modelInfo.tableName)}</h4>
+                  </div>
+
+                  {/* 속성 목록 */}
+                  <div>
+                    <h4 className="font-medium text-gray-300 mb-2">속성 ({safeRender(modelInfo.attributes?.length || 0)}개)</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-600">
+                            <th className="text-left py-2 text-gray-400">속성명</th>
+                            <th className="text-left py-2 text-gray-400">DB 필드명</th>
+                            <th className="text-left py-2 text-gray-400">타입</th>
+                            <th className="text-left py-2 text-gray-400">NULL 허용</th>
+                            <th className="text-left py-2 text-gray-400">기본값</th>
+                            <th className="text-left py-2 text-gray-400">기타</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {modelInfo.attributes && modelInfo.attributes.map((attr, idx) => (
+                            <tr key={idx} className="border-b border-slate-700">
+                              <td className="py-1 text-white font-mono">{safeRender(attr.name)}</td>
+                              <td className="py-1 text-blue-400">{safeRender(attr.field)}</td>
+                              <td className="py-1 text-green-400">{safeRender(attr.type)}</td>
+                              <td className="py-1 text-gray-300">{attr.allowNull ? 'Yes' : 'No'}</td>
+                              <td className="py-1 text-gray-300">{safeRender(attr.defaultValue) || '-'}</td>
+                              <td className="py-1 text-yellow-400">
+                                {attr.primaryKey && 'PK '}
+                                {attr.autoIncrement && 'AI'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 연관관계 */}
+                  {modelInfo.associations && modelInfo.associations.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-300 mb-2">연관관계 ({safeRender(modelInfo.associations.length)}개)</h4>
+                      <div className="space-y-2">
+                        {modelInfo.associations.map((assoc, idx) => (
+                          <div key={idx} className="flex items-center space-x-2 text-sm">
+                            <span className="text-white">{safeRender(assoc.name)}</span>
+                            <span className="text-gray-400">→</span>
+                            <span className="text-blue-400">{safeRender(assoc.type)}</span>
+                            <span className="text-gray-400">→</span>
+                            <span className="text-green-400">{safeRender(assoc.target)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // 테스트 결과 탭 렌더링
+  const renderTestTab = () => {
+    if (!debugData.testResults) return null;
+
+    return (
+      <div className="space-y-6">
+        {/* 요약 정보 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-2">총 테스트</h3>
+            <p className="text-3xl font-bold text-blue-400">{safeRender(debugData.testResults.summary?.total)}</p>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-2">성공</h3>
+            <p className="text-3xl font-bold text-green-400">{safeRender(debugData.testResults.summary?.success)}</p>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-2">실패</h3>
+            <p className="text-3xl font-bold text-red-400">{safeRender(debugData.testResults.summary?.errors)}</p>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-2">성공률</h3>
+            <p className="text-3xl font-bold text-yellow-400">{safeRender(debugData.testResults.summary?.successRate)}</p>
+          </div>
+        </div>
+
+        {/* 테스트 결과 목록 */}
+        <div className="bg-slate-800 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-700">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">엔드포인트</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">상태</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">응답시간</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase">성공</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">Content-Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">오류</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700">
+                {debugData.testResults.results && debugData.testResults.results.map((result, index) => (
+                  <tr key={index} className="hover:bg-slate-700">
+                    <td className="px-4 py-3 text-sm text-white font-mono">{safeRender(result.endpoint)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${
+                        result.success ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                      }`}>
+                        {safeRender(result.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-300">
+                      {result.responseTime ? `${safeRender(result.responseTime)}ms` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`font-medium ${getStatusColor(result.success)}`}>
+                        {result.success ? '✓' : '✗'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{safeRender(result.contentType) || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-red-400">{safeRender(result.error) || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 상태 표시줄 스타일
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case '성공':
+        return 'bg-green-900/50 border-green-700 text-green-400';
+      case '실패':
+        return 'bg-red-900/50 border-red-700 text-red-400';
+      case '진행 중':
+        return 'bg-blue-900/50 border-blue-700 text-blue-400';
+      default:
+        return 'bg-slate-800 border-slate-700 text-gray-400';
+    }
+  };
+
   // 로딩 중 표시
   if (loading) {
-    return (
+  return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
@@ -308,22 +824,8 @@ const AdminPage = () => {
     );
   }
 
-  // 상태 표시줄 스타일
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case '성공':
-        return 'bg-green-900/50 border-green-700 text-green-400';
-      case '실패':
-        return 'bg-red-900/50 border-red-700 text-red-400';
-      case '진행 중':
-        return 'bg-blue-900/50 border-blue-700 text-blue-400';
-      default:
-        return 'bg-slate-800 border-slate-700 text-gray-400';
-    }
-  };
-
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 animate-fadeIn">
+    <div className="max-w-7xl mx-auto px-4 py-8 animate-fadeIn">
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-indigo-400 mb-2">관리자 대시보드</h1>
@@ -332,6 +834,37 @@ const AdminPage = () => {
         <Link to="/" className="text-indigo-400 hover:text-indigo-300">
           &larr; 홈으로 돌아가기
         </Link>
+      </div>
+
+      {/* 탭 네비게이션 */}
+      <div className="mb-6">
+        <nav className="flex space-x-1 bg-slate-800 p-1 rounded-lg">
+          {[
+            { id: 'dashboard', label: '📊 대시보드' },
+            { id: 'users', label: '👥 사용자 관리' },
+            { id: 'matches', label: '🎮 매치 관리' },
+            { id: 'replay', label: '📹 리플레이 분석' },
+            { id: 'debug-endpoints', label: '🔧 API 엔드포인트' },
+            { id: 'debug-database', label: '🗄️ 데이터베이스' },
+            { id: 'debug-models', label: '📋 모델 정보' },
+            { id: 'debug-test', label: '🧪 실시간 테스트' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                console.log('🔍 탭 클릭:', tab.id, '현재 탭:', activeTab);
+                setActiveTab(tab.id);
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
       {/* 최근 작업 상태 표시 */}
@@ -344,13 +877,29 @@ const AdminPage = () => {
               </h3>
               <p>{lastActionMessage}</p>
             </div>
-            {(processing || replayAnalyzing) && (
+            {(processing || replayAnalyzing || debugLoading) && (
               <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-current"></div>
             )}
           </div>
         </div>
       )}
 
+      {/* 디버그 에러 메시지 */}
+      {debugError && (
+        <div className="mb-6 bg-red-900/20 border border-red-800 rounded-lg p-4">
+          <p className="text-red-400">{safeRender(debugError)}</p>
+        </div>
+      )}
+
+      {/* 탭 내용 */}
+      <div className="min-h-96">
+        {/* 디버깅 정보 */}
+        <div className="mb-4 p-2 bg-gray-800 rounded text-xs text-gray-400">
+          현재 활성 탭: {activeTab}
+        </div>
+
+        {activeTab === 'dashboard' && (
+          <>
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
@@ -373,13 +922,115 @@ const AdminPage = () => {
         </div>
       </div>
 
-      {/* 리플레이 분석 섹션 */}
-      <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg mb-8">
-        <h2 className="text-xl font-bold text-white mb-4">🎮 리플레이 분석 도구</h2>
-        <p className="text-gray-400 mb-4">Heroes of the Storm 리플레이 파일을 업로드하여 실제 게임 통계를 분석합니다.</p>
+            {/* 관리 도구 섹션 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              {/* 테스트 데이터 생성 도구 */}
+              <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg">
+                <h2 className="text-xl font-bold text-white mb-4">🛠️ 테스트 데이터 생성</h2>
+                <p className="text-gray-400 mb-4">개발 및 테스트를 위한 더미 데이터를 생성합니다.</p>
 
         <div className="space-y-4">
           <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      생성할 테스트 계정 수
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={testAccountCount}
+                      onChange={(e) => setTestAccountCount(parseInt(e.target.value) || 1)}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <button
+                    onClick={createTestAccounts}
+                    disabled={processing}
+                    className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                  >
+                    {processing && lastAction === '계정 생성' ? '생성 중...' : '테스트 계정 생성'}
+                  </button>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      생성할 테스트 매치 수
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={testMatchCount}
+                      onChange={(e) => setTestMatchCount(parseInt(e.target.value) || 1)}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <button
+                    onClick={createTestMatches}
+                    disabled={processing}
+                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                  >
+                    {processing && lastAction === '매치 생성' ? '생성 중...' : '테스트 매치 생성'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 빠른 링크 */}
+              <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg">
+                <h2 className="text-xl font-bold text-white mb-4">🔗 빠른 링크</h2>
+                <div className="space-y-3">
+                  <Link
+                    to="/admin/users"
+                    className="block w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center transition-colors"
+                  >
+                    👥 사용자 관리
+                  </Link>
+                  <Link
+                    to="/admin/matches"
+                    className="block w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-center transition-colors"
+                  >
+                    🎮 매치 관리
+                  </Link>
+                  <button
+                    onClick={() => setActiveTab('debug-endpoints')}
+                    className="block w-full px-4 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-center transition-colors"
+                  >
+                    🔧 시스템 디버깅
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-bold text-white mb-4">👥 사용자 관리</h2>
+            <p className="text-gray-400 mb-4">사용자 관리 페이지로 이동 중입니다...</p>
+            <div className="flex justify-center">
+              <LoadingSpinner size="lg" />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'matches' && (
+          <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-bold text-white mb-4">🎮 매치 관리</h2>
+            <p className="text-gray-400 mb-4">매치 관리 페이지로 이동 중입니다...</p>
+            <div className="flex justify-center">
+              <LoadingSpinner size="lg" />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'replay' && (
+          <div className="bg-slate-800/50 p-6 rounded-lg shadow-lg">
+            <h2 className="text-xl font-bold text-white mb-4">🎮 리플레이 분석 도구</h2>
+            <p className="text-gray-400 mb-4">Heroes of the Storm 리플레이 파일을 업로드하여 실제 게임 통계를 분석합니다.</p>
+
+            {/* 파일 업로드 섹션 */}
+            <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               리플레이 파일 선택 (.StormReplay)
             </label>
@@ -388,73 +1039,47 @@ const AdminPage = () => {
               type="file"
               accept=".StormReplay"
               onChange={handleReplayFileChange}
-              className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 file:cursor-pointer cursor-pointer"
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             {replayFile && (
-              <div className="mt-2 text-sm text-gray-400">
-                선택된 파일: <span className="text-white">{replayFile.name}</span>
-                <span className="ml-2">({(replayFile.size / 1024 / 1024).toFixed(2)} MB)</span>
-              </div>
+                <p className="mt-2 text-sm text-green-400">
+                  선택된 파일: {replayFile.name} ({(replayFile.size / 1024 / 1024).toFixed(2)} MB)
+                </p>
             )}
           </div>
 
-          <div className="flex space-x-4">
+            {/* 분석 버튼 */}
+            <div className="mb-6 flex space-x-4">
             <button
               onClick={analyzeReplay}
               disabled={!replayFile || replayAnalyzing}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
             >
-              {replayAnalyzing && (
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-              )}
-              <span>{replayAnalyzing ? '분석 중...' : '분석 시작'}</span>
+                {replayAnalyzing ? '분석 중...' : '리플레이 분석 시작'}
             </button>
 
-            {(replayFile || analysisResult) && (
               <button
                 onClick={clearAnalysis}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 초기화
               </button>
-            )}
-          </div>
         </div>
 
-        {/* 분석 오류 및 로그 표시 */}
+            {/* 분석 오류 표시 */}
         {analysisError && (
-          <div className="mt-6 p-4 bg-red-900/50 border border-red-700/50 rounded-lg">
-            <h3 className="text-lg font-semibold text-red-400 mb-4">❌ 분석 실패</h3>
+              <div className="mb-6 bg-red-900/20 border border-red-800 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-red-400 mb-2">분석 오류</h3>
+                <p className="text-red-300">{analysisError}</p>
 
-            <div className="mb-4">
-              <h4 className="text-sm font-medium text-red-300 mb-2">오류 메시지:</h4>
-              <p className="text-red-200 bg-red-900/30 p-3 rounded text-sm">{analysisError}</p>
-            </div>
-
+                {/* 오류 로그 표시 */}
             {analysisLogs.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium text-red-300 mb-2">상세 로그:</h4>
-                <div className="bg-black/50 p-3 rounded text-xs font-mono max-h-64 overflow-y-auto">
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-red-400 mb-2">상세 로그:</h4>
+                    <div className="bg-black/30 p-3 rounded text-xs text-gray-300 max-h-40 overflow-y-auto">
                   {analysisLogs.map((log, index) => (
-                    <div key={index} className={`mb-1 ${
-                      log.includes('[ERROR]') ? 'text-red-400' :
-                        log.includes('[WARN]') ? 'text-yellow-400' :
-                          log.includes('[DEBUG]') ? 'text-blue-400' :
-                            'text-gray-300'
-                    }`}>
-                      {log}
-                    </div>
+                        <div key={index} className="mb-1">{log}</div>
                   ))}
-                </div>
-
-                <div className="mt-3 text-xs text-gray-400">
-                  <p><strong>문제 해결 방법:</strong></p>
-                  <ul className="list-disc list-inside mt-1 space-y-1">
-                    <li>리플레이 파일이 손상되지 않았는지 확인</li>
-                    <li>지원되는 게임 버전인지 확인 (최신 패치는 지원 지연 가능)</li>
-                    <li>시스템 리소스가 충분한지 확인</li>
-                    <li>AI 플레이어가 포함된 게임이 아닌지 확인</li>
-                  </ul>
                 </div>
               </div>
             )}
@@ -463,272 +1088,399 @@ const AdminPage = () => {
 
         {/* 분석 결과 표시 */}
         {analysisResult && (
-          <div className="mt-6 p-4 bg-slate-700/50 rounded-lg">
-            <h3 className="text-lg font-semibold text-white mb-4">📊 분석 결과</h3>
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold text-white">분석 결과</h3>
 
-            {/* 기본 게임 정보 */}
-            <div className="bg-slate-600/50 p-4 rounded-lg mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-                <div>
-                  <h4 className="text-sm text-gray-400 mb-1">전장</h4>
-                  <p className="text-white font-semibold text-lg">{getKoreanMapName(analysisResult.basic?.map)}</p>
+                {/* 시뮬레이션 매치 경고 */}
+                {isSimulationMatch(analysisResult, replayFile) && (
+                  <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-yellow-400 font-medium">시뮬레이션 매치 감지됨</span>
                 </div>
-                <div>
-                  <h4 className="text-sm text-gray-400 mb-1">게임 시간</h4>
-                  <p className="text-white font-semibold text-lg">
-                    {analysisResult.basic?.gameLength ? formatDuration(analysisResult.basic.gameLength) : 'Unknown'}
-                  </p>
+                    <p className="text-yellow-300 mt-2">이 리플레이는 시뮬레이션으로 생성된 매치입니다.</p>
                 </div>
-                <div>
-                  <h4 className="text-sm text-gray-400 mb-1">승리 팀</h4>
-                  <p className={`font-semibold text-lg ${analysisResult.basic?.winner === 'blue' ? 'text-blue-400' : 'text-red-400'}`}>
-                    {analysisResult.basic?.winner === 'blue' ? '블루 팀' : '레드 팀'}
-                  </p>
+                )}
+
+                {/* 매치 카드 스타일로 변경 */}
+                <div className="bg-slate-900/80 rounded-lg shadow-lg overflow-hidden border border-slate-700">
+                  <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-5 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center">
+                        <span className="text-xl">🎮</span>
                 </div>
+
                 <div>
-                  <h4 className="text-sm text-gray-400 mb-1">매치 유형</h4>
-                  <p className={`font-semibold text-lg ${isSimulationMatch(analysisResult, replayFile) ? 'text-yellow-400' : 'text-green-400'}`}>
-                    {isSimulationMatch(analysisResult, replayFile) ? '🎮 시뮬레이션' : '⚔️ 실제 매치'}
-                  </p>
+                        <h3 className="text-lg font-bold text-white">
+                          {getKoreanMapName(analysisResult.metadata?.mapName) || '알 수 없음'}
+                        </h3>
+                        <div className="flex items-center gap-2 text-gray-400 text-sm">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p>게임 시간: {analysisResult.metadata?.gameDuration ? formatDuration(analysisResult.metadata.gameDuration) : '알 수 없음'}</p>
                 </div>
               </div>
             </div>
 
-            {/* 팀별 통계 */}
-            {analysisResult.teams && (
-              <div className="space-y-6">
-                {/* 레드 팀 */}
-                <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
-                  <h4 className="text-red-400 font-semibold text-lg mb-4">🔴 레드 팀</h4>
+                    <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`px-4 py-2 rounded-lg font-medium ${analysisResult.metadata?.winner === 'red' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-slate-700/50 text-slate-300 border border-slate-600'}`}>
+                          <span>레드팀</span>
+                        </div>
 
-                  {/* 헤더 */}
-                  <div className="grid grid-cols-9 gap-2 text-sm font-bold text-gray-200 mb-3 px-2 py-2 bg-slate-600/30 rounded">
-                    <div className="col-span-2">플레이어 (영웅)</div>
-                    <div className="text-center">킬</div>
-                    <div className="text-center">데스</div>
-                    <div className="text-center">어시스트</div>
-                    <div className="text-center">공성 피해</div>
-                    <div className="text-center">영웅 피해</div>
-                    <div className="text-center">치유량</div>
-                    <div className="text-center">경험치 기여도</div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-500 text-xs">VS</span>
+                          {analysisResult.metadata?.winner && (
+                            <div className="mt-1 text-xs font-medium text-center">
+                              {analysisResult.metadata.winner === 'red' ? (
+                                <span className="text-red-400">승리 ←</span>
+                              ) : (
+                                <span className="text-blue-400">→ 승리</span>
+                              )}
+                            </div>
+                          )}
                   </div>
 
-                  {/* 플레이어 데이터 */}
-                  <div className="space-y-2">
-                    {(analysisResult.teams.red || []).map((player, index) => (
-                      <div key={index} className="grid grid-cols-9 gap-2 text-sm bg-slate-700/40 rounded-lg px-3 py-3 hover:bg-slate-700/60 transition-colors items-center border border-slate-600/30">
-                        <div className="col-span-2 text-red-300">
-                          <div className="font-bold text-base truncate" title={player.name || `Player${index + 1}`}>
-                            {player.name || `Player${index + 1}`}
+                        <div className={`px-4 py-2 rounded-lg font-medium ${analysisResult.metadata?.winner === 'blue' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-slate-700/50 text-slate-300 border border-slate-600'}`}>
+                          <span>블루팀</span>
                           </div>
-                          <div className="text-gray-400 text-sm truncate" title={translateHeroName(player.hero) || 'Unknown'}>
-                            {translateHeroName(player.hero) || 'Unknown'}
                           </div>
                         </div>
-                        <div className="text-center text-green-400 font-bold text-base">{player.stats?.SoloKill || 0}</div>
-                        <div className="text-center text-red-400 font-bold text-base">{player.stats?.Deaths || 0}</div>
-                        <div className="text-center text-yellow-400 font-bold text-base">{player.stats?.Assists || 0}</div>
-                        <div className="text-center text-cyan-400 font-medium text-sm">{(player.stats?.SiegeDamage || 0).toLocaleString()}</div>
-                        <div className="text-center text-orange-400 font-medium text-sm">{(player.stats?.HeroDamage || 0).toLocaleString()}</div>
-                        <div className="text-center text-green-400 font-medium text-sm">{(player.stats?.Healing || 0).toLocaleString()}</div>
-                        <div className="text-center text-purple-400 font-medium text-sm">{(player.stats?.ExperienceContribution || 0).toLocaleString()}</div>
                       </div>
-                    ))}
+
+                  {/* 매치 상세 정보 */}
+                  <div className="p-5 bg-slate-900/50">
+                    <div className="space-y-6">
+                      {/* 레드 팀 */}
+                      <div className={`w-full p-4 rounded-lg ${analysisResult.metadata?.winner === 'red' ? 'bg-red-900/20 border border-red-800/30' : 'bg-slate-800/50 border border-slate-700/30'}`}>
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="text-red-300 font-bold">레드 팀</h4>
+                          {analysisResult.metadata?.winner === 'red' && <div className="bg-red-600 text-white text-xs px-3 py-1 rounded-full font-medium">승리</div>}
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="text-slate-400 border-b border-slate-700/50">
+                                <th className="text-left py-3 px-3 font-medium text-sm min-w-[120px]">플레이어</th>
+                                <th className="text-left py-3 px-3 font-medium text-sm min-w-[100px]">영웅</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">킬</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">데스</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">어시</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">레벨</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="영웅 피해량">영웅딜</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="공성 피해량">공성딜</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="치유량">힐량</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="경험치 기여도">경험치</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {analysisResult.teams?.red?.map((player, index) => {
+                                // 디버깅을 위한 플레이어 데이터 출력
+                                console.log(`🔴 레드팀 플레이어 ${index + 1}:`, {
+                                  name: player.name,
+                                  hero: player.hero,
+                                  stats: player.stats,
+                                  heroLevel: player.heroLevel,
+                                  level: player.level,
+                                  kills: player.kills,
+                                  deaths: player.deaths,
+                                  assists: player.assists
+                                });
+
+                                // 레드팀에서 레벨이 가장 높은 플레이어 확인
+                                const isHighestLevel = player.stats?.Level &&
+                                  Math.max(...analysisResult.teams.red
+                                    .filter(p => p.stats?.Level)
+                                    .map(p => p.stats.Level)) === player.stats.Level;
+
+                                return (
+                                  <tr key={`red-${index}`} className="border-b border-slate-700/30 hover:bg-red-900/10">
+                                    <td className="py-3 px-3 text-white">
+                                      <div className="flex items-center">
+                                        {isHighestLevel && <span className="text-yellow-400 mr-2 text-sm">👑</span>}
+                                        <span className="text-sm whitespace-nowrap" title={player.name || '알 수 없음'}>
+                                          {player.name || '알 수 없음'}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="py-3 px-3 text-red-300 text-sm whitespace-nowrap" title={translateHero(player.hero) || '알 수 없음'}>
+                                      {translateHero(player.hero) || '알 수 없음'}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-green-400 font-bold text-sm">
+                                      {player.stats?.SoloKill || player.kills || 0}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-red-400 font-bold text-sm">
+                                      {player.stats?.Deaths || player.deaths || 0}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-yellow-400 font-bold text-sm">
+                                      {player.stats?.Assists || player.assists || 0}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-indigo-400 font-bold text-sm">
+                                      {player.stats?.Level || player.heroLevel || player.level || 0}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-orange-400 font-semibold text-sm">{(player.stats?.HeroDamage || player.heroDamage || 0).toLocaleString()}</td>
+                                    <td className="py-3 px-3 text-center text-cyan-400 font-semibold text-sm">{(player.stats?.SiegeDamage || player.siegeDamage || 0).toLocaleString()}</td>
+                                    <td className="py-3 px-3 text-center text-purple-400 font-semibold text-sm">{(player.stats?.Healing || player.healing || 0).toLocaleString()}</td>
+                                    <td className="py-3 px-3 text-center text-green-300 font-semibold text-sm">{(player.stats?.ExperienceContribution || player.stats?.Experience || 0).toLocaleString()}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                   </div>
                 </div>
 
                 {/* 블루 팀 */}
-                <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
-                  <h4 className="text-blue-400 font-semibold text-lg mb-4">🔵 블루 팀</h4>
+                      <div className={`w-full p-4 rounded-lg ${analysisResult.metadata?.winner === 'blue' ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-slate-800/50 border border-slate-700/30'}`}>
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="text-blue-300 font-bold">블루 팀</h4>
+                          {analysisResult.metadata?.winner === 'blue' && <div className="bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-medium">승리</div>}
+                  </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="text-slate-400 border-b border-slate-700/50">
+                                <th className="text-left py-3 px-3 font-medium text-sm min-w-[120px]">플레이어</th>
+                                <th className="text-left py-3 px-3 font-medium text-sm min-w-[100px]">영웅</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">킬</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">데스</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">어시</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[50px]">레벨</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="영웅 피해량">영웅딜</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="공성 피해량">공성딜</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="치유량">힐량</th>
+                                <th className="text-center py-3 px-3 font-medium text-sm min-w-[100px]" title="경험치 기여도">경험치</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {analysisResult.teams?.blue?.map((player, index) => {
+                                // 디버깅을 위한 플레이어 데이터 출력
+                                console.log(`🔵 블루팀 플레이어 ${index + 1}:`, {
+                                  name: player.name,
+                                  hero: player.hero,
+                                  stats: player.stats,
+                                  heroLevel: player.heroLevel,
+                                  level: player.level,
+                                  kills: player.kills,
+                                  deaths: player.deaths,
+                                  assists: player.assists
+                                });
 
-                  {/* 헤더 */}
-                  <div className="grid grid-cols-9 gap-2 text-sm font-bold text-gray-200 mb-3 px-2 py-2 bg-slate-600/30 rounded">
-                    <div className="col-span-2">플레이어 (영웅)</div>
-                    <div className="text-center">킬</div>
-                    <div className="text-center">데스</div>
-                    <div className="text-center">어시스트</div>
-                    <div className="text-center">공성 피해</div>
-                    <div className="text-center">영웅 피해</div>
-                    <div className="text-center">치유량</div>
-                    <div className="text-center">경험치 기여도</div>
+                                // 블루팀에서 레벨이 가장 높은 플레이어 확인
+                                const isHighestLevel = player.stats?.Level &&
+                                  Math.max(...analysisResult.teams.blue
+                                    .filter(p => p.stats?.Level)
+                                    .map(p => p.stats.Level)) === player.stats.Level;
+
+                                return (
+                                  <tr key={`blue-${index}`} className="border-b border-slate-700/30 hover:bg-blue-900/10">
+                                    <td className="py-3 px-3 text-white">
+                                      <div className="flex items-center">
+                                        {isHighestLevel && <span className="text-yellow-400 mr-2 text-sm">👑</span>}
+                                        <span className="text-sm whitespace-nowrap" title={player.name || '알 수 없음'}>
+                                          {player.name || '알 수 없음'}
+                                        </span>
+                          </div>
+                                    </td>
+                                    <td className="py-3 px-3 text-blue-300 text-sm whitespace-nowrap" title={translateHero(player.hero) || '알 수 없음'}>
+                                      {translateHero(player.hero) || '알 수 없음'}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-green-400 font-bold text-sm">
+                                      {player.stats?.SoloKill || player.kills || 0}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-red-400 font-bold text-sm">
+                                      {player.stats?.Deaths || player.deaths || 0}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-yellow-400 font-bold text-sm">
+                                      {player.stats?.Assists || player.assists || 0}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-indigo-400 font-bold text-sm">
+                                      {player.stats?.Level || player.heroLevel || player.level || 0}
+                                    </td>
+                                    <td className="py-3 px-3 text-center text-orange-400 font-semibold text-sm">{(player.stats?.HeroDamage || player.heroDamage || 0).toLocaleString()}</td>
+                                    <td className="py-3 px-3 text-center text-cyan-400 font-semibold text-sm">{(player.stats?.SiegeDamage || player.siegeDamage || 0).toLocaleString()}</td>
+                                    <td className="py-3 px-3 text-center text-purple-400 font-semibold text-sm">{(player.stats?.Healing || player.healing || 0).toLocaleString()}</td>
+                                    <td className="py-3 px-3 text-center text-green-300 font-semibold text-sm">{(player.stats?.ExperienceContribution || player.stats?.Experience || 0).toLocaleString()}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                </div>
+              </div>
                   </div>
 
-                  {/* 플레이어 데이터 */}
-                  <div className="space-y-2">
-                    {(analysisResult.teams.blue || []).map((player, index) => (
-                      <div key={index} className="grid grid-cols-9 gap-2 text-sm bg-slate-700/40 rounded-lg px-3 py-3 hover:bg-slate-700/60 transition-colors items-center border border-slate-600/30">
-                        <div className="col-span-2 text-blue-300">
-                          <div className="font-bold text-base truncate" title={player.name || `Player${index + 1}`}>
-                            {player.name || `Player${index + 1}`}
+                    {/* 게임 통계 요약 */}
+                    {analysisResult.statistics && (
+                      <div className="mt-6 bg-slate-800/50 rounded-lg p-4">
+                        <h4 className="text-white font-bold mb-4">📊 게임 통계 요약</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-green-400">{analysisResult.statistics.totalKills || 0}</div>
+                            <div className="text-gray-400">총 킬</div>
                           </div>
-                          <div className="text-gray-400 text-sm truncate" title={translateHeroName(player.hero) || 'Unknown'}>
-                            {translateHeroName(player.hero) || 'Unknown'}
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-red-400">{analysisResult.statistics.totalDeaths || 0}</div>
+                            <div className="text-gray-400">총 데스</div>
                           </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-yellow-400">{analysisResult.statistics.totalAssists || 0}</div>
+                            <div className="text-gray-400">총 어시스트</div>
                         </div>
-                        <div className="text-center text-green-400 font-bold text-base">{player.stats?.SoloKill || 0}</div>
-                        <div className="text-center text-red-400 font-bold text-base">{player.stats?.Deaths || 0}</div>
-                        <div className="text-center text-yellow-400 font-bold text-base">{player.stats?.Assists || 0}</div>
-                        <div className="text-center text-cyan-400 font-medium text-sm">{(player.stats?.SiegeDamage || 0).toLocaleString()}</div>
-                        <div className="text-center text-orange-400 font-medium text-sm">{(player.stats?.HeroDamage || 0).toLocaleString()}</div>
-                        <div className="text-center text-green-400 font-medium text-sm">{(player.stats?.Healing || 0).toLocaleString()}</div>
-                        <div className="text-center text-purple-400 font-medium text-sm">{(player.stats?.ExperienceContribution || 0).toLocaleString()}</div>
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-purple-400">
+                              {analysisResult.statistics?.averageLevel ||
+                               (analysisResult.players?.all ?
+                                Math.round(analysisResult.players.all.reduce((sum, p) => sum + (p.stats?.Level || p.heroLevel || 0), 0) / analysisResult.players.all.length) :
+                                0)}
                       </div>
-                    ))}
+                            <div className="text-gray-400">평균 레벨</div>
                   </div>
                 </div>
               </div>
             )}
-
-            {/* 추가 정보 */}
-            <div className="mt-6 bg-slate-600/30 p-3 rounded">
-              <h4 className="text-sm text-gray-400 mb-2">파일 정보</h4>
-              <div className="text-sm text-gray-300 grid grid-cols-1 md:grid-cols-3 gap-2">
-                <span>파일명: {replayFile ? replayFile.name : 'Unknown'}</span>
-                <span>분석 시간: {analysisResult.basic?.uploadedAt ? new Date(analysisResult.basic.uploadedAt).toLocaleString('ko-KR') : 'Unknown'}</span>
               </div>
             </div>
           </div>
         )}
       </div>
+        )}
 
-      {/* 관리 메뉴 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <Link to="/admin/users" className="block">
-          <div className="bg-slate-800 p-6 rounded-lg shadow-lg hover:bg-slate-700 transition-colors">
-            <h2 className="text-2xl font-bold text-indigo-400 mb-2">계정 관리</h2>
-            <p className="text-gray-400 mb-4">
-              사용자 계정 정보를 조회하고 관리합니다. 프로필 정보 편집, 계정 삭제 및 권한 관리를 수행할 수 있습니다.
-            </p>
-            <span className="text-indigo-300 inline-flex items-center">
-              관리하기
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </span>
+        {/* 디버깅 탭들 */}
+        {debugLoading && !debugData[activeTab.replace('debug-', '') === 'test' ? 'testResults' : activeTab.replace('debug-', '')] ? (
+          <div className="flex justify-center items-center h-64">
+            <LoadingSpinner size="lg" />
           </div>
-        </Link>
-        <Link to="/admin/matches" className="block">
-          <div className="bg-slate-800 p-6 rounded-lg shadow-lg hover:bg-slate-700 transition-colors">
-            <h2 className="text-2xl font-bold text-indigo-400 mb-2">매치 관리</h2>
-            <p className="text-gray-400 mb-4">
-              게임 매치 기록을 조회하고 관리합니다. 매치 세부 정보 확인, 결과 수정, 무효화 처리 및 MMR 조정이 가능합니다.
-            </p>
-            <span className="text-indigo-300 inline-flex items-center">
-              관리하기
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+        ) : (
+          <>
+            {activeTab === 'debug-endpoints' && (
+              <div>
+                <div className="mb-6 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-2">🔧 API 엔드포인트</h2>
+                    <p className="text-gray-400">모든 API 엔드포인트의 상태를 확인합니다.</p>
+                  </div>
+            <button
+                    onClick={() => loadDebugData('endpoints')}
+                    disabled={debugLoading}
+                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {debugLoading ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        <span className="ml-2">로딩 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-            </span>
+                        새로고침
+                      </>
+                    )}
+            </button>
           </div>
-        </Link>
+                {renderEndpointsTab()}
       </div>
+            )}
 
-      {/* 테스트 데이터 관리 섹션 */}
-      <div className="bg-slate-800 p-6 rounded-lg shadow-lg mb-8">
-        <h2 className="text-2xl font-bold text-indigo-400 mb-4">테스트 데이터 생성</h2>
-        <p className="text-gray-400 mb-6">
-          개발 및 테스트를 위한 더미 데이터를 생성합니다. 테스트 계정과 테스트 매치를 자동으로 생성할 수 있습니다.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* 테스트 계정 생성 */}
-          <div className="bg-slate-700/50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-indigo-300 mb-3">테스트 계정 생성</h3>
-            <div className="mb-4">
-              <label className="block text-gray-400 mb-2" htmlFor="testAccountCount">
-                생성할 계정 수 (1~50):
-              </label>
-              <input
-                type="number"
-                id="testAccountCount"
-                min="1"
-                max="50"
-                value={testAccountCount}
-                onChange={(e) => setTestAccountCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
-                className="bg-gray-800 text-white border border-gray-600 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={processing}
-              />
+            {activeTab === 'debug-database' && (
+              <div>
+                <div className="mb-6 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-2">🗄️ 데이터베이스</h2>
+                    <p className="text-gray-400">데이터베이스 연결 상태와 테이블 정보를 확인합니다.</p>
             </div>
-            <p className="text-sm text-gray-400 mb-4">
-              배틀태그, MMR, 승패, 역할, 영웅 등이 임의로 설정된 테스트 계정을 생성합니다.
-            </p>
             <button
-              onClick={createTestAccounts}
-              disabled={processing}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
-            >
-              {processing && lastAction === '계정 생성' ? '처리 중...' : '테스트 계정 생성'}
+                    onClick={() => loadDebugData('database')}
+                    disabled={debugLoading}
+                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {debugLoading ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        <span className="ml-2">로딩 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        새로고침
+                      </>
+                    )}
             </button>
           </div>
-
-          {/* 테스트 매치 생성 */}
-          <div className="bg-slate-700/50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-indigo-300 mb-3">테스트 매치 생성</h3>
-            <div className="mb-4">
-              <label className="block text-gray-400 mb-2" htmlFor="testMatchCount">
-                생성할 매치 수 (1~20):
-              </label>
-              <input
-                type="number"
-                id="testMatchCount"
-                min="1"
-                max="20"
-                value={testMatchCount}
-                onChange={(e) => setTestMatchCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
-                className="bg-gray-800 text-white border border-gray-600 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={processing}
-              />
-            </div>
-            <p className="text-sm text-gray-400 mb-4">
-              DB에 있는 계정을 사용하여 임의의 매치 기록을 생성합니다. 최소 10명의 계정이 필요합니다.
-            </p>
-            <button
-              onClick={createTestMatches}
-              disabled={processing}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
-            >
-              {processing && lastAction === '매치 생성' ? '처리 중...' : '테스트 매치 생성'}
-            </button>
-          </div>
+                {renderDatabaseTab()}
         </div>
-      </div>
+            )}
 
-      {/* 추가 관리 기능 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link to="/admin/settings" className="bg-slate-700/50 p-4 rounded-lg flex items-center hover:bg-slate-700 transition-colors">
-          <div className="bg-indigo-800/50 p-2 rounded-full mr-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </div>
+            {activeTab === 'debug-models' && (
           <div>
-            <h3 className="text-white font-medium">시스템 설정</h3>
-            <p className="text-gray-400 text-sm">서비스 환경 설정 관리</p>
-          </div>
-        </Link>
-        <Link to="/admin/logs" className="bg-slate-700/50 p-4 rounded-lg flex items-center hover:bg-slate-700 transition-colors">
-          <div className="bg-indigo-800/50 p-2 rounded-full mr-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                <div className="mb-6 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-2">📋 모델 정보</h2>
+                    <p className="text-gray-400">Sequelize 모델 정보와 필드 매핑을 확인합니다.</p>
+            </div>
+            <button
+                    onClick={() => loadDebugData('models')}
+                    disabled={debugLoading}
+                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {debugLoading ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        <span className="ml-2">로딩 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
+                        새로고침
+                      </>
+                    )}
+            </button>
           </div>
+                {renderModelsTab()}
+        </div>
+            )}
+
+            {activeTab === 'debug-test' && (
           <div>
-            <h3 className="text-white font-medium">시스템 로그</h3>
-            <p className="text-gray-400 text-sm">활동 로그 및 오류 기록</p>
+                <div className="mb-6 flex justify-between items-center">
+          <div>
+                    <h2 className="text-2xl font-bold text-white mb-2">🧪 실시간 테스트</h2>
+                    <p className="text-gray-400">실제 API 엔드포인트를 테스트하고 응답 시간을 측정합니다.</p>
           </div>
-        </Link>
-        <Link to="/admin/stats" className="bg-slate-700/50 p-4 rounded-lg flex items-center hover:bg-slate-700 transition-colors">
-          <div className="bg-indigo-800/50 p-2 rounded-full mr-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <button
+                    onClick={() => loadDebugData('test')}
+                    disabled={debugLoading}
+                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {debugLoading ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        <span className="ml-2">테스트 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
+                        테스트 실행
+                      </>
+                    )}
+                  </button>
           </div>
-          <div>
-            <h3 className="text-white font-medium">통계 분석</h3>
-            <p className="text-gray-400 text-sm">서비스 사용 현황 및 통계</p>
+                {renderTestTab()}
           </div>
-        </Link>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

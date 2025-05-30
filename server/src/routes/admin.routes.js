@@ -46,12 +46,22 @@ const isAdmin = (req, res, next) => {
  * @access  Admin
  */
 router.get('/users', authenticate, isAdmin, async (req, res) => {
+  const timer = logger.startTimer('Admin Get Users');
+
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
     const search = req.query.search || '';
     const role = req.query.role || 'all';
+
+    logger.info('👥 관리자 사용자 목록 조회 요청', {
+      adminId: req.user.id,
+      page,
+      limit,
+      search,
+      role
+    }, 'ADMIN');
 
     let whereClause = {};
 
@@ -82,7 +92,9 @@ router.get('/users', authenticate, isAdmin, async (req, res) => {
 
     const userList = users.map(user => ({
       id: user.id,
+      _id: user.id,
       battleTag: user.battleTag,
+      battletag: user.battleTag,
       nickname: user.nickname,
       email: user.email,
       role: user.role,
@@ -95,6 +107,14 @@ router.get('/users', authenticate, isAdmin, async (req, res) => {
       lastLoginAt: user.lastLoginAt
     }));
 
+    logger.info('✅ 관리자 사용자 목록 조회 성공', {
+      adminId: req.user.id,
+      totalUsers: count,
+      returnedUsers: userList.length,
+      page,
+      duration: timer.end()
+    }, 'ADMIN');
+
     res.json({
       users: userList,
       pagination: {
@@ -106,8 +126,166 @@ router.get('/users', authenticate, isAdmin, async (req, res) => {
     });
 
   } catch (err) {
-    logger.error('관리자 사용자 목록 조회 오류:', err);
+    timer.end();
+    logger.error('💥 관리자 사용자 목록 조회 오류', {
+      error: err.message,
+      stack: err.stack,
+      adminId: req.user?.id
+    }, 'ADMIN');
     res.status(500).json({ message: '사용자 목록 조회에 실패했습니다' });
+  }
+});
+
+/**
+ * @route   GET /api/admin/users/:id
+ * @desc    개별 사용자 정보 조회 (관리자용)
+ * @access  Admin
+ */
+router.get('/users/:id', authenticate, isAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await global.db.User.findByPk(userId, {
+      attributes: [
+        'id', 'battleTag', 'nickname', 'email', 'role',
+        'mmr', 'wins', 'losses', 'isProfileComplete',
+        'preferredRoles', 'previousTier',
+        'createdAt', 'lastLoginAt'
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
+    }
+
+    // 사용자 정보 반환 (클라이언트 호환성을 위해 필드 매핑)
+    const userResponse = {
+      id: user.id,
+      battleTag: user.battleTag,
+      battletag: user.battleTag, // 호환성을 위해 추가
+      nickname: user.nickname,
+      email: user.email,
+      role: user.role,
+      mmr: user.mmr,
+      wins: user.wins,
+      losses: user.losses,
+      winRate: user.getWinRate(),
+      isProfileComplete: user.isProfileComplete,
+      preferredRoles: user.preferredRoles || [],
+      previousTier: user.previousTier || 'placement',
+      favoriteHeroes: [], // 기본값
+      isAdmin: user.role === 'admin', // 호환성을 위해 추가
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt
+    };
+
+    logger.info('관리자 개별 사용자 조회:', {
+      adminId: req.user.id,
+      targetUserId: userId,
+      targetBattleTag: user.battleTag
+    });
+
+    res.json(userResponse);
+
+  } catch (err) {
+    logger.error('관리자 개별 사용자 조회 오류:', err);
+    res.status(500).json({ message: '사용자 정보 조회에 실패했습니다' });
+  }
+});
+
+/**
+ * @route   GET /api/admin/users/:id/logs
+ * @desc    개별 사용자 로그 조회 (관리자용)
+ * @access  Admin
+ */
+router.get('/users/:id/logs', authenticate, isAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const limit = parseInt(req.query.limit) || 20;
+
+    // UserLog 모델이 있는지 확인
+    if (!global.db.UserLog) {
+      // UserLog 모델이 없으면 빈 배열 반환
+      return res.json([]);
+    }
+
+    const logs = await global.db.UserLog.findAll({
+      where: { userId },
+      order: [['createdAt', 'DESC']],
+      limit,
+      attributes: ['id', 'action', 'ipAddress', 'userAgent', 'createdAt']
+    });
+
+    logger.info('관리자 사용자 로그 조회:', {
+      adminId: req.user.id,
+      targetUserId: userId,
+      logCount: logs.length
+    });
+
+    res.json(logs);
+
+  } catch (err) {
+    logger.error('관리자 사용자 로그 조회 오류:', err);
+    // 에러가 발생해도 빈 배열 반환 (로그는 필수가 아니므로)
+    res.json([]);
+  }
+});
+
+/**
+ * @route   GET /api/admin/users/:id/matches
+ * @desc    개별 사용자 매치 히스토리 조회 (관리자용)
+ * @access  Admin
+ */
+router.get('/users/:id/matches', authenticate, isAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Match 모델이 있는지 확인
+    if (!global.db.Match) {
+      // Match 모델이 없으면 빈 배열 반환
+      return res.json([]);
+    }
+
+    // 사용자가 참여한 매치 조회 (MatchPlayer를 통해)
+    const matches = await global.db.Match.findAll({
+      include: [{
+        model: global.db.MatchPlayer,
+        as: 'players',
+        where: { userId },
+        attributes: ['team', 'hero']
+      }],
+      order: [['createdAt', 'DESC']],
+      limit,
+      attributes: ['id', 'map', 'winner', 'status', 'createdAt']
+    });
+
+    // 매치 데이터 변환
+    const matchHistory = matches.map(match => {
+      const playerData = match.players[0]; // 해당 사용자의 플레이어 데이터
+      return {
+        id: match.id,
+        map: match.map,
+        winner: match.winner,
+        playerTeam: playerData ? playerData.team : null,
+        hero: playerData ? playerData.hero : null,
+        status: match.status,
+        createdAt: match.createdAt
+      };
+    });
+
+    logger.info('관리자 사용자 매치 히스토리 조회:', {
+      adminId: req.user.id,
+      targetUserId: userId,
+      matchCount: matchHistory.length
+    });
+
+    res.json(matchHistory);
+
+  } catch (err) {
+    logger.error('관리자 사용자 매치 히스토리 조회 오류:', err);
+    // 에러가 발생해도 빈 배열 반환 (매치 히스토리는 필수가 아니므로)
+    res.json([]);
   }
 });
 
@@ -219,15 +397,16 @@ router.get('/stats', authenticate, isAdmin, async (req, res) => {
  * @access  Admin
  */
 router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
+  const timer = logger.startTimer('Admin Dashboard');
+
   try {
-    logger.info('=== 관리자 대시보드 요청 시작 ===', {
-      userId: req.user?.id,
-      userRole: req.user?.role,
-      timestamp: new Date().toISOString(),
-      userAgent: req.headers['user-agent'],
+    logger.info('📊 관리자 대시보드 요청', {
+      adminId: req.user?.id,
+      adminRole: req.user?.role,
+      userAgent: req.headers['user-agent']?.substring(0, 100),
       origin: req.headers.origin,
       referer: req.headers.referer
-    });
+    }, 'ADMIN');
 
     // 기본 통계
     const totalUsers = await global.db.User.count();
@@ -264,7 +443,11 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
       recentMatches
     };
 
-    logger.info('관리자 대시보드 데이터 조회 완료:', dashboardData);
+    logger.info('✅ 관리자 대시보드 데이터 조회 완료', {
+      adminId: req.user.id,
+      data: dashboardData,
+      duration: timer.end()
+    }, 'ADMIN');
 
     // 캐시 방지 헤더 설정
     res.set({
@@ -276,12 +459,12 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
     res.json(dashboardData);
 
   } catch (err) {
-    logger.error('관리자 대시보드 조회 오류:', {
+    timer.end();
+    logger.error('💥 관리자 대시보드 조회 오류', {
       error: err.message,
       stack: err.stack,
-      userId: req.user?.id,
-      timestamp: new Date().toISOString()
-    });
+      adminId: req.user?.id
+    }, 'ADMIN');
     res.status(500).json({
       message: '대시보드 데이터 조회에 실패했습니다',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
@@ -524,6 +707,7 @@ router.post('/create-test-matches', authenticate, isAdmin, async (req, res) => {
     }
 
     const maps = ['Alterac Pass', 'Battlefield of Eternity', 'Braxis Holdout', 'Cursed Hollow', 'Dragon Shire', 'Garden of Terror', 'Hanamura Temple', 'Infernal Shrines', 'Sky Temple', 'Tomb of the Spider Queen', 'Towers of Doom', 'Volskaya Foundry'];
+    const heroes = ['Abathur', 'Alarak', 'Alexstrasza', 'Ana', 'Anduin', 'Anubarak', 'Artanis', 'Arthas', 'Auriel', 'Azmodan', 'Blaze', 'Brightwing', 'Cassia', 'Chen', 'Chromie', 'Deckard', 'Dehaka', 'Diablo', 'DVa', 'ETC', 'Falstad', 'Fenix', 'Garrosh', 'Gazlowe', 'Genji', 'Greymane', 'Guldan', 'Hanzo', 'Illidan', 'Imperius', 'Jaina', 'Johanna', 'Junkrat', 'Kaelthas', 'Kelthuzad', 'Kerrigan', 'Kharazim', 'Leoric', 'LiLi', 'LiMing', 'LtMorales', 'Lucio', 'Lunara', 'Maiev', 'Malfurion', 'Malganis', 'Malthael', 'Medivh', 'Mephisto', 'Muradin', 'Murky', 'Nazeebo', 'Nova', 'Orphea', 'Probius', 'Qhira', 'Ragnaros', 'Raynor', 'Rehgar', 'Rexxar', 'Samuro', 'Sgt.Hammer', 'Sonya', 'Stitches', 'Stukov', 'Sylvanas', 'Tassadar', 'The Butcher', 'Thrall', 'Tracer', 'Tychus', 'Tyrael', 'Tyrande', 'Uther', 'Valeera', 'Valla', 'Varian', 'Whitemane', 'Xul', 'Yrel', 'Zagara', 'Zarya', 'Zeratul', 'Zuljin'];
     const testMatches = [];
 
     for (let i = 0; i < actualCount; i++) {
@@ -541,15 +725,26 @@ router.post('/create-test-matches', authenticate, isAdmin, async (req, res) => {
         winner: randomWinner,
         gameDuration,
         status: 'completed',
-        players: selectedUsers.map((user, index) => ({
-          userId: user.id,
-          team: index < 5 ? 'blue' : 'red',
-          hero: 'Random',
-          kills: Math.floor(Math.random() * 15),
-          deaths: Math.floor(Math.random() * 10),
-          assists: Math.floor(Math.random() * 20),
-          mmrChange: Math.floor(Math.random() * 50) - 25 // -25 to +25
-        }))
+        players: selectedUsers.map((user, index) => {
+          const randomHero = heroes[Math.floor(Math.random() * heroes.length)];
+          const kills = Math.floor(Math.random() * 15);
+          const deaths = Math.floor(Math.random() * 10) + 1; // 최소 1 데스
+          const assists = Math.floor(Math.random() * 20);
+
+          return {
+            userId: user.id,
+            team: index < 5 ? 0 : 1, // 0=blue, 1=red
+            hero: randomHero,
+            kills,
+            deaths,
+            assists,
+            heroDamage: Math.floor(Math.random() * 80000) + 20000, // 20k-100k
+            siegeDamage: Math.floor(Math.random() * 150000) + 10000, // 10k-160k
+            healing: Math.floor(Math.random() * 60000), // 0-60k (힐러가 아니면 낮음)
+            experience: Math.floor(Math.random() * 50000) + 10000, // 10k-60k
+            mmrChange: Math.floor(Math.random() * 50) - 25 // -25 to +25
+          };
+        })
       };
 
       testMatches.push(testMatch);
@@ -563,7 +758,10 @@ router.post('/create-test-matches', authenticate, isAdmin, async (req, res) => {
         gameMode: matchData.gameMode,
         winner: matchData.winner,
         gameDuration: matchData.gameDuration,
-        status: matchData.status
+        status: matchData.status,
+        createdBy: req.user.id,
+        startedAt: new Date(Date.now() - matchData.gameDuration * 1000),
+        endedAt: new Date()
       });
 
       // 플레이어 데이터 생성
@@ -576,6 +774,10 @@ router.post('/create-test-matches', authenticate, isAdmin, async (req, res) => {
           kills: playerData.kills,
           deaths: playerData.deaths,
           assists: playerData.assists,
+          heroDamage: playerData.heroDamage,
+          siegeDamage: playerData.siegeDamage,
+          healing: playerData.healing,
+          experience: playerData.experience,
           mmrChange: playerData.mmrChange
         });
       }
@@ -594,6 +796,8 @@ router.post('/create-test-matches', authenticate, isAdmin, async (req, res) => {
       createdCount: createdMatches.length,
       matches: createdMatches.map(match => ({
         id: match.id,
+        _id: match.id,
+        matchId: match.id,
         map: match.mapName,
         winner: match.winner
       }))
@@ -625,13 +829,17 @@ router.get('/matches', authenticate, isAdmin, async (req, res) => {
     const sortBy = req.query.sortBy || 'createdAt';
     const sortDirection = req.query.sortDirection || 'desc';
 
+    // 허용된 정렬 필드만 사용 (Match 모델의 실제 필드만)
+    const allowedSortFields = ['id', 'mapName', 'gameMode', 'winner', 'gameDuration', 'status', 'createdAt', 'updatedAt', 'startedAt', 'endedAt'];
+    const validSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+
     // 필터 조건
     let whereClause = {};
     if (req.query.status) {
       whereClause.status = req.query.status;
     }
     if (req.query.map) {
-      whereClause.map = { [Op.iLike]: `%${req.query.map}%` };
+      whereClause.mapName = { [Op.iLike]: `%${req.query.map}%` };
     }
     if (req.query.startDate && req.query.endDate) {
       whereClause.createdAt = {
@@ -643,7 +851,7 @@ router.get('/matches', authenticate, isAdmin, async (req, res) => {
       adminId: req.user.id,
       page,
       limit,
-      sortBy,
+      sortBy: validSortBy,
       sortDirection,
       filters: whereClause
     });
@@ -658,18 +866,20 @@ router.get('/matches', authenticate, isAdmin, async (req, res) => {
             {
               model: global.db.User,
               as: 'user',
-              attributes: ['id', 'battletag', 'nickname']
+              attributes: ['id', 'battleTag', 'nickname']
             }
           ]
         }
       ],
-      order: [[sortBy, sortDirection.toUpperCase()]],
+      order: [[validSortBy, sortDirection.toUpperCase()]],
       limit,
       offset
     });
 
     const matchList = matches.map(match => ({
       id: match.id,
+      _id: match.id,
+      matchId: match.id,
       map: match.mapName,
       gameMode: match.gameMode,
       winner: match.winner,
@@ -684,10 +894,15 @@ router.get('/matches', authenticate, isAdmin, async (req, res) => {
         team: participant.team,
         hero: participant.hero,
         role: participant.role,
-        kills: participant.kills,
-        deaths: participant.deaths,
-        assists: participant.assists,
-        mmrChange: participant.mmrChange,
+        kills: participant.kills || 0,
+        deaths: participant.deaths || 0,
+        assists: participant.assists || 0,
+        heroDamage: participant.heroDamage || 0,
+        siegeDamage: participant.siegeDamage || 0,
+        healing: participant.healing || 0,
+        experience: participant.experience || 0,
+        mmrChange: participant.mmrChange || 0,
+        joinedAt: participant.joinedAt,
         user: participant.user
       })) || []
     }));
@@ -735,7 +950,7 @@ router.get('/matches/:id', authenticate, isAdmin, async (req, res) => {
             {
               model: global.db.User,
               as: 'user',
-              attributes: ['id', 'battletag', 'nickname', 'mmr']
+              attributes: ['id', 'battleTag', 'nickname', 'mmr']
             }
           ]
         }
@@ -757,7 +972,7 @@ router.get('/matches/:id', authenticate, isAdmin, async (req, res) => {
         const playerData = {
           id: participant.id,
           userId: participant.userId,
-          battletag: participant.user?.battletag || 'Unknown',
+          battleTag: participant.user?.battleTag || 'Unknown',
           nickname: participant.user?.nickname,
           mmr: participant.user?.mmr || 1500,
           team: participant.team,
@@ -780,7 +995,7 @@ router.get('/matches/:id', authenticate, isAdmin, async (req, res) => {
 
         if (participant.team === 1) {
           redTeam.push(playerData);
-        } else if (participant.team === 2) {
+        } else if (participant.team === 0) {
           blueTeam.push(playerData);
         }
       });
@@ -805,6 +1020,22 @@ router.get('/matches/:id', authenticate, isAdmin, async (req, res) => {
       status: match.status,
       createdAt: match.createdAt,
       updatedAt: match.updatedAt,
+      players: match.participants?.map(participant => ({
+        id: participant.id,
+        userId: participant.userId,
+        team: participant.team,
+        hero: participant.hero,
+        role: participant.role,
+        kills: participant.kills || 0,
+        deaths: participant.deaths || 0,
+        assists: participant.assists || 0,
+        heroDamage: participant.heroDamage || 0,
+        siegeDamage: participant.siegeDamage || 0,
+        healing: participant.healing || 0,
+        experience: participant.experience || 0,
+        mmrChange: participant.mmrChange || 0,
+        user: participant.user
+      })) || [],
       redTeam,
       blueTeam,
       redTeamAvgMmr,
@@ -880,7 +1111,7 @@ router.put('/matches/:id', authenticate, isAdmin, async (req, res) => {
             {
               model: global.db.User,
               as: 'user',
-              attributes: ['id', 'battletag', 'nickname', 'mmr']
+              attributes: ['id', 'battleTag', 'nickname', 'mmr']
             }
           ]
         }
@@ -1037,26 +1268,28 @@ router.delete('/delete-all-matches', authenticate, isAdmin, async (req, res) => 
     });
 
     // 모든 매치 플레이어 데이터 먼저 삭제
-    await global.db.MatchParticipant.destroy({
+    const participantDeleteResult = await global.db.MatchParticipant.destroy({
       where: {},
-      truncate: true
+      force: true // 강제 삭제
     });
 
     // 모든 매치 삭제
-    const deletedCount = await global.db.Match.destroy({
+    const matchDeleteResult = await global.db.Match.destroy({
       where: {},
-      truncate: true
+      force: true // 강제 삭제
     });
 
     logger.info('매치 삭제 완료:', {
       adminId: req.user.id,
-      deletedCount
+      deletedParticipants: participantDeleteResult,
+      deletedMatches: matchDeleteResult
     });
 
     res.json({
       success: true,
-      message: `모든 매치 데이터가 삭제되었습니다.`,
-      deletedCount
+      message: `모든 매치 데이터가 삭제되었습니다. (매치: ${matchDeleteResult}개, 참가자: ${participantDeleteResult}개)`,
+      deletedMatches: matchDeleteResult,
+      deletedParticipants: participantDeleteResult
     });
 
   } catch (err) {

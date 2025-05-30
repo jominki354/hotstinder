@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS matches (
     created_by UUID REFERENCES users(id),
     started_at TIMESTAMP WITH TIME ZONE,
     ended_at TIMESTAMP WITH TIME ZONE,
+    winner VARCHAR(10), -- 'red', 'blue', or null for draw/no result
+    game_duration INTEGER, -- Game duration in seconds
+    notes TEXT, -- Admin notes about the match
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -50,6 +53,16 @@ CREATE TABLE IF NOT EXISTS match_participants (
     hero VARCHAR(255),
     role VARCHAR(50),
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    kills INTEGER DEFAULT 0,
+    deaths INTEGER DEFAULT 0,
+    assists INTEGER DEFAULT 0,
+    hero_damage INTEGER DEFAULT 0,
+    siege_damage INTEGER DEFAULT 0,
+    healing INTEGER DEFAULT 0,
+    experience INTEGER DEFAULT 0,
+    mmr_change INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(match_id, user_id)
 );
 

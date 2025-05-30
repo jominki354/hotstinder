@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { translateMap, translateTeam, translateStatus, translateHero, mapTranslations } from '../utils/hotsTranslations';
 
 // Axios 기본 설정
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -20,6 +21,8 @@ const AdminMatchesPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedMatches, setSelectedMatches] = useState([]);
   const [processing, setProcessing] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   // 필터 상태
   const [filters, setFilters] = useState({
@@ -36,15 +39,16 @@ const AdminMatchesPage = () => {
 
   const itemsPerPage = 10;
 
-  // 전장 목록
+  // 전장 목록 - 히오스 공식 한국어명 사용
   const maps = [
-    '용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원',
-    '거미 여왕의 무덤', '영원의 전쟁터', '불지옥 신단',
-    '파멸의 탑', '볼스카야 공장', '알터랙 고개'
+    'Cursed Hollow', 'Dragon Shire', 'Blackheart\'s Bay', 'Garden of Terror',
+    'Sky Temple', 'Tomb of the Spider Queen', 'Battlefield of Eternity',
+    'Infernal Shrines', 'Towers of Doom', 'Braxis Holdout', 'Warhead Junction',
+    'Hanamura Temple', 'Volskaya Foundry', 'Alterac Pass'
   ];
 
   // 매치 상태 목록
-  const statuses = ['진행 중', '완료', '취소됨', '무효'];
+  const statuses = ['in_progress', 'completed', 'cancelled', 'invalid'];
 
   // 관리자 확인
   useEffect(() => {
@@ -79,12 +83,16 @@ const AdminMatchesPage = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      setMatches(response.data.matches);
-      setTotalPages(response.data.totalPages);
+
+      // 안전한 데이터 설정
+      setMatches(response.data.matches || []);
+      setTotalPages(Math.max(1, response.data.pagination?.totalPages || 1));
       setLoading(false);
     } catch (err) {
       console.error('매치 데이터 가져오기 오류:', err);
       setError('매치 데이터를 가져오는데 실패했습니다.');
+      setMatches([]);
+      setTotalPages(1);
       setLoading(false);
     }
   };
@@ -168,6 +176,28 @@ const AdminMatchesPage = () => {
   // 매치 편집 페이지로 이동
   const editMatch = (matchId) => {
     navigate(`/admin/matches/${matchId}`);
+  };
+
+  // 매치 상세 보기
+  const viewMatchDetails = async (matchId) => {
+    try {
+      const response = await axios.get(`/api/admin/matches/${matchId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setSelectedMatch(response.data);
+      setShowDetails(true);
+    } catch (err) {
+      console.error('매치 상세 조회 오류:', err);
+      toast.error('매치 상세 정보를 가져오는데 실패했습니다.');
+    }
+  };
+
+  // 매치 상세 모달 닫기
+  const closeDetails = () => {
+    setShowDetails(false);
+    setSelectedMatch(null);
   };
 
   // 매치 무효화
@@ -361,7 +391,7 @@ const AdminMatchesPage = () => {
             >
               <option value="">모든 전장</option>
               {maps.map(map => (
-                <option key={map} value={map}>{map}</option>
+                <option key={map} value={map}>{translateMap(map)}</option>
               ))}
             </select>
           </div>
@@ -374,7 +404,7 @@ const AdminMatchesPage = () => {
             >
               <option value="">모든 상태</option>
               {statuses.map(status => (
-                <option key={status} value={status}>{status}</option>
+                <option key={status} value={status}>{translateStatus(status)}</option>
               ))}
             </select>
           </div>
@@ -498,11 +528,11 @@ const AdminMatchesPage = () => {
                   <td className="px-4 py-3">
                     <div className="font-mono text-white">{match.matchId}</div>
                   </td>
-                  <td className="px-4 py-3 text-white">{match.map}</td>
+                  <td className="px-4 py-3 text-white">{translateMap(match.map)}</td>
                   <td className="px-4 py-3">
                     {match.winner || match.result?.winner ? (
                       <span className={(match.winner || match.result?.winner) === 'blue' ? 'text-blue-400' : 'text-red-400'}>
-                        {(match.winner || match.result?.winner) === 'red' ? '레드 팀' : (match.winner || match.result?.winner) === 'blue' ? '블루 팀' : (match.winner || match.result?.winner)}
+                        {translateTeam(match.winner || match.result?.winner)}
                       </span>
                     ) : (
                       <span className="text-gray-500">미정</span>
@@ -510,7 +540,7 @@ const AdminMatchesPage = () => {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs ${getStatusStyle(match.status)}`}>
-                      {match.status}
+                      {translateStatus(match.status)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-400">
@@ -518,7 +548,7 @@ const AdminMatchesPage = () => {
                   </td>
                   <td className="px-4 py-3 text-right space-x-1">
                     <button
-                      onClick={() => editMatch(match._id)}
+                      onClick={() => viewMatchDetails(match._id)}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-xs transition"
                     >
                       상세
@@ -578,15 +608,16 @@ const AdminMatchesPage = () => {
             &lt;
           </button>
 
-          {[...Array(Math.min(5, totalPages))].map((_, i) => {
+          {[...Array(Math.min(5, Math.max(1, totalPages)))].map((_, i) => {
             // 페이지 번호 계산 로직
             let pageNum;
-            if (totalPages <= 5) {
+            const safeTotalPages = Math.max(1, totalPages);
+            if (safeTotalPages <= 5) {
               pageNum = i + 1;
             } else if (page <= 3) {
               pageNum = i + 1;
-            } else if (page >= totalPages - 2) {
-              pageNum = totalPages - 4 + i;
+            } else if (page >= safeTotalPages - 2) {
+              pageNum = safeTotalPages - 4 + i;
             } else {
               pageNum = page - 2 + i;
             }
@@ -630,6 +661,130 @@ const AdminMatchesPage = () => {
           </button>
         </div>
       </div>
+
+      {/* 매치 상세 모달 */}
+      {showDetails && selectedMatch && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-white">매치 상세 정보</h2>
+                <button
+                  onClick={closeDetails}
+                  className="text-gray-400 hover:text-white text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* 매치 기본 정보 */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-slate-700 p-4 rounded-lg">
+                  <h3 className="text-gray-400 text-sm">매치 ID</h3>
+                  <p className="text-white font-mono">{selectedMatch.matchId}</p>
+                </div>
+                <div className="bg-slate-700 p-4 rounded-lg">
+                  <h3 className="text-gray-400 text-sm">맵</h3>
+                  <p className="text-white">{translateMap(selectedMatch.map)}</p>
+                </div>
+                <div className="bg-slate-700 p-4 rounded-lg">
+                  <h3 className="text-gray-400 text-sm">승리 팀</h3>
+                  <p className={selectedMatch.winner === 'blue' ? 'text-blue-400' : 'text-red-400'}>
+                    {translateTeam(selectedMatch.winner) || '미정'}
+                  </p>
+                </div>
+                <div className="bg-slate-700 p-4 rounded-lg">
+                  <h3 className="text-gray-400 text-sm">게임 시간</h3>
+                  <p className="text-white">
+                    {selectedMatch.gameDuration ? `${Math.floor(selectedMatch.gameDuration / 60)}분 ${selectedMatch.gameDuration % 60}초` : '미정'}
+                  </p>
+                </div>
+              </div>
+
+              {/* 플레이어 통계 */}
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-white mb-4">플레이어 통계</h3>
+
+                {selectedMatch.players && selectedMatch.players.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-700">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-gray-300">플레이어</th>
+                          <th className="px-3 py-2 text-left text-gray-300">팀</th>
+                          <th className="px-3 py-2 text-left text-gray-300">영웅</th>
+                          <th className="px-3 py-2 text-center text-gray-300">킬</th>
+                          <th className="px-3 py-2 text-center text-gray-300">데스</th>
+                          <th className="px-3 py-2 text-center text-gray-300">어시스트</th>
+                          <th className="px-3 py-2 text-center text-gray-300">영웅 피해</th>
+                          <th className="px-3 py-2 text-center text-gray-300">공성 피해</th>
+                          <th className="px-3 py-2 text-center text-gray-300">힐량</th>
+                          <th className="px-3 py-2 text-center text-gray-300">경험치</th>
+                          <th className="px-3 py-2 text-center text-gray-300">MMR 변화</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-600">
+                        {selectedMatch.players.map((player, index) => (
+                          <tr key={index} className="hover:bg-slate-700">
+                            <td className="px-3 py-2 text-white">
+                              {player.user?.battleTag || player.user?.nickname || 'Unknown'}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                player.team === 0 ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+                              }`}>
+                                {translateTeam(player.team === 0 ? 'blue' : 'red')}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-white">{translateHero(player.hero) || '알 수 없음'}</td>
+                            <td className="px-3 py-2 text-center text-green-400">{player.kills || 0}</td>
+                            <td className="px-3 py-2 text-center text-red-400">{player.deaths || 0}</td>
+                            <td className="px-3 py-2 text-center text-yellow-400">{player.assists || 0}</td>
+                            <td className="px-3 py-2 text-center text-white">
+                              {player.heroDamage ? player.heroDamage.toLocaleString() : '0'}
+                            </td>
+                            <td className="px-3 py-2 text-center text-white">
+                              {player.siegeDamage ? player.siegeDamage.toLocaleString() : '0'}
+                            </td>
+                            <td className="px-3 py-2 text-center text-white">
+                              {player.healing ? player.healing.toLocaleString() : '0'}
+                            </td>
+                            <td className="px-3 py-2 text-center text-white">
+                              {player.experience ? player.experience.toLocaleString() : '0'}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <span className={`${
+                                (player.mmrChange || 0) > 0 ? 'text-green-400' :
+                                (player.mmrChange || 0) < 0 ? 'text-red-400' : 'text-gray-400'
+                              }`}>
+                                {player.mmrChange > 0 ? '+' : ''}{player.mmrChange || 0}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400 py-8">
+                    플레이어 통계 데이터가 없습니다.
+                  </div>
+                )}
+              </div>
+
+              {/* 닫기 버튼 */}
+              <div className="flex justify-end">
+                <button
+                  onClick={closeDetails}
+                  className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded transition"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

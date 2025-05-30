@@ -113,7 +113,9 @@ router.get('/leaderboard', async (req, res) => {
     const leaderboard = users.map((user, index) => ({
       rank: index + 1,
       id: user.id,
+      _id: user.id,
       battletag: user.battleTag,
+      battleTag: user.battleTag,
       nickname: user.nickname,
       mmr: user.mmr || 0,
       wins: user.wins || 0,

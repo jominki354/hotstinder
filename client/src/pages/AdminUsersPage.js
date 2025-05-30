@@ -398,7 +398,10 @@ const AdminUsersPage = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {new Date(user.lastLoginAt).toLocaleString()}
+                    {user.lastLoginAt ?
+                      new Date(user.lastLoginAt).toLocaleString() :
+                      <span className="text-gray-500">로그인 기록 없음</span>
+                    }
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button

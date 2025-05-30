@@ -14,4 +14,448 @@ editable_patterns = [
 # 보안 주의사항
 # - 환경 변수 파일을 편집할 때는 민감한 정보 노출에 주의하세요
 # - 프로덕션 환경 변수는 별도로 안전하게 관리하세요
-# - Git에 커밋하기 전에 민감한 정보가 포함되지 않았는지 확인하세요 
+# - Git에 커밋하기 전에 민감한 정보가 포함되지 않았는지 확인하세요
+
+# HotsTinder 프로젝트 커서 규칙
+
+## 🎯 프로젝트 개요
+Heroes of the Storm 매치메이킹 및 리플레이 분석 플랫폼
+- **Frontend**: React 18 + Vite + TailwindCSS
+- **Backend**: Node.js + Express + PostgreSQL + Sequelize ORM
+- **Authentication**: JWT + Battle.net OAuth
+- **Deployment**: Vercel (Frontend + Serverless API)
+- **Language**: 한국어 (Korean) - 모든 응답은 한국어로
+
+## 📁 프로젝트 구조
+```
+hotstinder/
+├── client/                 # React 프론트엔드
+│   ├── src/
+│   │   ├── components/     # 재사용 가능한 컴포넌트
+│   │   ├── pages/         # 페이지 컴포넌트
+│   │   ├── stores/        # Zustand 상태 관리
+│   │   └── utils/         # 유틸리티 함수
+├── server/                # Node.js 백엔드
+│   ├── src/
+│   │   ├── routes/        # API 라우트
+│   │   ├── models/        # Sequelize 모델
+│   │   ├── utils/         # 백엔드 유틸리티
+│   │   └── middleware/    # 미들웨어
+├── api/                   # Vercel 서버리스 함수
+└── prisma/               # 데이터베이스 스키마
+```
+
+## 🛠️ 기술 스택 및 코딩 규칙
+
+### Frontend (React)
+- **상태 관리**: Zustand 사용 (Redux 대신)
+- **스타일링**: TailwindCSS 클래스 우선 사용
+- **라우팅**: React Router v6
+- **HTTP 클라이언트**: Axios
+- **알림**: react-toastify
+- **컴포넌트 구조**:
+  ```jsx
+  // 함수형 컴포넌트 + hooks 패턴
+  const ComponentName = () => {
+    // hooks 먼저
+    const [state, setState] = useState();
+    const navigate = useNavigate();
+
+    // 함수들
+    const handleFunction = () => {};
+
+    // 렌더링
+    return <div className="tailwind-classes">...</div>;
+  };
+  ```
+
+### Backend (Node.js)
+- **ORM**: Sequelize (PostgreSQL)
+- **인증**: JWT + bcrypt
+- **로깅**: Winston 기반 커스텀 로거
+- **API 구조**: RESTful + Express Router
+- **에러 처리**: try-catch + 상세 로깅
+- **라우트 패턴**:
+  ```javascript
+  router.method('/path', authenticate, middleware, async (req, res) => {
+    try {
+      // 로직
+      logger.info('작업 설명', { 데이터 });
+      res.json({ success: true, data });
+    } catch (err) {
+      logger.error('에러 설명', err);
+      res.status(500).json({ message: '에러 메시지' });
+    }
+  });
+  ```
+
+### 데이터베이스
+- **Primary DB**: PostgreSQL (Sequelize ORM)
+- **Models**: User, Match, MatchParticipant, UserLog, MatchmakingQueue
+- **관계**: 1:N, N:M 관계 적절히 설정
+- **필드명**: camelCase (JS) ↔ snake_case (DB) 매핑
+
+## 🎮 도메인 특화 규칙
+
+### Heroes of the Storm 관련
+- **영웅 이름**: 정확한 영문명 사용 (예: Li-Ming, Sgt. Hammer)
+- **맵 이름**: 한글명 우선, 영문명 병기
+- **게임 용어**:
+  - MMR (Matchmaking Rating)
+  - KDA (Kill/Death/Assist)
+  - 영웅 피해량, 공성 피해량, 힐량, 경험치 기여도
+- **팀 구분**: blue(0), red(1) 숫자 코드 사용
+
+### 매치메이킹 로직
+- **밸런싱**: MMR 기반 팀 구성
+- **대기열**: FIFO + MMR 범위 고려
+- **시뮬레이션**: 테스트용 가상 매치 지원
+
+## 🔧 개발 가이드라인
+
+### 코드 품질
+1. **에러 처리**: 모든 async 함수에 try-catch
+2. **로깅**: 중요한 작업마다 상세 로그
+3. **검증**: 입력값 검증 및 sanitization
+4. **보안**: SQL injection, XSS 방지
+5. **성능**: 불필요한 DB 쿼리 최소화
+
+### API 설계
+- **RESTful**: 명확한 HTTP 메서드 사용
+- **응답 형식**: `{ success: boolean, data?: any, message?: string }`
+- **에러 코드**: 적절한 HTTP 상태 코드
+- **페이지네이션**: page, limit, total 포함
+- **필터링**: query parameter 활용
+
+## 🌐 API 연동성 및 엔드포인트 규칙
+
+### 엔드포인트 명명 규칙
+```javascript
+// ✅ 올바른 패턴
+GET    /api/users              // 사용자 목록
+GET    /api/users/:id          // 특정 사용자
+POST   /api/users              // 사용자 생성
+PUT    /api/users/:id          // 사용자 전체 수정
+PATCH  /api/users/:id          // 사용자 부분 수정
+DELETE /api/users/:id          // 사용자 삭제
+
+// 관리자 전용 엔드포인트
+GET    /api/admin/users        // 관리자용 사용자 목록
+POST   /api/admin/users/ban    // 사용자 차단
+DELETE /api/admin/matches      // 매치 삭제
+
+// 매치메이킹 관련
+POST   /api/matchmaking/join   // 대기열 참가
+DELETE /api/matchmaking/leave  // 대기열 탈퇴
+GET    /api/matchmaking/status // 대기열 상태
+
+// 리플레이 관련
+POST   /api/replay/upload      // 리플레이 업로드
+POST   /api/replay/analyze     // 리플레이 분석
+GET    /api/replay/:id         // 리플레이 조회
+```
+
+### 클라이언트-서버 데이터 호환성
+```javascript
+// 서버 응답 표준 형식
+{
+  success: boolean,           // 성공/실패 여부
+  data?: any,                // 실제 데이터
+  message?: string,          // 사용자 메시지
+  error?: string,            // 에러 메시지
+  pagination?: {             // 페이지네이션 정보
+    page: number,
+    limit: number,
+    total: number,
+    totalPages: number
+  }
+}
+
+// 클라이언트 요청 표준 형식
+{
+  // 헤더에 항상 포함
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json'
+}
+```
+
+### 데이터베이스-API 필드 매핑
+```javascript
+// Sequelize 모델 ↔ API 응답 매핑
+// User 모델
+DB: user_id        → API: id, userId
+DB: battle_tag     → API: battleTag
+DB: created_at     → API: createdAt
+DB: updated_at     → API: updatedAt
+DB: last_login_at  → API: lastLoginAt
+
+// Match 모델
+DB: match_id       → API: id, matchId
+DB: map_name       → API: mapName, map
+DB: game_mode      → API: gameMode
+DB: game_duration  → API: gameDuration, gameLength
+DB: created_at     → API: createdAt
+
+// MatchParticipant 모델
+DB: participant_id → API: id
+DB: user_id        → API: userId
+DB: hero_damage    → API: heroDamage
+DB: siege_damage   → API: siegeDamage
+DB: mmr_change     → API: mmrChange
+```
+
+### 에러 처리 표준화
+```javascript
+// 서버 측 에러 처리 패턴
+try {
+  // 비즈니스 로직
+  const result = await someOperation();
+
+  logger.info('작업 성공', {
+    operation: 'someOperation',
+    userId: req.user?.id,
+    result: result.id
+  });
+
+  res.json({
+    success: true,
+    data: result,
+    message: '작업이 완료되었습니다.'
+  });
+} catch (err) {
+  logger.error('작업 실패', {
+    operation: 'someOperation',
+    userId: req.user?.id,
+    error: err.message,
+    stack: err.stack
+  });
+
+  // 클라이언트에게 안전한 에러 메시지 전송
+  const statusCode = err.statusCode || 500;
+  const message = err.isOperational ? err.message : '서버 오류가 발생했습니다.';
+
+  res.status(statusCode).json({
+    success: false,
+    error: message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+}
+
+// 클라이언트 측 에러 처리 패턴
+try {
+  const response = await axios.post('/api/endpoint', data);
+
+  if (response.data.success) {
+    toast.success(response.data.message || '작업이 완료되었습니다.');
+    return response.data.data;
+  } else {
+    throw new Error(response.data.error || '알 수 없는 오류');
+  }
+} catch (err) {
+  const errorMessage = err.response?.data?.error || err.message || '네트워크 오류';
+  toast.error(errorMessage);
+
+  // 클라이언트 에러를 서버로 전송
+  if (window.reportClientError) {
+    window.reportClientError(err, 'API_CALL', { endpoint: '/api/endpoint' });
+  }
+
+  throw err;
+}
+```
+
+### 인증/인가 호환성
+```javascript
+// JWT 토큰 구조 표준화
+{
+  id: number,           // 사용자 ID
+  battleTag: string,    // Battle.net 태그
+  role: string,         // 'user' | 'admin'
+  iat: number,          // 발급 시간
+  exp: number           // 만료 시간
+}
+
+// 미들웨어 체인 표준화
+router.post('/protected-route',
+  authenticate,         // JWT 검증
+  validateInput,        // 입력값 검증
+  isAdmin,             // 관리자 권한 확인 (필요시)
+  async (req, res) => {
+    // 비즈니스 로직
+  }
+);
+
+// 클라이언트 인증 상태 관리
+const authStore = {
+  token: localStorage.getItem('token'),
+  user: JSON.parse(localStorage.getItem('user') || 'null'),
+  isAuthenticated: () => !!authStore.token && !isTokenExpired(authStore.token),
+  isAdmin: () => authStore.user?.role === 'admin'
+};
+```
+
+## 🚀 배포 및 환경
+
+### 환경 변수
+- **개발**: `.env.local`, `.env.development`
+- **프로덕션**: Vercel 환경 변수
+- **보안**: 민감 정보는 환경 변수로만
+
+### Vercel 배포
+- **Frontend**: 자동 배포
+- **API**: `/api` 폴더의 서버리스 함수
+- **데이터베이스**: 외부 PostgreSQL 연결
+
+## 📋 일관성 유지 규칙
+
+### 대화 연속성
+1. **컨텍스트 유지**: 이전 대화 내용 참조하여 일관된 답변
+2. **프로젝트 이해**: 기술 스택과 구조를 항상 고려
+3. **한국어 응답**: 모든 설명과 코멘트는 한국어로
+4. **실용적 접근**: 이론보다는 실제 구현 가능한 솔루션 제시
+
+### 코드 수정 시
+1. **기존 패턴 유지**: 프로젝트의 기존 코딩 스타일 준수
+2. **점진적 개선**: 대규모 리팩토링보다는 점진적 개선
+3. **호환성 고려**: 기존 기능 영향 최소화
+4. **테스트 가능**: 수정 후 테스트 가능한 형태로 제공
+
+### 문제 해결 접근
+1. **원인 분석**: 문제의 근본 원인 파악
+2. **단계별 해결**: 복잡한 문제는 단계별로 분해
+3. **대안 제시**: 여러 해결 방안 제시 시 장단점 설명
+4. **검증 방법**: 해결책의 검증 방법 함께 제시
+
+## 🎯 특별 지침
+
+### 관리자 기능
+- **권한 검증**: 모든 관리자 API에 인증/인가 확인
+- **로그 기록**: 관리자 작업은 상세 로그 남기기
+- **UI 분리**: 일반 사용자와 관리자 UI 명확히 구분
+
+### 리플레이 분석
+- **hots-parser**: Heroes of the Storm 리플레이 파싱 라이브러리 사용
+- **통계 처리**: 게임 통계를 DB 스키마에 맞게 변환
+- **에러 처리**: 리플레이 파일 손상/호환성 문제 대응
+
+### 성능 최적화
+- **DB 쿼리**: include/attributes로 필요한 데이터만 조회
+- **페이지네이션**: 대용량 데이터 처리 시 필수
+- **캐싱**: 자주 조회되는 데이터는 적절한 캐싱 전략
+
+### UI/UX 패턴
+- **다크 테마**: slate 계열 색상 기본
+- **반응형**: 모바일 우선 설계
+- **로딩 상태**: 스피너 및 스켈레톤 UI
+- **에러 표시**: toast 알림 + 인라인 메시지
+- **관리자 기능**: 별도 페이지 분리
+
+### TailwindCSS 클래스 표준화
+```css
+/* 공통 컴포넌트 클래스 */
+.btn-primary: "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+.btn-secondary: "bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition"
+.btn-danger: "bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition"
+.btn-success: "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition"
+
+/* 카드 컴포넌트 */
+.card: "bg-slate-800 rounded-lg p-6 shadow-lg"
+.card-header: "border-b border-slate-700 pb-4 mb-4"
+.card-title: "text-xl font-bold text-white"
+
+/* 폼 요소 */
+.form-input: "bg-slate-700 border border-slate-600 text-white px-3 py-2 rounded focus:outline-none focus:border-blue-500"
+.form-label: "block text-sm font-medium text-gray-300 mb-2"
+.form-error: "text-red-400 text-sm mt-1"
+
+/* 테이블 */
+.table-container: "overflow-x-auto bg-slate-800 rounded-lg"
+.table-header: "bg-slate-700 text-gray-300 text-left px-4 py-3"
+.table-cell: "px-4 py-3 border-b border-slate-700"
+```
+
+### 컴포넌트 재사용성 규칙
+```javascript
+// 공통 컴포넌트 구조
+const Button = ({
+  variant = 'primary',
+  size = 'md',
+  loading = false,
+  disabled = false,
+  children,
+  onClick,
+  ...props
+}) => {
+  const baseClasses = "font-medium rounded transition focus:outline-none focus:ring-2";
+  const variantClasses = {
+    primary: "bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500",
+    secondary: "bg-gray-600 hover:bg-gray-700 text-white focus:ring-gray-500",
+    danger: "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500"
+  };
+  const sizeClasses = {
+    sm: "px-2 py-1 text-sm",
+    md: "px-4 py-2",
+    lg: "px-6 py-3 text-lg"
+  };
+
+  return (
+    <button
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabled || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+      disabled={disabled || loading}
+      onClick={onClick}
+      {...props}
+    >
+      {loading ? <Spinner size="sm" /> : children}
+    </button>
+  );
+};
+
+// 로딩 컴포넌트
+const LoadingSpinner = ({ size = 'md', className = '' }) => {
+  const sizeClasses = {
+    sm: 'w-4 h-4',
+    md: 'w-8 h-8',
+    lg: 'w-12 h-12'
+  };
+
+  return (
+    <div className={`animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 ${sizeClasses[size]} ${className}`} />
+  );
+};
+
+// 모달 컴포넌트
+const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
+  if (!isOpen) return null;
+
+  const sizeClasses = {
+    sm: 'max-w-md',
+    md: 'max-w-2xl',
+    lg: 'max-w-4xl',
+    xl: 'max-w-6xl'
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className={`bg-slate-800 rounded-lg ${sizeClasses[size]} w-full max-h-[90vh] overflow-y-auto`}>
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-white">{title}</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white text-2xl"
+            >
+              ×
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+```
+
+---
+
+**중요**: 이 프로젝트는 Heroes of the Storm 커뮤니티를 위한 매치메이킹 플랫폼입니다.
+게임의 특성과 사용자 경험을 항상 고려하여 개발해주세요.

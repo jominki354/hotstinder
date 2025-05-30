@@ -74,6 +74,16 @@ module.exports = (sequelize) => {
       defaultValue: 0,
       field: 'mmr_change'
     },
+    mmrBefore: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1500,
+      field: 'mmr_before'
+    },
+    mmrAfter: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1500,
+      field: 'mmr_after'
+    },
     createdAt: {
       type: DataTypes.DATE,
       field: 'created_at'
@@ -84,7 +94,9 @@ module.exports = (sequelize) => {
     }
   }, {
     tableName: 'match_participants',
-    timestamps: false,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
     indexes: [
       {
         unique: true,

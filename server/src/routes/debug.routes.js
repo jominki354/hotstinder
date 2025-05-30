@@ -316,4 +316,38 @@ router.get('/test-endpoints', async (req, res) => {
   }
 });
 
+/**
+ * @route   POST /api/debug/client-error
+ * @desc    클라이언트에서 발생한 에러를 서버 로그에 기록
+ * @access  Public
+ */
+router.post('/client-error', async (req, res) => {
+  try {
+    const { error, stack, component, action, timestamp, userAgent, url } = req.body;
+
+    logger.error('🔴 클라이언트 에러 발생', {
+      error,
+      stack,
+      component,
+      action,
+      timestamp,
+      userAgent,
+      url,
+      ip: req.ip
+    });
+
+    res.json({
+      message: '클라이언트 에러가 서버에 기록되었습니다.',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('클라이언트 에러 리포팅 실패:', error);
+    res.status(500).json({
+      message: '에러 리포팅 중 오류가 발생했습니다.',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

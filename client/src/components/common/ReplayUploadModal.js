@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
-import { translateHeroName, translateMapName } from '../../utils/heroTranslations';
+import { translateHero, translateMap } from '../../utils/hotsTranslations';
 
 const ReplayUploadModal = ({ isOpen, onClose, matchId }) => {
   const [file, setFile] = useState(null);
@@ -169,7 +169,7 @@ const ReplayUploadModal = ({ isOpen, onClose, matchId }) => {
               userId: realPlayer?.userId || realPlayer?.id || `blue_${player.name}`,
               battletag: realPlayer?.battletag || realPlayer?.name || player.name || 'Unknown',
               team: 'blue',
-              hero: translateHeroName(player.hero) || 'Unknown',
+              hero: translateHero(player.hero) || 'Unknown',
               kills: player.stats?.SoloKill || 0,
               deaths: player.stats?.Deaths || 0,
               assists: player.stats?.Assists || 0,
@@ -189,7 +189,7 @@ const ReplayUploadModal = ({ isOpen, onClose, matchId }) => {
               userId: realPlayer?.userId || realPlayer?.id || `red_${player.name}`,
               battletag: realPlayer?.battletag || realPlayer?.name || player.name || 'Unknown',
               team: 'red',
-              hero: translateHeroName(player.hero) || 'Unknown',
+              hero: translateHero(player.hero) || 'Unknown',
               kills: player.stats?.SoloKill || 0,
               deaths: player.stats?.Deaths || 0,
               assists: player.stats?.Assists || 0,

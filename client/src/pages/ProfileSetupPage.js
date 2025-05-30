@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { translateHeroName } from '../utils/heroTranslations';
+import { translateHero } from '../utils/hotsTranslations';
 
 // Axios 기본 설정
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';

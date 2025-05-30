@@ -1,7 +1,146 @@
 const fs = require('fs');
 const path = require('path');
 const Parser = require('hots-parser');
-const { translateHeroName, translateMapName, translateGameData } = require('./heroTranslations');
+// const { translateHeroName, translateMapName, translateGameData } = require('./heroTranslations');
+
+// 히오스 공식 한국어 번역 매핑
+const heroTranslations = {
+  // 암살자
+  'Alarak': '알라라크',
+  'Cassia': '카시아',
+  'Chromie': '크로미',
+  'Falstad': '폴스타트',
+  'Fenix': '피닉스',
+  'Genji': '겐지',
+  'Greymane': '그레이메인',
+  'Gul\'dan': '굴단',
+  'Hanzo': '한조',
+  'Illidan': '일리단',
+  'Jaina': '제이나',
+  'Kael\'thas': '켈타스',
+  'Kel\'Thuzad': '켈투자드',
+  'Kerrigan': '케리건',
+  'Li-Ming': '리밍',
+  'Lunara': '루나라',
+  'Maiev': '마이에브',
+  'Mephisto': '메피스토',
+  'Nazeebo': '나지보',
+  'Nova': '노바',
+  'Orphea': '오르피아',
+  'Probius': '프로비우스',
+  'Qhira': '키라',
+  'Raynor': '레이너',
+  'Sylvanas': '실바나스',
+  'Tassadar': '태사다르',
+  'The Butcher': '도살자',
+  'Thrall': '스랄',
+  'Tracer': '트레이서',
+  'Tychus': '타이커스',
+  'Tyrande': '티란데',
+  'Valeera': '발리라',
+  'Valla': '발라',
+  'Zeratul': '제라툴',
+  'Zul\'jin': '줄진',
+
+  // 전사
+  'Anub\'arak': '아눕아락',
+  'Arthas': '아서스',
+  'Blaze': '화염방사병',
+  'Chen': '첸',
+  'Cho': '초',
+  'Diablo': '디아블로',
+  'E.T.C.': '정예 타우렌 족장',
+  'Garrosh': '가로쉬',
+  'Imperius': '임페리우스',
+  'Johanna': '요한나',
+  'Leoric': '레오릭',
+  'Mal\'Ganis': '말가니스',
+  'Muradin': '무라딘',
+  'Rexxar': '렉사르',
+  'Sonya': '소냐',
+  'Stitches': '스티치스',
+  'Tyrael': '티리엘',
+  'Varian': '바리안',
+  'Yrel': '이렐',
+
+  // 지원가
+  'Abathur': '아바투르',
+  'Medivh': '메디브',
+  'The Lost Vikings': '길 잃은 바이킹',
+  'Zarya': '자리야',
+
+  // 치유사
+  'Alexstrasza': '알렉스트라자',
+  'Ana': '아나',
+  'Anduin': '안두인',
+  'Auriel': '아우리엘',
+  'Brightwing': '빛나래',
+  'Deckard': '데커드',
+  'Kharazim': '카라짐',
+  'Li Li': '리리',
+  'Lt. Morales': '모랄레스 중위',
+  'Lucio': '루시우',
+  'Malfurion': '말퓨리온',
+  'Rehgar': '레가르',
+  'Stukov': '스투코프',
+  'Uther': '우서',
+  'Whitemane': '화이트메인',
+
+  // 투사
+  'Artanis': '아르타니스',
+  'Azmodan': '아즈모단',
+  'Dehaka': '데하카',
+  'D.Va': '디바',
+  'Gall': '갈',
+  'Gazlowe': '가즈로',
+  'Hogger': '들창코',
+  'Ragnaros': '라그나로스',
+  'Samuro': '사무로',
+  'Xul': '줄',
+  'Zagara': '자가라'
+};
+
+const mapTranslations = {
+  'Cursed Hollow': '저주받은 골짜기',
+  'Dragon Shire': '용의 둥지',
+  'Blackheart\'s Bay': '블랙하트 항만',
+  'Garden of Terror': '공포의 정원',
+  'Haunted Mines': '유령 광산',
+  'Sky Temple': '하늘 사원',
+  'Tomb of the Spider Queen': '거미 여왕의 무덤',
+  'Battlefield of Eternity': '영원의 전쟁터',
+  'Infernal Shrines': '불지옥 신단',
+  'Towers of Doom': '파멸의 탑',
+  'Braxis Holdout': '브락시스 항전',
+  'Warhead Junction': '핵탄두 격전지',
+  'Hanamura Temple': '하나무라 사원',
+  'Volskaya Foundry': '볼스카야 공장',
+  'Alterac Pass': '알터랙 고개'
+};
+
+const translateHeroName = (heroName) => {
+  if (!heroName) return '알 수 없음';
+  return heroTranslations[heroName] || heroName;
+};
+
+const translateMapName = (mapName) => {
+  if (!mapName) return '알 수 없음';
+  return mapTranslations[mapName] || mapName;
+};
+
+const translateGameData = (data) => {
+  if (!data) return data;
+
+  if (data.hero) {
+    data.hero = translateHeroName(data.hero);
+  }
+
+  if (data.map) {
+    data.map = translateMapName(data.map);
+  }
+
+  return data;
+};
 
 /**
  * Heroes of the Storm 리플레이 파일을 분석합니다.
@@ -41,39 +180,39 @@ function extractStatsFromScore(scoreData, players) {
     }
 
     const playerStats = {};
-    
+
     console.log('[DEBUG] Score 인스턴스 리스트 길이:', scoreData.m_instanceList.length);
-    
+
     // 각 통계 항목을 처리
     scoreData.m_instanceList.forEach((statItem, itemIndex) => {
         const statName = statItem.m_name;
         const values = statItem.m_values;
-        
+
         console.log(`[DEBUG] 통계 항목 ${itemIndex}: ${statName}, 값 개수: ${values?.length || 0}`);
-        
+
         if (!values || !Array.isArray(values)) return;
-        
+
         // 플레이어별 통계 값 저장
         values.forEach((valueObj, playerIndex) => {
             if (valueObj && Array.isArray(valueObj) && valueObj.length > 0 && valueObj[0].m_value !== undefined) {
                 const playerId = playerIndex + 1; // Tracker PlayerID는 1부터 시작
-                
+
                 if (!playerStats[playerId]) {
                     playerStats[playerId] = {};
                 }
-                
+
                 playerStats[playerId][statName] = valueObj[0].m_value;
-                
+
                 console.log(`[DEBUG] 플레이어 ${playerId} ${statName}: ${valueObj[0].m_value}`);
             }
         });
     });
-    
+
     console.log('[DEBUG] 추출된 Score 통계 (플레이어별):', Object.keys(playerStats).map(id => ({
         playerId: id,
         stats: Object.keys(playerStats[id]).length
     })));
-    
+
     return playerStats;
 }
 
@@ -85,7 +224,7 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
     console.log('[DEBUG] Parser result keys:', Object.keys(parserResult || {}));
     console.log('[DEBUG] Parser result type:', typeof parserResult);
         console.log('[DEBUG] Parser result:', JSON.stringify(parserResult, null, 2));
-        
+
     // parserResult가 null이거나 undefined인 경우
     if (!parserResult) {
       return {
@@ -144,14 +283,14 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
 
         // 플레이어 데이터 변환
         const formattedPlayers = [];
-        
+
         console.log('[DEBUG] 플레이어 변환 시작, 총 플레이어 수:', Object.keys(players).length);
         console.log('[DEBUG] 사용 가능한 Score 통계 플레이어 ID:', Object.keys(scoreStats));
-        
+
         Object.keys(players).forEach((toonHandle, index) => {
             const player = players[toonHandle];
             const stats = player.stats || {};
-            
+
             console.log(`[DEBUG] Player ${index + 1}:`, {
                 name: player.name,
                 hero: player.hero,
@@ -159,27 +298,38 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
                 toonHandle: toonHandle,
                 stats: stats
             });
-            
+
             // PlayerInit 데이터에서 정확한 Tracker PlayerID 가져오기
             let trackerPlayerId = playerInitData[toonHandle];
             let playerScoreStats = trackerPlayerId ? scoreStats[trackerPlayerId] || {} : {};
-            
+
             // PlayerInit 매핑이 실패한 경우 순서 기반 매핑 시도
             if (!trackerPlayerId || Object.keys(playerScoreStats).length === 0) {
                 console.log(`[DEBUG] PlayerInit 매핑 실패, 순서 기반 매핑 시도: ${index + 1}`);
                 trackerPlayerId = index + 1;
                 playerScoreStats = scoreStats[trackerPlayerId] || {};
             }
-            
+
             console.log(`[DEBUG] Player ${player.name} - TrackerID: ${trackerPlayerId}, ScoreStats 키 개수: ${Object.keys(playerScoreStats).length}`);
             console.log(`[DEBUG] Player ${player.name} - ScoreStats:`, playerScoreStats);
-            
+
             // KDA 계산 (Score 데이터 우선 사용)
             const kills = playerScoreStats.SoloKill || stats.SoloKill || 0;
             const deaths = playerScoreStats.Deaths || stats.Deaths || 0;
             const assists = playerScoreStats.Assists || stats.Assists || 0;
             const kda = deaths > 0 ? parseFloat(((kills + assists) / deaths).toFixed(2)) : kills + assists;
-            
+
+            console.log(`[DEBUG] Player ${player.name} - 최종 통계:`, {
+                kills: kills,
+                deaths: deaths,
+                assists: assists,
+                kda: kda,
+                level: playerScoreStats.Level || player.heroLevel || 20,
+                heroDamage: playerScoreStats.HeroDamage || stats.HeroDamage || 0,
+                siegeDamage: playerScoreStats.SiegeDamage || stats.SiegeDamage || 0,
+                healing: playerScoreStats.Healing || stats.Healing || 0
+            });
+
             const formattedPlayer = {
                 index: index,
                 name: player.name || `Player${index + 1}`,
@@ -222,7 +372,7 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
                 },
                 heroLevel: player.heroLevel || 20
             };
-            
+
             formattedPlayers.push(formattedPlayer);
         });
 
@@ -239,24 +389,36 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
         const totalHeroDamage = formattedPlayers.reduce((sum, p) => sum + p.stats.HeroDamage, 0);
         const totalSiegeDamage = formattedPlayers.reduce((sum, p) => sum + p.stats.SiegeDamage, 0);
         const totalHealing = formattedPlayers.reduce((sum, p) => sum + p.stats.Healing, 0);
-        
+
         const validKdas = formattedPlayers.filter(p => p.stats.KDA > 0).map(p => p.stats.KDA);
-        const averageKda = validKdas.length > 0 ? 
+        const averageKda = validKdas.length > 0 ?
             parseFloat((validKdas.reduce((sum, kda) => sum + kda, 0) / validKdas.length).toFixed(2)) : 0;
 
         // 파일 정보
         const fileStats = fs.statSync(filePath);
-      
-      return {
-        success: true,
-            match: {
-                map: match.map || 'Unknown Map',
+
+        // 평균 레벨 계산
+        const averageLevel = formattedPlayers.length > 0 ?
+            Math.round(formattedPlayers.reduce((sum, p) => sum + p.stats.Level, 0) / formattedPlayers.length) : 0;
+
+        return {
+            success: true,
+            metadata: {
+                mapName: match.map || 'Unknown Map',
                 gameMode: match.mode || 'Unknown',
-                gameLength: match.length || 0,
+                gameDuration: match.length || 0,
                 date: match.date || new Date().toISOString(),
-                winner: match.winner || 0,
+                winner: match.winner === 0 ? 'blue' : match.winner === 1 ? 'red' : 'unknown',
                 gameVersion: match.version || 'Unknown',
-                region: match.region || 'Unknown'
+                region: match.region || 'Unknown',
+                fileSize: fileStats.size,
+                analysisDate: new Date().toISOString(),
+                parserVersion: 'hots-parser',
+                parserStatus: status || 'OK'
+            },
+            teams: {
+                blue: blueTeam,
+                red: redTeam
             },
             players: {
                 blue: blueTeam,
@@ -271,13 +433,8 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
                 totalSiegeDamage,
                 totalHealing,
                 averageKDA: averageKda,
+                averageLevel,
                 playerCount: formattedPlayers.length
-            },
-            metadata: {
-                fileSize: fileStats.size,
-                analysisDate: new Date().toISOString(),
-                parserVersion: 'hots-parser',
-        parserStatus: status || 'OK'
             }
         };
 
@@ -535,7 +692,7 @@ async function analyzeReplay(filePath) {
         error: '리플레이 파서가 예상치 못한 결과를 반환했습니다.'
       };
     }
-        
+
         // 추가로 trackerevents에서 Score 데이터 추출
         let scoreData = null;
         let playerInitData = {};
@@ -543,36 +700,36 @@ async function analyzeReplay(filePath) {
             const rawData = Parser.parse(filePath, ['trackerevents'], {});
             if (rawData.trackerevents) {
                 console.log('[DEBUG] 총 tracker 이벤트 수:', rawData.trackerevents.length);
-                
+
                 // PlayerInit 이벤트 찾기 (eventid = 10)
                 const playerInitEvents = rawData.trackerevents.filter(event => event._eventid === 10);
                 console.log('[DEBUG] PlayerInit 이벤트 수:', playerInitEvents.length);
-                
+
                 // PlayerInit 데이터로 ToonHandle과 Tracker PlayerID 매핑
                 playerInitEvents.forEach((event, index) => {
                     console.log(`[DEBUG] PlayerInit 이벤트 ${index}:`, event);
-                    
+
                     if (event.m_intData && event.m_stringData) {
                         // Tracker PlayerID는 첫 번째 int 데이터
                         const trackerPlayerId = event.m_intData[0]?.m_value;
                         // ToonHandle은 두 번째 string 데이터
                         const toonHandle = event.m_stringData[1]?.m_value;
-                        
+
                         console.log(`[DEBUG] 매핑 시도: TrackerID=${trackerPlayerId}, ToonHandle=${toonHandle}`);
-                        
+
                         if (trackerPlayerId !== undefined && toonHandle) {
                             playerInitData[toonHandle] = trackerPlayerId;
                             console.log(`[DEBUG] 매핑 성공: ${toonHandle} -> ${trackerPlayerId}`);
                         }
                     }
                 });
-                
+
                 console.log('[DEBUG] 최종 PlayerInit 매핑:', playerInitData);
-                
+
                 // Score 이벤트 찾기 (eventid = 11)
                 const scoreEvents = rawData.trackerevents.filter(event => event._eventid === 11);
                 console.log('[DEBUG] Score 이벤트 수:', scoreEvents.length);
-                
+
                 if (scoreEvents.length > 0) {
                     scoreData = scoreEvents[0]; // 첫 번째 Score 이벤트 사용
                     console.log('[DEBUG] Score 이벤트 발견, 인스턴스 수:', scoreData.m_instanceList?.length || 0);
@@ -594,7 +751,7 @@ async function analyzeReplay(filePath) {
 
     } catch (error) {
         console.error('[ERROR] 리플레이 분석 중 오류:', error);
-        
+
         // 특정 오류 타입별 처리
         if (error.message && error.message.includes('unverifiedBuild')) {
             return {
@@ -602,7 +759,7 @@ async function analyzeReplay(filePath) {
                 error: '지원되지 않는 게임 버전입니다. 최신 버전의 파서가 필요합니다.'
             };
         }
-        
+
         if (error.message && error.message.includes('ComputerPlayerFound')) {
             return {
                 success: false,
@@ -632,7 +789,7 @@ async function getReplayHeader(filePath) {
         }
 
         const header = Parser.getHeader(filePath);
-        
+
         return {
             success: true,
             header: {
@@ -656,7 +813,7 @@ async function getReplayHeader(filePath) {
 // 파싱 결과에 번역 적용
 function applyTranslations(result) {
   if (!result) return result;
-  
+
   try {
     // 기본 매치 정보 번역
     if (result.match) {
@@ -664,7 +821,7 @@ function applyTranslations(result) {
         result.match.map = translateMapName(result.match.map);
       }
     }
-    
+
     // 플레이어 영웅 이름 번역
     if (result.players) {
       Object.keys(result.players).forEach(playerId => {
@@ -674,7 +831,7 @@ function applyTranslations(result) {
         }
       });
     }
-    
+
     // 팀별 플레이어 번역 (teams 구조가 있는 경우)
     if (result.teams) {
       ['blue', 'red'].forEach(team => {
@@ -686,7 +843,7 @@ function applyTranslations(result) {
         }
       });
     }
-    
+
     return result;
   } catch (error) {
     console.error('[ERROR] 번역 적용 중 오류:', error);

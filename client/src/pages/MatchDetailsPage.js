@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 import ReplayUploadModal from '../components/common/ReplayUploadModal';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { translateHeroName, translateMapName } from '../utils/heroTranslations';
+import { translateHero, translateMap } from '../utils/hotsTranslations';
 import './MatchDetailsPage.css'; // 새로운 CSS 파일
 
 const MatchDetailsPage = () => {
@@ -190,7 +190,7 @@ const MatchDetailsPage = () => {
               <h3>전장</h3>
             </div>
             <div className="match-details-card-content">
-              <div className="match-details-map-name">{translateMapName(matchInfo.map)}</div>
+              <div className="match-details-map-name">{translateMap(matchInfo.map)}</div>
             </div>
           </div>
 
@@ -265,7 +265,7 @@ const MatchDetailsPage = () => {
                       <div className="match-details-player-name">{player.battletag}</div>
                       <div className="match-details-player-role">{player.role}</div>
                       {player.hero && (
-                        <div className="match-details-player-hero">{translateHeroName(player.hero)}</div>
+                        <div className="match-details-player-hero">{translateHero(player.hero)}</div>
                       )}
                     </div>
                   </div>
@@ -311,7 +311,7 @@ const MatchDetailsPage = () => {
                       <div className="match-details-player-name">{player.battletag}</div>
                       <div className="match-details-player-role">{player.role}</div>
                       {player.hero && (
-                        <div className="match-details-player-hero">{translateHeroName(player.hero)}</div>
+                        <div className="match-details-player-hero">{translateHero(player.hero)}</div>
                       )}
                     </div>
                   </div>

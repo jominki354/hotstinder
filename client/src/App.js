@@ -18,7 +18,6 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import AdminUserEditPage from './pages/AdminUserEditPage';
 import AdminMatchesPage from './pages/AdminMatchesPage';
 import AdminMatchDetailPage from './pages/AdminMatchDetailPage';
-import DebugPage from './pages/DebugPage';
 import QueueStatus from './components/queue/QueueStatus';
 import { useAuthStore } from './stores/authStore';
 import PrivateRoute from './components/auth/PrivateRoute';
@@ -405,9 +404,6 @@ function App() {
           {/* 리더보드와 최근 게임은 누구나 볼 수 있게 변경 */}
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/recent-games" element={<RecentGamesPage />} />
-
-          {/* 디버깅 페이지 */}
-          <Route path="/debug" element={<DebugPage />} />
 
           {/* 관리자 페이지 라우트 */}
           <Route path="/admin-login" element={

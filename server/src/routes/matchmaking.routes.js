@@ -363,31 +363,65 @@ router.get('/recent-games', async (req, res) => {
           id: participant.id,
           userId: participant.userId,
           battletag: participant.user?.battleTag || 'Unknown',
-          nickname: participant.user?.nickname,
-          hero: participant.hero,
-          role: participant.role,
+          nickname: participant.user?.nickname || participant.user?.battleTag?.split('#')[0] || '알 수 없음',
+          hero: participant.hero || '알 수 없음',
+          role: participant.role || '알 수 없음',
           kills: participant.kills || 0,
           deaths: participant.deaths || 0,
-          assists: participant.assists || 0
+          assists: participant.assists || 0,
+          heroDamage: participant.heroDamage || 0,
+          siegeDamage: participant.siegeDamage || 0,
+          healing: participant.healing || 0,
+          experience: participant.experience || 0,
+          mmrBefore: participant.mmrBefore || 1500,
+          mmrAfter: participant.mmrAfter || 1500,
+          mmrChange: participant.mmrChange || 0
         };
 
         if (participant.team === 1) {
           redTeam.push(playerData);
-        } else if (participant.team === 2) {
+        } else if (participant.team === 0) {
           blueTeam.push(playerData);
         }
       });
 
+      // 팀 평균 MMR 계산
+      const calculateAvgMmr = (team) => {
+        if (team.length === 0) return 1500;
+        const totalMmr = team.reduce((sum, player) => sum + (player.mmrAfter || 1500), 0);
+        return Math.round(totalMmr / team.length);
+      };
+
+      // 승리팀 결정 (문자열과 숫자 모두 처리)
+      let winner = 'none';
+      if (match.winner === 'red' || match.winner === '1' || match.winner === 1) {
+        winner = 'red';
+      } else if (match.winner === 'blue' || match.winner === '0' || match.winner === 0) {
+        winner = 'blue';
+      }
+
+      console.log(`[DEBUG] 매치 ${match.id} - 원본 winner: ${match.winner} (타입: ${typeof match.winner}), 변환된 winner: ${winner}`);
+
       recentGames.push({
         id: match.id,
-        map: match.mapName,
+        map: match.mapName || '알 수 없는 맵',
         gameMode: match.gameMode || 'Storm League',
-        winner: match.winner,
-        gameDuration: match.gameDuration,
+        winner: winner,
+        gameDuration: match.gameDuration || 0,
         status: match.status,
         createdAt: match.createdAt,
-        redTeam,
-        blueTeam,
+        date: match.createdAt ? new Date(match.createdAt).toLocaleDateString('ko-KR') : '알 수 없음',
+        time: match.createdAt ? new Date(match.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '알 수 없음',
+        redTeam: {
+          name: '레드팀',
+          avgMmr: calculateAvgMmr(redTeam),
+          players: redTeam
+        },
+        blueTeam: {
+          name: '블루팀',
+          avgMmr: calculateAvgMmr(blueTeam),
+          players: blueTeam
+        },
         playerCount: participants.length
       });
     }

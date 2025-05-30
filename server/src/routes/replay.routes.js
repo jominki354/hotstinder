@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { Op } = require('sequelize');
+const { analyzeReplay } = require('../utils/replayParser');
 
 // 미들웨어: 인증 확인
 const authenticate = async (req, res, next) => {
@@ -365,6 +366,140 @@ router.delete('/:id', authenticate, async (req, res) => {
   } catch (err) {
     logger.error('리플레이 삭제 오류:', err);
     res.status(500).json({ message: '리플레이 삭제에 실패했습니다' });
+  }
+});
+
+/**
+ * @route   POST /api/replay/analyze
+ * @desc    리플레이 파일 분석 (업로드 + 분석)
+ * @access  Private
+ */
+router.post('/analyze', authenticate, upload.single('replayFile'), async (req, res) => {
+  const timer = logger.startTimer('Replay Analysis');
+
+  try {
+    logger.info('🎮 리플레이 분석 요청 시작', {
+      userId: req.user.id,
+      hasFile: !!req.file,
+      originalName: req.file?.originalname
+    });
+
+    if (!req.file) {
+      timer.end();
+      return res.status(400).json({
+        message: '리플레이 파일이 필요합니다',
+        error: 'NO_FILE_UPLOADED'
+      });
+    }
+
+    const filePath = req.file.path;
+    const originalFilename = req.file.originalname;
+
+    logger.info('📁 리플레이 파일 업로드 완료', {
+      filePath,
+      originalFilename,
+      fileSize: req.file.size
+    });
+
+    // 리플레이 파일 분석
+    logger.info('🔍 리플레이 파싱 시작');
+    const analysisResult = await analyzeReplay(filePath);
+
+    logger.info('✅ 리플레이 파싱 완료', {
+      success: analysisResult.success,
+      hasMetadata: !!analysisResult.metadata,
+      hasTeams: !!analysisResult.teams
+    });
+
+    // 분석 완료 후 임시 파일 삭제
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        logger.debug('🗑️ 임시 파일 삭제 완료:', filePath);
+      }
+    } catch (cleanupErr) {
+      logger.warn('⚠️ 임시 파일 삭제 실패:', cleanupErr.message);
+    }
+
+    // 로그 기록
+    try {
+      if (global.db && global.db.UserLog) {
+        await global.db.UserLog.create({
+          userId: req.user.id,
+          action: 'replay_analyzed',
+          details: {
+            filename: originalFilename,
+            fileSize: req.file.size,
+            success: analysisResult.success,
+            error: analysisResult.error || null
+          },
+          ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+          userAgent: req.headers['user-agent']
+        });
+      }
+    } catch (logErr) {
+      logger.error('💾 리플레이 분석 로그 기록 오류:', logErr);
+    }
+
+    if (!analysisResult.success) {
+      logger.warn('❌ 리플레이 분석 실패', {
+        error: analysisResult.error,
+        logs: analysisResult.logs
+      });
+
+      timer.end();
+      return res.status(400).json({
+        message: analysisResult.error || '리플레이 분석에 실패했습니다',
+        error: 'ANALYSIS_FAILED',
+        logs: analysisResult.logs || []
+      });
+    }
+
+    logger.info('🎉 리플레이 분석 성공', {
+      userId: req.user.id,
+      filename: originalFilename,
+      duration: timer.end()
+    });
+
+    res.json({
+      success: true,
+      message: '리플레이 분석이 완료되었습니다',
+      analysisResult: analysisResult
+    });
+
+  } catch (err) {
+    timer.end();
+
+    // 오류 발생 시 임시 파일 삭제
+    if (req.file && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+        logger.debug('🗑️ 오류 발생으로 인한 임시 파일 삭제:', req.file.path);
+      } catch (cleanupErr) {
+        logger.warn('⚠️ 오류 발생 시 임시 파일 삭제 실패:', cleanupErr.message);
+      }
+    }
+
+    logger.error('💥 리플레이 분석 중 오류', {
+      error: err.message,
+      stack: err.stack,
+      userId: req.user?.id,
+      filename: req.file?.originalname
+    });
+
+    // 에러 타입에 따른 응답
+    if (err.message.includes('리플레이 파일만')) {
+      return res.status(400).json({
+        message: err.message,
+        error: 'INVALID_FILE_TYPE'
+      });
+    }
+
+    res.status(500).json({
+      message: '리플레이 분석 중 오류가 발생했습니다',
+      error: 'INTERNAL_SERVER_ERROR',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
