@@ -1,142 +1,36 @@
 {
   "version": 2,
-  "buildCommand": "npm run vercel-build",
-  "outputDirectory": "client/build",
+  "builds": [
+    {
+      "src": "client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
   "functions": {
-    "api/index.js": {
-      "maxDuration": 30
-    },
-    "api/auth/bnet.js": {
-      "maxDuration": 30
-    },
-    "api/auth/bnet/callback.js": {
-      "maxDuration": 30
-    },
-    "api/auth/me.js": {
-      "maxDuration": 30
-    },
-    "api/auth/profile-setup.js": {
-      "maxDuration": 30
-    },
-    "api/auth/dashboard.js": {
-      "maxDuration": 30
-    },
-    "api/auth/admin-login.js": {
-      "maxDuration": 30
-    },
-    "api/admin/dashboard.js": {
-      "maxDuration": 30
-    },
-    "api/admin/users.js": {
-      "maxDuration": 30
-    },
-    "api/admin/matches.js": {
-      "maxDuration": 30
-    },
-    "api/admin/delete-all-users.js": {
-      "maxDuration": 30
-    },
-    "api/admin/delete-all-matches.js": {
-      "maxDuration": 30
-    },
-    "api/admin/create-test-accounts.js": {
-      "maxDuration": 60
-    },
-    "api/admin/create-test-matches.js": {
-      "maxDuration": 60
-    },
-    "api/matchmaking.js": {
-      "maxDuration": 30
-    },
-    "api/users.js": {
-      "maxDuration": 30
-    },
-    "api/matches.js": {
-      "maxDuration": 30
-    },
-    "api/debug/env.js": {
-      "maxDuration": 30
-    },
-    "api/test.js": {
+    "api/**/*.js": {
       "maxDuration": 30
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/auth/bnet/callback",
-      "destination": "/api/auth/bnet/callback.js"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
-      "source": "/api/auth/bnet",
-      "destination": "/api/auth/bnet.js"
-    },
-    {
-      "source": "/api/auth/me",
-      "destination": "/api/auth/me.js"
-    },
-    {
-      "source": "/api/auth/profile/setup",
-      "destination": "/api/auth/profile-setup.js"
-    },
-    {
-      "source": "/api/auth/dashboard",
-      "destination": "/api/auth/dashboard.js"
-    },
-    {
-      "source": "/api/auth/admin-login",
-      "destination": "/api/auth/admin-login.js"
-    },
-    {
-      "source": "/api/admin/dashboard",
-      "destination": "/api/admin/dashboard.js"
-    },
-    {
-      "source": "/api/admin/users",
-      "destination": "/api/admin/users.js"
-    },
-    {
-      "source": "/api/admin/matches",
-      "destination": "/api/admin/matches.js"
-    },
-    {
-      "source": "/api/admin/delete-all-users",
-      "destination": "/api/admin/delete-all-users.js"
-    },
-    {
-      "source": "/api/admin/delete-all-matches",
-      "destination": "/api/admin/delete-all-matches.js"
-    },
-    {
-      "source": "/api/admin/create-test-accounts",
-      "destination": "/api/admin/create-test-accounts.js"
-    },
-    {
-      "source": "/api/admin/create-test-matches",
-      "destination": "/api/admin/create-test-matches.js"
-    },
-    {
-      "source": "/api/matchmaking/(.*)",
-      "destination": "/api/matchmaking.js"
-    },
-    {
-      "source": "/api/users/(.*)",
-      "destination": "/api/users.js"
-    },
-    {
-      "source": "/api/matches/(.*)",
-      "destination": "/api/matches.js"
-    },
-    {
-      "source": "/api/debug/env",
-      "destination": "/api/debug/env.js"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/(.*)",
+      "dest": "/client/$1"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "USE_POSTGRESQL": "true"
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  }
 }
