@@ -3,41 +3,8 @@ const logger = require('../utils/logger');
 const jwt = require('jsonwebtoken');
 
 module.exports = (passport, memoryUsers) => {
-  // 사용자 세션 직렬화
-  passport.serializeUser((user, done) => {
-    logger.debug('사용자 직렬화:', { id: user.id, battleTag: user.battleTag });
-    done(null, user.id);
-  });
-
-  // 사용자 세션 역직렬화
-  passport.deserializeUser(async (id, done) => {
-    try {
-      logger.debug('사용자 역직렬화 시도:', { id });
-
-      let user = null;
-
-      if (global.db && global.db.User) {
-        // PostgreSQL에서 사용자 찾기
-        user = await global.db.User.findByPk(id);
-
-        if (user) {
-          logger.debug('PostgreSQL에서 사용자 찾음:', { id, battleTag: user.battleTag });
-          return done(null, user);
-        }
-      }
-
-      if (user) {
-        logger.debug('사용자 역직렬화:', { id, battleTag: user.battleTag });
-        return done(null, user);
-      } else {
-        logger.warn('사용자를 찾을 수 없음:', { id });
-        return done(null, null);
-      }
-    } catch (err) {
-      logger.error('사용자 역직렬화 오류:', err);
-      done(err, null);
-    }
-  });
+  // 세션 없이 작동하도록 설정 (서버리스 환경)
+  // serializeUser와 deserializeUser 제거
 
   // 환경에 따른 콜백 URL 동적 설정
   const getCallbackURL = () => {
@@ -64,8 +31,7 @@ module.exports = (passport, memoryUsers) => {
     try {
       logger.debug('배틀넷 인증 콜백 호출:', {
         bnetId: profile.id,
-        battletag: profile.battletag,
-        sessionID: req.sessionID
+        battletag: profile.battletag
       });
 
       let user;

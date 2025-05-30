@@ -1,6 +1,6 @@
-# HotsTinder 🎮
+# 🎮 HotsTinder - Heroes of the Storm 매치메이킹 플랫폼
 
-Heroes of the Storm 매치메이킹 및 리플레이 분석 플랫폼
+Heroes of the Storm 플레이어들을 위한 매치메이킹 및 리플레이 분석 플랫폼입니다.
 
 ## 📋 프로젝트 개요
 
@@ -22,18 +22,15 @@ HotsTinder는 Heroes of the Storm 게임을 위한 종합적인 매치메이킹 
 - **TailwindCSS** - 유틸리티 우선 CSS 프레임워크
 - **Zustand** - 경량 상태 관리
 - **React Router v6** - 클라이언트 사이드 라우팅
-- **Socket.IO Client** - 실시간 통신
 - **Axios** - HTTP 클라이언트
 - **React Toastify** - 알림 시스템
 
 ### Backend
-- **Node.js** + **Express** - 서버 프레임워크
+- **Vercel Serverless Functions** - 서버리스 API
 - **PostgreSQL** + **Sequelize ORM** - 데이터베이스
-- **Socket.IO** - 실시간 WebSocket 통신
-- **Redis** - 고성능 캐싱 (폴백: 메모리 캐시)
 - **JWT** - 인증 토큰
 - **bcryptjs** - 비밀번호 암호화
-- **Winston** - 로깅 시스템
+- **HTTP 폴링** - 실시간 상태 업데이트 (3초 간격)
 
 ### 배포 및 인프라
 - **Vercel** - 프론트엔드 및 서버리스 API 배포
@@ -50,36 +47,27 @@ hotstinder/
 │   │   ├── components/    # 재사용 가능한 컴포넌트
 │   │   ├── pages/         # 페이지 컴포넌트
 │   │   ├── stores/        # Zustand 상태 관리
-│   │   ├── services/      # API 및 Socket 서비스
+│   │   ├── services/      # API 서비스
 │   │   ├── utils/         # 유틸리티 함수
-│   │   └── App.jsx        # 메인 앱 컴포넌트
-│   ├── package.json
-│   └── vite.config.js
-├── server/                # Node.js 백엔드 (개발용)
-│   ├── src/
-│   │   ├── routes/        # API 라우트
-│   │   ├── models/        # Sequelize 모델
-│   │   ├── services/      # 비즈니스 로직 서비스
-│   │   ├── utils/         # 백엔드 유틸리티
-│   │   ├── middleware/    # 미들웨어
-│   │   └── server.js      # 서버 진입점
-│   └── package.json
-├── api/                   # Vercel 서버리스 함수 (배포용)
+│   │   └── App.js         # 메인 앱 컴포넌트
+│   ├── package.json       # 클라이언트 의존성
+│   └── tailwind.config.js # TailwindCSS 설정
+├── api/                   # Vercel 서버리스 함수
 │   ├── auth/             # 인증 관련 API
-│   │   ├── me.js         # 사용자 정보 조회
-│   │   ├── admin-login.js # 관리자 로그인
-│   │   ├── dashboard.js  # 관리자 대시보드
-│   │   └── bnet/
-│   │       └── callback.js # Battle.net 콜백
-│   ├── matchmaking.js    # 매치메이킹 API
 │   ├── users.js          # 사용자 관리 API
 │   ├── matches.js        # 매치 관리 API
-│   ├── init-data.js      # 더미 데이터 초기화
-│   └── sample-data.js    # 샘플 데이터 조회
-├── .env.example          # 환경 변수 예시
-├── .cursorrules          # Cursor AI 규칙
-├── package.json          # 루트 패키지 설정
-└── README.md
+│   ├── matchmaking.js    # 매치메이킹 API
+│   └── index.js          # 메인 API 엔드포인트
+├── server/               # 로컬 개발용 서버 (선택사항)
+│   ├── src/
+│   │   ├── routes/       # API 라우트
+│   │   ├── models/       # Sequelize 모델
+│   │   ├── services/     # 비즈니스 로직
+│   │   └── utils/        # 서버 유틸리티
+│   └── package.json      # 서버 의존성
+├── vercel.json           # Vercel 배포 설정
+├── package.json          # 루트 의존성
+└── README.md             # 프로젝트 문서
 ```
 
 ## 🚀 시작하기
@@ -87,9 +75,9 @@ hotstinder/
 ### 필수 요구사항
 
 - **Node.js** 18.0.0 이상
-- **PostgreSQL** 13.0 이상
-- **Redis** (선택사항, 없으면 메모리 캐시 사용)
+- **PostgreSQL** 클라우드 데이터베이스
 - **Battle.net 개발자 계정** (OAuth 설정용)
+- **Vercel 계정** (배포용)
 
 ### 1. 저장소 클론
 
@@ -98,7 +86,29 @@ git clone https://github.com/your-username/hotstinder.git
 cd hotstinder
 ```
 
-### 2. 의존성 설치
+### 2. 환경 변수 설정
+
+루트 디렉토리에 `.env.local` 파일을 생성하고 다음 변수들을 설정하세요:
+
+```env
+# 데이터베이스
+DATABASE_URL=postgresql://username:password@host:port/database
+
+# JWT 인증
+JWT_SECRET=your-super-secret-jwt-key
+
+# Battle.net OAuth
+BNET_CLIENT_ID=your-battlenet-client-id
+BNET_CLIENT_SECRET=your-battlenet-client-secret
+BNET_CALLBACK_URL=https://your-domain.vercel.app/api/auth/bnet/callback
+BNET_REGION=kr
+
+# 기타
+FRONTEND_URL=https://your-domain.vercel.app
+NODE_ENV=production
+```
+
+### 3. 의존성 설치
 
 ```bash
 # 루트 의존성 설치
@@ -107,174 +117,121 @@ npm install
 # 클라이언트 의존성 설치
 cd client
 npm install
+cd ..
 
-# 서버 의존성 설치
-cd ../server
+# 서버 의존성 설치 (로컬 개발용)
+cd server
 npm install
+cd ..
 ```
 
-### 3. 환경 변수 설정
-
-루트 디렉토리에 `.env` 파일을 생성하고 다음 내용을 추가하세요:
-
-```env
-# 데이터베이스 설정
-DATABASE_URL=postgresql://username:password@localhost:5432/hotstinder
-
-# JWT 설정
-JWT_SECRET=your-super-secret-jwt-key-here
-
-# Battle.net OAuth 설정
-BNET_CLIENT_ID=your-battlenet-client-id
-BNET_CLIENT_SECRET=your-battlenet-client-secret
-BNET_REDIRECT_URI=http://localhost:5173/auth/callback
-BNET_REGION=kr
-
-# Redis 설정 (선택사항)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-
-# 환경 설정
-NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
-```
-
-클라이언트 디렉토리에 `.env` 파일을 생성하고 다음 내용을 추가하세요:
-
-```env
-REACT_APP_API_URL=http://localhost:5000/api
-REACT_APP_SERVER_URL=http://localhost:5000
-REACT_APP_BNET_CLIENT_ID=your-battlenet-client-id
-REACT_APP_BNET_REDIRECT_URI=http://localhost:5173/auth/callback
-```
-
-### 4. 데이터베이스 설정
-
-PostgreSQL 데이터베이스를 생성하고 필요한 테이블을 설정하세요:
-
-```sql
--- 데이터베이스 생성
-CREATE DATABASE hotstinder;
-
--- 사용자 테이블 (Sequelize가 자동으로 생성하지만 참고용)
--- 서버 실행 시 자동으로 테이블이 생성됩니다.
-```
-
-### 5. 개발 서버 실행
-
-터미널을 3개 열어서 각각 실행하세요:
+### 4. 로컬 개발 서버 실행
 
 ```bash
-# 터미널 1: 백엔드 서버
+# 클라이언트 개발 서버 (포트 3000)
+cd client
+npm start
+
+# 서버 개발 서버 (포트 5000) - 별도 터미널에서
 cd server
 npm run dev
-
-# 터미널 2: 프론트엔드 개발 서버
-cd client
-npm run dev
-
-# 터미널 3: Redis 서버 (선택사항)
-redis-server
-# 또는 Windows의 경우: memurai
 ```
 
-### 6. 애플리케이션 접속
+### 5. Vercel 배포
 
-- **프론트엔드**: http://localhost:5173
-- **백엔드 API**: http://localhost:5000
-- **관리자 페이지**: http://localhost:5173/admin
+```bash
+# Vercel CLI 설치 (전역)
+npm install -g vercel
 
-## 🎮 사용법
+# 프로젝트 배포
+vercel
 
-### 일반 사용자
+# 환경 변수 설정 (Vercel 대시보드에서도 가능)
+vercel env add DATABASE_URL
+vercel env add JWT_SECRET
+vercel env add BNET_CLIENT_ID
+vercel env add BNET_CLIENT_SECRET
+```
 
-1. **Battle.net 로그인**: 메인 페이지에서 Battle.net 계정으로 로그인
-2. **프로필 설정**: 선호 역할, 이전 티어 등 설정
-3. **매치메이킹**: 대기열에 참가하여 균형 잡힌 매치 찾기
-4. **게임 결과**: 매치 완료 후 상세 통계 확인
+## 🎮 주요 기능
 
-### 관리자
+### ✅ 완성된 기능
+- **사용자 인증**: Battle.net OAuth 로그인
+- **프로필 관리**: 사용자 정보 및 설정
+- **매치메이킹**: MMR 기반 자동 매칭 시스템
+- **매치 기록**: 게임 결과 및 통계 저장
+- **리더보드**: 랭킹 시스템
+- **관리자 패널**: 사용자 및 매치 관리
+- **실시간 상태**: HTTP 폴링 기반 상태 업데이트
 
-1. **관리자 로그인**: `/admin` 페이지에서 이메일/비밀번호로 로그인
-2. **대시보드**: 전체 사용자 및 매치 통계 확인
-3. **사용자 관리**: 사용자 정보 조회 및 관리
-4. **매치 관리**: 매치 결과 조회 및 관리
+### 🔄 실시간 기능 (HTTP 폴링)
+- **대기열 상태**: 3초마다 대기열 정보 업데이트
+- **매치 찾기**: 자동 매치 감지 및 알림
+- **플레이어 수**: 실시간 대기 중인 플레이어 수 표시
+
+## 🎯 게임 특화 기능
+
+### Heroes of the Storm 통합
+- **영웅 데이터**: 전체 영웅 목록 및 정보
+- **맵 시스템**: 11개 전장 지원
+- **MMR 시스템**: 개별 MMR 추적
+- **게임 모드**: 빠른 대전, 영웅 리그 등
+
+### 매치메이킹 알고리즘
+- **밸런스 매칭**: MMR 기반 팀 구성
+- **역할 분배**: 탱커, 딜러, 힐러 균형
+- **대기 시간 최적화**: 효율적인 매칭 시간
 
 ## 🔧 개발 가이드
 
-### 코딩 규칙
+### API 엔드포인트
 
-- **언어**: 모든 코드 주석과 변수명은 한국어 사용
-- **스타일**: ESLint + Prettier 설정 준수
-- **컴포넌트**: 함수형 컴포넌트 + Hooks 패턴
-- **상태 관리**: Zustand 사용 (Redux 대신)
-- **스타일링**: TailwindCSS 클래스 우선 사용
-
-### API 규칙
-
-- **RESTful**: 명확한 HTTP 메서드 사용
-- **응답 형식**: `{ success: boolean, data?: any, message?: string }`
-- **에러 처리**: 적절한 HTTP 상태 코드와 에러 메시지
-- **인증**: JWT 토큰 기반 인증
-
-### 데이터베이스 규칙
-
-- **ORM**: Sequelize 사용
-- **필드명**: camelCase (JS) ↔ snake_case (DB) 매핑
-- **관계**: 명확한 외래키 관계 설정
-- **타입**: DataTypes 명시적 사용
-
-## 🚀 배포
-
-### Vercel 배포
-
-1. **Vercel 계정 연결**: GitHub 저장소를 Vercel에 연결
-2. **환경 변수 설정**: Vercel 대시보드에서 환경 변수 설정
-3. **자동 배포**: main 브랜치 푸시 시 자동 배포
-
-### 환경 변수 (프로덕션)
-
-```env
-DATABASE_URL=your-production-postgresql-url
-JWT_SECRET=your-production-jwt-secret
-BNET_CLIENT_ID=your-production-bnet-client-id
-BNET_CLIENT_SECRET=your-production-bnet-client-secret
-BNET_REDIRECT_URI=https://your-domain.vercel.app/auth/callback
-FRONTEND_URL=https://your-domain.vercel.app
-NODE_ENV=production
+```
+GET    /api/health              # 서버 상태 확인
+POST   /api/auth/login          # 로그인
+GET    /api/auth/me             # 현재 사용자 정보
+POST   /api/matchmaking/join    # 대기열 참가
+GET    /api/matchmaking/status  # 대기열 상태 (폴링용)
+POST   /api/matchmaking/leave   # 대기열 탈퇴
+GET    /api/matches             # 매치 목록
+GET    /api/users               # 사용자 목록
+GET    /api/leaderboard         # 리더보드
 ```
 
-## 📊 주요 기능 상세
+### 데이터베이스 스키마
 
-### 매치메이킹 시스템
+```sql
+-- 사용자 테이블
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  bnet_id VARCHAR(255) UNIQUE,
+  battletag VARCHAR(255),
+  mmr INTEGER DEFAULT 1500,
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
-- **MMR 기반 매칭**: 사용자의 MMR을 기반으로 균형 잡힌 팀 구성
-- **역할 기반 매칭**: 선호 역할을 고려한 팀 밸런싱
-- **실시간 대기열**: WebSocket을 통한 실시간 상태 업데이트
-- **시뮬레이션 모드**: 테스트용 가상 매치 생성
+-- 매치 테이블
+CREATE TABLE matches (
+  id SERIAL PRIMARY KEY,
+  map_name VARCHAR(255),
+  game_mode VARCHAR(100),
+  winner INTEGER, -- 0: blue, 1: red
+  game_duration INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
-### 전장 시스템
-
-현재 지원하는 11개 전장:
-- 용의 둥지
-- 저주받은 골짜기
-- 공포의 정원
-- 하늘사원
-- 거미 여왕의 무덤
-- 영원의 전쟁터
-- 불지옥 신단
-- 파멸의 탑
-- 브락식스 항전
-- 볼스카야 공장
-- 알터랙 고개
-
-### 실시간 기능
-
-- **WebSocket 연결**: Socket.IO 기반 실시간 통신
-- **대기열 상태**: 전역 대기열 상태 표시
-- **매치 알림**: 매치 찾음 알림 및 상태 변경
-- **자동 재연결**: 연결 끊김 시 자동 재연결
+-- 매치 참가자 테이블
+CREATE TABLE match_participants (
+  id SERIAL PRIMARY KEY,
+  match_id INTEGER REFERENCES matches(id),
+  user_id INTEGER REFERENCES users(id),
+  team INTEGER, -- 0: blue, 1: red
+  hero_name VARCHAR(255),
+  kills INTEGER DEFAULT 0,
+  deaths INTEGER DEFAULT 0,
+  assists INTEGER DEFAULT 0
+);
+```
 
 ## 🔍 문제 해결
 
@@ -282,29 +239,33 @@ NODE_ENV=production
 
 1. **PostgreSQL 연결 오류**
    - DATABASE_URL 환경 변수 확인
-   - PostgreSQL 서버 실행 상태 확인
-   - 방화벽 설정 확인
+   - PostgreSQL 클라우드 서버 연결 상태 확인
+   - Vercel 환경 변수 설정 확인
 
 2. **Battle.net OAuth 오류**
    - BNET_CLIENT_ID, BNET_CLIENT_SECRET 확인
-   - 리디렉션 URI 매칭 확인
+   - 리디렉션 URI 매칭 확인 (https://your-domain.vercel.app/auth/callback)
    - Battle.net 개발자 콘솔 설정 확인
 
-3. **Redis 연결 실패**
-   - Redis 서버 실행 상태 확인
-   - 연결 실패 시 메모리 캐시로 자동 폴백
+3. **Vercel 배포 오류**
+   - 환경 변수가 Vercel 대시보드에 올바르게 설정되었는지 확인
+   - 빌드 로그에서 오류 메시지 확인
+   - 서버리스 함수 타임아웃 (30초) 제한 고려
 
-4. **WebSocket 연결 문제**
-   - 서버 실행 상태 확인
-   - 방화벽 및 프록시 설정 확인
-   - 브라우저 개발자 도구에서 연결 상태 확인
+4. **API 응답 오류**
+   - 브라우저 개발자 도구에서 네트워크 탭 확인
+   - Vercel Functions 로그 확인
+   - CORS 설정 확인
 
 ### 로그 확인
 
 ```bash
-# 서버 로그 확인
+# 로컬 개발 시 서버 로그 확인
 cd server
 npm run dev
+
+# Vercel 배포 로그 확인
+vercel logs
 
 # 클라이언트 로그 확인 (브라우저 개발자 도구)
 F12 -> Console 탭
@@ -312,56 +273,22 @@ F12 -> Console 탭
 
 ## 🤝 기여하기
 
-1. **Fork** 저장소를 포크합니다
-2. **Branch** 새로운 기능 브랜치를 생성합니다 (`git checkout -b feature/amazing-feature`)
-3. **Commit** 변경사항을 커밋합니다 (`git commit -m 'Add some amazing feature'`)
-4. **Push** 브랜치에 푸시합니다 (`git push origin feature/amazing-feature`)
-5. **Pull Request** 풀 리퀘스트를 생성합니다
-
-### 개발 규칙
-
-- 모든 코드는 한국어 주석 작성
-- ESLint 규칙 준수
-- 기능 추가 시 테스트 코드 작성
-- 커밋 메시지는 한국어로 작성
-
-## 📝 변경 로그
-
-### v1.0.0 (2025-05-30)
-
-#### 🎉 주요 기능
-- **매치메이킹 시스템**: MMR 기반 균형 잡힌 팀 매칭
-- **Battle.net 연동**: OAuth 기반 간편 로그인
-- **실시간 대기열**: WebSocket 기반 실시간 상태 업데이트
-- **관리자 대시보드**: 사용자 및 매치 관리 기능
-
-#### 🛠️ 기술적 개선
-- **데이터베이스 통일**: MongoDB → PostgreSQL + Sequelize 완전 이전
-- **실시간 시스템**: Socket.IO + Redis 캐시 시스템 구축
-- **UI/UX 개선**: 전장 목록 3열 그리드, 대기열 상태창 디자인 개선
-- **성능 최적화**: MMR 기반 배치 매치메이킹, 캐시 시스템
-
-#### 🐛 버그 수정
-- NaN:NaN 시간 표시 문제 해결
-- PostgreSQL 타입 불일치 오류 해결
-- 대기열 상태 전역 표시 문제 해결
-- 관리자 메뉴 숨김 처리
+1. 이 저장소를 포크합니다
+2. 새로운 기능 브랜치를 생성합니다 (`git checkout -b feature/amazing-feature`)
+3. 변경사항을 커밋합니다 (`git commit -m 'Add some amazing feature'`)
+4. 브랜치에 푸시합니다 (`git push origin feature/amazing-feature`)
+5. Pull Request를 생성합니다
 
 ## 📄 라이선스
 
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
-
-## 📞 연락처
-
-- **프로젝트 링크**: [https://github.com/your-username/hotstinder](https://github.com/your-username/hotstinder)
-- **이슈 리포트**: [GitHub Issues](https://github.com/your-username/hotstinder/issues)
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
 
 ## 🙏 감사의 말
 
 - **Blizzard Entertainment** - Heroes of the Storm 게임 제공
-- **Battle.net API** - OAuth 인증 서비스 제공
-- **오픈소스 커뮤니티** - 사용된 모든 라이브러리와 도구들
+- **Vercel** - 무료 호스팅 플랫폼 제공
+- **Heroes of the Storm 커뮤니티** - 지속적인 지원과 피드백
 
 ---
 
-**Heroes of the Storm** 커뮤니티를 위한 매치메이킹 플랫폼 🎮
+**참고**: 이 프로젝트는 Vercel 서버리스 환경에 최적화되어 있으며, WebSocket 대신 HTTP 폴링을 사용하여 실시간 기능을 구현합니다.

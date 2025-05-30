@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuthStore } from '../stores/authStore';
 
 const AuthSuccessPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState('processing');
   const [message, setMessage] = useState('인증 처리 중...');
+  const { login } = useAuthStore();
 
   // API URL 가져오기 함수
   const getApiUrl = () => {
@@ -47,54 +49,36 @@ const AuthSuccessPage = () => {
 
     if (token) {
       try {
-        console.log('AuthSuccessPage - 토큰 저장 중:', { tokenLength: token.length });
+        console.log('AuthSuccessPage - 토큰 처리 시작:', { tokenLength: token.length });
 
-        // 토큰을 localStorage에 저장 (authStore와 일관성 유지)
-        localStorage.setItem('token', token);
-
-        const apiUrl = getApiUrl();
-        console.log('AuthSuccessPage - API URL:', apiUrl);
-
-        // 사용자 정보를 가져와서 검증 - 절대 URL 사용
-        fetch(`${apiUrl}/api/auth/me`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include'
-        })
-          .then(response => {
-            console.log('AuthSuccessPage - API 응답 상태:', response.status);
-
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            return response.json();
-          })
-          .then(data => {
-            console.log('AuthSuccessPage - API 응답 데이터:', data);
-
-            if (data.user) {
+        // authStore의 login 함수를 사용하여 토큰 처리
+        login(token)
+          .then((success) => {
+            if (success) {
+              console.log('AuthSuccessPage - 로그인 성공');
               setStatus('success');
-              setMessage(`환영합니다, ${data.user.battletag}님!`);
+              setMessage('인증이 완료되었습니다!');
 
-              // 리다이렉트 경로가 있으면 해당 경로로, 없으면 대시보드로
+              // 사용자 정보 확인을 위해 잠시 대기
               setTimeout(() => {
-                navigate(redirect || '/dashboard');
-              }, 2000);
+                const { user } = useAuthStore.getState();
+                if (user && user.battletag) {
+                  setMessage(`환영합니다, ${user.battletag}님!`);
+                }
+
+                // 리다이렉트 경로가 있으면 해당 경로로, 없으면 대시보드로
+                setTimeout(() => {
+                  navigate(redirect || '/dashboard');
+                }, 2000);
+              }, 1000);
             } else {
-              throw new Error('사용자 정보를 가져올 수 없습니다.');
+              throw new Error('로그인 처리에 실패했습니다.');
             }
           })
           .catch(error => {
-            console.error('AuthSuccessPage - 사용자 정보 조회 실패:', error);
+            console.error('AuthSuccessPage - 로그인 처리 실패:', error);
             setStatus('error');
-            setMessage('사용자 정보를 가져오는데 실패했습니다.');
-
-            // 토큰 제거
-            localStorage.removeItem('token');
+            setMessage('인증 처리 중 오류가 발생했습니다.');
 
             setTimeout(() => {
               navigate('/login');
@@ -118,7 +102,7 @@ const AuthSuccessPage = () => {
         navigate('/login');
       }, 3000);
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, login]);
 
   return (
     <div className="min-h-screen relative overflow-hidden">

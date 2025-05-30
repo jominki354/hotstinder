@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const cacheService = require('../services/cacheService');
-const socketService = require('../services/socketService');
 
 // 미들웨어: 인증 확인
 const authenticate = async (req, res, next) => {
@@ -157,51 +156,6 @@ router.post('/join', authenticate, async (req, res) => {
     // 통계 캐시 무효화
     await cacheService.del(statsKey);
 
-    // WebSocket으로 대기열 참가 알림
-    socketService.notifyQueueStatusChange(req.user.id, 'joined', {
-      queueEntry: queueEntry.toJSON(),
-      message: '매치메이킹 대기열에 참가했습니다'
-    });
-
-    // 대기열 업데이트 브로드캐스트
-    socketService.broadcastQueueUpdate({
-      type: 'player_joined',
-      gameMode: gameMode || 'Storm League',
-      currentPlayers: queueStats.currentQueueSize + 1
-    });
-
-    // 로그 기록
-    try {
-      if (global.db && global.db.UserLog) {
-        await global.db.UserLog.create({
-          userId: req.user.id,
-          action: 'matchmaking_joined',
-          details: {
-            preferredRole,
-            gameMode: gameMode || 'Storm League',
-            mmr: userMmr,
-            queueSize: queueStats.currentQueueSize + 1
-          },
-          ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
-          userAgent: req.headers['user-agent']
-        });
-      }
-    } catch (logErr) {
-      logger.error('매치메이킹 참가 로그 기록 오류:', logErr);
-    }
-
-    // 매치메이킹 시도 (비동기)
-    setTimeout(() => {
-      tryMatchmaking(req.user.id);
-    }, 1000);
-
-    // 주기적 매치메이킹 체크 (확장성을 위한 배치 처리)
-    if (queueStats.currentQueueSize % 10 === 0) {
-      setTimeout(() => {
-        tryBatchMatchmaking();
-      }, 2000);
-    }
-
     logger.info('매치메이킹 대기열 참가:', {
       userId: req.user.id,
       battleTag: req.user.battleTag,
@@ -267,35 +221,6 @@ router.post('/leave', authenticate, async (req, res) => {
     // 통계 캐시 무효화
     const statsKey = cacheService.getMatchmakingStatsKey(queueEntry.gameMode);
     await cacheService.del(statsKey);
-
-    // WebSocket으로 대기열 나가기 알림
-    socketService.notifyQueueStatusChange(req.user.id, 'left', {
-      message: '매치메이킹 대기열에서 나갔습니다'
-    });
-
-    // 대기열 업데이트 브로드캐스트
-    socketService.broadcastQueueUpdate({
-      type: 'player_left',
-      gameMode: queueEntry.gameMode
-    });
-
-    // 로그 기록
-    try {
-      if (global.db && global.db.UserLog) {
-        await global.db.UserLog.create({
-          userId: req.user.id,
-          action: 'matchmaking_left',
-          details: {
-            queueTime: queueEntry.queueTime,
-            waitTime: Date.now() - new Date(queueEntry.queueTime).getTime()
-          },
-          ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
-          userAgent: req.headers['user-agent']
-        });
-      }
-    } catch (logErr) {
-      logger.error('매치메이킹 나가기 로그 기록 오류:', logErr);
-    }
 
     logger.info('매치메이킹 대기열 나가기:', {
       userId: req.user.id,
@@ -473,15 +398,6 @@ async function tryMatchmaking(userId) {
 
     if (queueEntries.length < 10) {
       logger.info(`매치메이킹 대기: 현재 ${queueEntries.length}명, 10명 필요`);
-
-      // 대기열 업데이트 브로드캐스트
-      socketService.broadcastQueueUpdate({
-        type: 'queue_status',
-        currentPlayers: queueEntries.length,
-        requiredPlayers: 10,
-        message: `현재 ${queueEntries.length}명 대기 중`
-      });
-
       return;
     }
 
@@ -550,36 +466,6 @@ async function tryMatchmaking(userId) {
     const statsKey = cacheService.getMatchmakingStatsKey(selectedGroup[0].gameMode);
     await cacheService.del(statsKey);
 
-    // WebSocket으로 매치 찾음 알림 전송
-    const matchData = {
-      matchId: match.id,
-      mapName: match.mapName,
-      gameMode: match.gameMode,
-      averageMmr: match.averageMmr,
-      team1: teams.team1.map(e => ({
-        userId: e.userId,
-        battleTag: e.user.battleTag,
-        mmr: e.user.mmr,
-        role: e.preferredRole
-      })),
-      team2: teams.team2.map(e => ({
-        userId: e.userId,
-        battleTag: e.user.battleTag,
-        mmr: e.user.mmr,
-        role: e.preferredRole
-      }))
-    };
-
-    socketService.notifyMatchFound(userIds, matchData);
-
-    // 대기열 업데이트 브로드캐스트
-    socketService.broadcastQueueUpdate({
-      type: 'match_created',
-      matchId: match.id,
-      playersRemoved: userIds.length,
-      message: `매치가 생성되었습니다 (${userIds.length}명)`
-    });
-
     // 매치 로그 기록
     try {
       if (global.db && global.db.UserLog) {
@@ -610,13 +496,6 @@ async function tryMatchmaking(userId) {
 
   } catch (err) {
     logger.error('매치메이킹 처리 오류:', err);
-
-    // 오류 발생 시 관련 사용자들에게 알림
-    if (userId) {
-      socketService.notifyQueueStatusChange(userId, 'error', {
-        message: '매치메이킹 중 오류가 발생했습니다'
-      });
-    }
   }
 }
 
@@ -860,7 +739,7 @@ router.get('/recent-games', async (req, res) => {
 });
 
 /**
- * 배치 매치메이킹 (확장성을 위한 최적화 + WebSocket 알림)
+ * 배치 매치메이킹 (확장성을 위한 최적화)
  */
 async function tryBatchMatchmaking() {
   try {
@@ -879,15 +758,6 @@ async function tryBatchMatchmaking() {
 
     if (allQueueEntries.length < 10) {
       logger.info(`배치 매치메이킹: 대기열 부족 (${allQueueEntries.length}명)`);
-
-      // 대기열 상태 브로드캐스트
-      socketService.broadcastQueueUpdate({
-        type: 'batch_check',
-        currentPlayers: allQueueEntries.length,
-        requiredPlayers: 10,
-        message: `배치 매치메이킹 체크: ${allQueueEntries.length}명 대기 중`
-      });
-
       return;
     }
 
@@ -915,30 +785,16 @@ async function tryBatchMatchmaking() {
     }
 
     if (createdMatches.length > 0) {
-      // 배치 매치메이킹 완료 알림
-      socketService.broadcastQueueUpdate({
-        type: 'batch_completed',
-        matchesCreated: createdMatches.length,
-        totalPlayersMatched: createdMatches.length * 10,
-        message: `배치 매치메이킹 완료: ${createdMatches.length}개 매치 생성`
-      });
-
       logger.info(`배치 매치메이킹 완료: ${createdMatches.length}개 매치 생성`);
     }
 
   } catch (err) {
     logger.error('배치 매치메이킹 오류:', err);
-
-    // 시스템 오류 알림
-    socketService.broadcastSystemNotification(
-      '배치 매치메이킹 중 오류가 발생했습니다',
-      'error'
-    );
   }
 }
 
 /**
- * 매치 그룹으로부터 실제 매치 생성 (WebSocket 알림 포함)
+ * 매치 그룹으로부터 실제 매치 생성
  */
 async function createMatchFromGroup(selectedGroup) {
   try {
@@ -984,28 +840,6 @@ async function createMatchFromGroup(selectedGroup) {
     // 통계 캐시 무효화
     const statsKey = cacheService.getMatchmakingStatsKey(selectedGroup[0].gameMode);
     await cacheService.del(statsKey);
-
-    // WebSocket으로 매치 찾음 알림 전송
-    const matchData = {
-      matchId: match.id,
-      mapName: match.mapName,
-      gameMode: match.gameMode,
-      averageMmr: match.averageMmr,
-      team1: teams.team1.map(e => ({
-        userId: e.userId,
-        battleTag: e.user.battleTag,
-        mmr: e.user.mmr,
-        role: e.preferredRole
-      })),
-      team2: teams.team2.map(e => ({
-        userId: e.userId,
-        battleTag: e.user.battleTag,
-        mmr: e.user.mmr,
-        role: e.preferredRole
-      }))
-    };
-
-    socketService.notifyMatchFound(userIds, matchData);
 
     logger.info('배치 매치 생성 완료:', {
       matchId: match.id,

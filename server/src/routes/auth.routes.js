@@ -33,6 +33,16 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+// 임시 state 저장소 (메모리 기반)
+const stateStore = new Map();
+
+// state 정리 함수 (5분 후 자동 삭제)
+const cleanupState = (state) => {
+  setTimeout(() => {
+    stateStore.delete(state);
+  }, 5 * 60 * 1000); // 5분
+};
+
 /**
  * @route   GET /api/auth/bnet
  * @desc    배틀넷 OAuth 로그인 시작
@@ -40,12 +50,21 @@ const authenticate = async (req, res, next) => {
  */
 router.get('/bnet', (req, res, next) => {
   // state 매개변수 생성 - CSRF 방지 위한 무작위 문자열
-  req.session.state = Math.random().toString(36).substring(2, 15) +
-                       Math.random().toString(36).substring(2, 15);
+  const state = Math.random().toString(36).substring(2, 15) +
+                Math.random().toString(36).substring(2, 15);
+
+  // 메모리에 state 저장
+  stateStore.set(state, {
+    timestamp: Date.now(),
+    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+  });
+
+  // 자동 정리 설정
+  cleanupState(state);
 
   // state 매개변수를 포함하여 인증
   passport.authenticate('bnet', {
-    state: req.session.state
+    state: state
   })(req, res, next);
 });
 
@@ -57,18 +76,38 @@ router.get('/bnet', (req, res, next) => {
 router.get('/bnet/callback',
   (req, res, next) => {
     // state 매개변수 검증
-    if (req.query.state !== req.session.state) {
-      logger.warn('🔒 OAuth state 매개변수 불일치', {
-        expected: req.session.state,
-        received: req.query.state,
-        sessionId: req.sessionID
+    const receivedState = req.query.state;
+    const storedStateData = stateStore.get(receivedState);
+
+    if (!storedStateData) {
+      logger.warn('🔒 OAuth state 매개변수 불일치 또는 만료', {
+        received: receivedState,
+        hasStored: !!storedStateData
       }, 'AUTH');
       return res.redirect(`${process.env.FRONTEND_URL}/login?error=invalid_state`);
     }
 
-    // state 검증 성공 시 인증 진행
-    passport.authenticate('bnet', {
-      failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed`
+    // state 사용 후 삭제
+    stateStore.delete(receivedState);
+
+    // state 검증 성공 시 인증 진행 (세션 없이)
+    passport.authenticate('bnet', { session: false }, (err, user, info) => {
+      if (err) {
+        logger.error('❌ Battle.net 인증 오류', err, 'AUTH');
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
+      }
+
+      if (!user) {
+        logger.error('❌ Battle.net 콜백에서 사용자 정보 없음', {
+          info,
+          query: req.query
+        }, 'AUTH');
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
+      }
+
+      // 사용자 정보를 req.user에 설정
+      req.user = user;
+      next();
     })(req, res, next);
   },
   async (req, res) => {

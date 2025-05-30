@@ -1,16 +1,15 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const passport = require('passport');
-const session = require('express-session');
-const MemoryStore = require('memorystore')(session);
-const cookieParser = require('cookie-parser');
-const { createServer } = require('http');
-const fs = require('fs');
 const path = require('path');
-const uuid = require('uuid').v4;
+const fs = require('fs');
 
-// PostgreSQL 관련 모듈 추가
+// PostgreSQL 관련 모듈
 const { connectPostgreSQL, getSequelize } = require('./db/postgresql');
 const { initializeModels } = require('./models');
 
@@ -24,11 +23,7 @@ const replayRoutes = require('./routes/replay.routes');
 const leaderboardRoutes = require('./routes/leaderboard.routes');
 const debugRoutes = require('./routes/debug.routes');
 
-// 설정 및 유틸리티 가져오기
-const configPassport = require('./config/passport');
-const { setupSocketIO } = require('./socket');
-const socketService = require('./services/socketService');
-const cacheService = require('./services/cacheService');
+// 유틸리티
 const logger = require('./utils/logger');
 
 // 애플리케이션 시작 로그
@@ -39,11 +34,11 @@ logger.info('🚀 HotsTinder Server Starting...', {
 });
 
 // 전역 설정
-global.usePostgreSQL = true; // PostgreSQL 사용
-global.useNeDB = false; // NeDB 사용 안함
+global.usePostgreSQL = true;
+global.useNeDB = false;
 global.dbDir = path.join(__dirname, '../data');
 
-// PostgreSQL 연결 시도
+// PostgreSQL 연결
 let isPostgreSQLConnected = false;
 
 if (process.env.USE_POSTGRESQL === 'true') {
@@ -68,6 +63,10 @@ if (process.env.USE_POSTGRESQL === 'true') {
       logger.info('✅ Sequelize 모델 초기화 완료', {
         models: Object.keys(models)
       }, 'DB');
+
+      // Passport 설정 (데이터베이스 연결 후)
+      require('./config/passport')(passport);
+      logger.info('✅ Passport 설정 완료');
     })
     .catch((error) => {
       logger.error('❌ PostgreSQL 연결 실패', error, 'DB');
@@ -80,44 +79,48 @@ if (process.env.USE_POSTGRESQL === 'true') {
   global.isPostgreSQLConnected = false;
 }
 
-// 앱 초기화
+// Express 앱 초기화
 const app = express();
-const httpServer = createServer(app);
 
-// HTTP 요청 로깅 미들웨어
-app.use((req, res, next) => {
-  const startTime = Date.now();
+// 보안 미들웨어
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 
-  // 응답 완료 시 로그 기록
-  res.on('finish', () => {
-    const responseTime = Date.now() - startTime;
-    logger.logRequest(req, res, responseTime);
-  });
+// 압축 미들웨어
+app.use(compression());
 
-  next();
+// 로깅 미들웨어
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'));
+}
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15분
+  max: 100, // 최대 100 요청
+  message: {
+    success: false,
+    message: '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.'
+  }
 });
+app.use('/api/', limiter);
 
 // CORS 설정
 const corsOptions = {
   origin: function (origin, callback) {
-    // 허용할 도메인 목록
     const allowedOrigins = [
-      process.env.FRONTEND_URL || 'http://localhost:5000',
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
       'http://localhost:5000',
-      'http://localhost:3000'
+      'https://hotstinder.vercel.app'
     ];
 
-    // origin이 없는 경우 (모바일 앱, Postman 등) 허용
     if (!origin) return callback(null, true);
 
-    // 허용된 도메인인지 확인
     const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (typeof allowedOrigin === 'string') {
-        return origin === allowedOrigin;
-      } else if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
+      return origin === allowedOrigin;
     });
 
     if (isAllowed) {
@@ -162,57 +165,26 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cookieParser());
+
+// Passport 미들웨어 초기화
+app.use(passport.initialize());
+logger.info('✅ Passport 미들웨어 초기화 완료');
 
 // 업로드 디렉토리 정적 접근 허용
 const uploadsDir = path.join(__dirname, '../uploads');
-// 디렉토리가 없으면 생성
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
   logger.info('📁 업로드 디렉토리 생성', { path: uploadsDir });
 }
 app.use('/uploads', express.static(uploadsDir));
 
-// 세션 설정
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev_session_secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 86400000 // 24시간
-  },
-  store: new MemoryStore({
-    checkPeriod: 86400000 // 24시간마다 만료된 세션 정리
-  })
-}));
-
-logger.info('🔐 세션 설정 완료', {
-  secure: process.env.NODE_ENV === 'production',
-  maxAge: '24시간'
-});
-
-// Passport 초기화
-app.use(passport.initialize());
-app.use(passport.session());
-configPassport(passport);
-
-logger.info('🛡️ Passport 인증 설정 완료');
-
-// WebSocket 서비스 초기화
-socketService.init(httpServer);
-
-logger.info('🔌 WebSocket 서비스 초기화 완료');
-
-// 헬스체크 엔드포인트 (도커 헬스체크용)
+// 헬스체크 엔드포인트
 app.get('/api/health', (req, res) => {
   const healthCheck = {
     uptime: process.uptime(),
     message: 'OK',
     timestamp: Date.now(),
-    database: isPostgreSQLConnected ? 'PostgreSQL connected' : 'Database disconnected',
-    cache: cacheService.getStats(),
-    websocket: socketService.getStatus()
+    database: isPostgreSQLConnected ? 'PostgreSQL connected' : 'Database disconnected'
   };
 
   try {
@@ -250,19 +222,14 @@ logger.info('✅ API 라우트 설정 완료', {
   ]
 });
 
-// 프로덕션 환경 또는 Docker 환경에서 클라이언트 정적 파일 서빙
-if (process.env.NODE_ENV === 'production' || process.env.USE_POSTGRESQL === 'true') {
-  // 클라이언트 빌드 파일 경로
+// 프로덕션 환경에서 클라이언트 정적 파일 서빙
+if (process.env.NODE_ENV === 'production') {
   const clientBuildPath = path.join(__dirname, '../../client/build');
 
-  // 정적 파일 서빙
   app.use(express.static(clientBuildPath));
-
   logger.info('📦 정적 파일 서빙 설정', { path: clientBuildPath });
 
-  // 모든 GET 요청을 React 앱으로 리다이렉트 (SPA 라우팅 지원)
   app.get('*', (req, res) => {
-    // API 요청은 제외
     if (req.path.startsWith('/api/')) {
       logger.warn('❌ API 엔드포인트를 찾을 수 없음', { path: req.path }, 'API');
       return res.status(404).json({ message: 'API 엔드포인트를 찾을 수 없습니다.' });
@@ -271,7 +238,6 @@ if (process.env.NODE_ENV === 'production' || process.env.USE_POSTGRESQL === 'tru
     res.sendFile(path.join(clientBuildPath, 'index.html'));
   });
 } else {
-  // 개발 환경에서는 기본 API 메시지 표시
   app.get('/', (req, res) => {
     const message = { message: 'HOTS Tinder API 서버 - 개발 모드' };
     res.json(message);
@@ -319,63 +285,28 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 서버 시작
-const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
-  logger.info('🎉 서버 시작 완료!', {
-    port: PORT,
-    environment: process.env.NODE_ENV || 'development',
-    database: isPostgreSQLConnected ? 'PostgreSQL' : 'None',
-    cache: cacheService.getStats().type,
-    websocket: socketService.getStatus().isInitialized ? 'enabled' : 'disabled',
-    uptime: process.uptime()
-  }, 'SERVER');
+// 서버 시작 (개발 환경에서만)
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    logger.info('🎉 서버 시작 완료!', {
+      port: PORT,
+      environment: process.env.NODE_ENV || 'development',
+      database: isPostgreSQLConnected ? 'PostgreSQL' : 'None'
+    }, 'SERVER');
 
-  if (isPostgreSQLConnected) {
-    logger.info('💾 데이터베이스 상태', {
-      type: 'PostgreSQL',
-      status: 'connected'
-    }, 'DB');
-  } else {
-    logger.error('💾 데이터베이스 연결 없음', {
-      warning: '서버가 제대로 작동하지 않을 수 있습니다'
-    }, 'DB');
-  }
-});
-
-// Graceful shutdown 처리
-process.on('SIGTERM', async () => {
-  logger.info('🛑 SIGTERM 신호 수신, 서버 종료 중...');
-  await gracefulShutdown();
-});
-
-process.on('SIGINT', async () => {
-  logger.info('🛑 SIGINT 신호 수신, 서버 종료 중...');
-  await gracefulShutdown();
-});
-
-async function gracefulShutdown() {
-  try {
-    // WebSocket 서비스 종료
-    socketService.close();
-
-    // 캐시 서비스 종료
-    await cacheService.close();
-
-    // HTTP 서버 종료
-    httpServer.close(() => {
-      logger.info('✅ 서버 종료 완료');
-      process.exit(0);
-    });
-
-    // 강제 종료 타임아웃 (30초)
-    setTimeout(() => {
-      logger.error('⚠️ 강제 서버 종료');
-      process.exit(1);
-    }, 30000);
-
-  } catch (err) {
-    logger.error('❌ 서버 종료 중 오류:', err);
-    process.exit(1);
-  }
+    if (isPostgreSQLConnected) {
+      logger.info('💾 데이터베이스 상태', {
+        type: 'PostgreSQL',
+        status: 'connected'
+      }, 'DB');
+    } else {
+      logger.error('💾 데이터베이스 연결 없음', {
+        warning: '서버가 제대로 작동하지 않을 수 있습니다'
+      }, 'DB');
+    }
+  });
 }
+
+// Express 앱 내보내기 (Vercel 서버리스 함수용)
+module.exports = app;
