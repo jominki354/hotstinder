@@ -1,174 +1,215 @@
-require('dotenv').config();
+const bcrypt = require('bcryptjs');
+const { Sequelize, DataTypes } = require('sequelize');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 
-// MongoDB 연결
-let isConnected = false;
+// PostgreSQL 연결 함수
+const connectPostgreSQL = async () => {
+  const databaseUrl = process.env.DATABASE_URL;
 
-const connectMongoDB = async () => {
-  if (isConnected) return;
-
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 30000,
-      connectTimeoutMS: 30000,
-      socketTimeoutMS: 30000,
-      maxPoolSize: 10,
-      retryWrites: true,
-      w: 'majority'
-    });
-    isConnected = true;
-    console.log('MongoDB 연결 성공');
-  } catch (error) {
-    console.error('MongoDB 연결 실패:', error);
-    throw error;
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL 환경 변수가 설정되지 않았습니다.');
   }
+
+  const sequelize = new Sequelize(databaseUrl, {
+    dialect: 'postgres',
+    logging: false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    },
+    define: {
+      timestamps: true,
+      underscored: true,
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    }
+  });
+
+  await sequelize.authenticate();
+  console.log('PostgreSQL 연결 성공');
+
+  return sequelize;
 };
 
 // User 모델 정의
-const userSchema = new mongoose.Schema({
-  bnetId: { type: String, required: true, unique: true },
-  battletag: { type: String, required: true },
-  email: String,
-  accessToken: String,
-  refreshToken: String,
-  isProfileComplete: { type: Boolean, default: false },
-  mmr: { type: Number, default: 1500 },
-  wins: { type: Number, default: 0 },
-  losses: { type: Number, default: 0 },
-  preferredRoles: [String],
-  favoriteHeroes: [String],
-  isAdmin: { type: Boolean, default: false },
-  isSuperAdmin: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
-  lastLoginAt: { type: Date, default: Date.now }
-});
-
-// JWT 토큰 생성 메서드
-userSchema.methods.generateAuthToken = function() {
-  return jwt.sign(
-    {
-      id: this._id,
-      bnetId: this.bnetId,
-      battletag: this.battletag,
-      isAdmin: this.isAdmin,
-      isSuperAdmin: this.isSuperAdmin
+const defineUser = (sequelize) => {
+  return sequelize.define('User', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
     },
-    process.env.JWT_SECRET || 'fallback-secret',
-    { expiresIn: '7d' }
-  );
+    battleTag: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      field: 'battle_tag'
+    },
+    bnetId: {
+      type: DataTypes.STRING(50),
+      unique: true,
+      field: 'bnet_id'
+    },
+    nickname: {
+      type: DataTypes.STRING(255)
+    },
+    email: {
+      type: DataTypes.STRING(255)
+    },
+    password: {
+      type: DataTypes.STRING(255)
+    },
+    role: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'user'
+    },
+    isProfileComplete: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'is_profile_complete'
+    },
+    preferredRoles: {
+      type: DataTypes.JSONB,
+      defaultValue: ['전체'],
+      field: 'preferred_roles'
+    },
+    previousTier: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'placement',
+      field: 'previous_tier'
+    },
+    mmr: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1500
+    },
+    wins: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    losses: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    lastLoginAt: {
+      type: DataTypes.DATE,
+      field: 'last_login_at'
+    }
+  }, {
+    tableName: 'users'
+  });
 };
 
-const User = mongoose.models.User || mongoose.model('User', userSchema);
-
 module.exports = async function handler(req, res) {
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      console.error('API 타임아웃 발생');
+      res.status(504).json({
+        error: '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
+        timeout: true
+      });
+    }
+  }, 25000);
+
   try {
-    console.log('Vercel /api/auth/admin-login 요청 처리');
+    console.log('Vercel /api/auth/admin-login 요청 처리:', req.method);
 
     // CORS 헤더 설정
     res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'https://hotstinder.vercel.app');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-    // OPTIONS 요청 처리
     if (req.method === 'OPTIONS') {
+      clearTimeout(timeoutId);
       return res.status(200).end();
     }
 
-    // POST 요청만 허용
     if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
+      clearTimeout(timeoutId);
+      return res.status(405).json({ error: '지원하지 않는 메서드입니다' });
     }
 
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!username || !password) {
-      return res.status(400).json({
-        error: '아이디와 비밀번호를 입력해주세요',
-        message: '아이디와 비밀번호를 입력해주세요'
-      });
+    if (!email || !password) {
+      clearTimeout(timeoutId);
+      return res.status(400).json({ error: '이메일과 비밀번호를 입력해주세요' });
     }
 
-    console.log('관리자 로그인 시도:', { username });
+    // PostgreSQL 연결
+    console.log('PostgreSQL 연결 시도 중...');
+    const sequelize = await Promise.race([
+      connectPostgreSQL(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('PostgreSQL 연결 타임아웃')), 15000)
+      )
+    ]);
+    console.log('PostgreSQL 연결 완료');
 
-    // MongoDB 연결
-    await connectMongoDB();
+    // 모델 정의
+    const User = defineUser(sequelize);
 
-    // 하드코딩된 관리자 계정 확인 (임시)
-    const adminCredentials = {
-      username: 'admin',
-      password: '1231',
-      battletag: 'Admin#1231',
-      bnetId: 'admin_new'
-    };
-
-    if (username === adminCredentials.username && password === adminCredentials.password) {
-      // 관리자 사용자 찾기 또는 생성
-      let adminUser = await User.findOne({ bnetId: adminCredentials.bnetId });
-
-      if (!adminUser) {
-        // 관리자 계정 생성
-        adminUser = new User({
-          bnetId: adminCredentials.bnetId,
-          battletag: adminCredentials.battletag,
-          email: 'admin@hotstinder.com',
-          isProfileComplete: true,
-          isAdmin: true,
-          isSuperAdmin: true,
-          mmr: 3000,
-          wins: 0,
-          losses: 0,
-          preferredRoles: ['All'],
-          favoriteHeroes: ['All']
-        });
-        await adminUser.save();
-        console.log('관리자 계정 생성:', { battletag: adminUser.battletag });
-      } else {
-        // 기존 관리자 계정 업데이트
-        adminUser.lastLoginAt = new Date();
-        adminUser.isAdmin = true;
-        adminUser.isSuperAdmin = true;
-        await adminUser.save();
-        console.log('기존 관리자 로그인:', { battletag: adminUser.battletag });
+    // 관리자 계정 조회
+    const user = await User.findOne({
+      where: {
+        email: email,
+        role: 'admin'
       }
+    });
 
-      // JWT 토큰 생성
-      const token = adminUser.generateAuthToken();
-
-      console.log('관리자 로그인 성공:', {
-        battletag: adminUser.battletag,
-        isAdmin: adminUser.isAdmin,
-        isSuperAdmin: adminUser.isSuperAdmin
-      });
-
-      res.status(200).json({
-        success: true,
-        message: '관리자 로그인 성공',
-        token: token,
-        user: {
-          id: adminUser._id,
-          bnetId: adminUser.bnetId,
-          battletag: adminUser.battletag,
-          email: adminUser.email,
-          isAdmin: adminUser.isAdmin,
-          isSuperAdmin: adminUser.isSuperAdmin,
-          isProfileComplete: adminUser.isProfileComplete
-        }
-      });
-    } else {
-      console.log('관리자 로그인 실패: 잘못된 자격 증명');
-      res.status(401).json({
-        error: '잘못된 아이디 또는 비밀번호입니다',
-        message: '잘못된 아이디 또는 비밀번호입니다'
-      });
+    if (!user) {
+      clearTimeout(timeoutId);
+      return res.status(401).json({ error: '관리자 계정을 찾을 수 없습니다' });
     }
+
+    // 비밀번호 확인
+    if (!user.password) {
+      clearTimeout(timeoutId);
+      return res.status(401).json({ error: '비밀번호가 설정되지 않은 계정입니다' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      clearTimeout(timeoutId);
+      return res.status(401).json({ error: '비밀번호가 일치하지 않습니다' });
+    }
+
+    // JWT 토큰 생성
+    const token = jwt.sign(
+      {
+        id: user.bnetId || user.id,
+        email: user.email,
+        role: user.role,
+        battleTag: user.battleTag
+      },
+      process.env.JWT_SECRET || 'fallback-secret',
+      { expiresIn: '24h' }
+    );
+
+    // 마지막 로그인 시간 업데이트
+    await user.update({ lastLoginAt: new Date() });
+
+    console.log(`관리자 로그인 성공: ${user.email}`);
+
+    clearTimeout(timeoutId);
+    return res.json({
+      success: true,
+      message: '관리자 로그인 성공',
+      token,
+      user: {
+        id: user.bnetId || user.id,
+        email: user.email,
+        battleTag: user.battleTag,
+        nickname: user.nickname,
+        role: user.role,
+        lastLoginAt: user.lastLoginAt
+      }
+    });
 
   } catch (error) {
     console.error('/api/auth/admin-login 오류:', error);
-    res.status(500).json({
-      error: '서버 오류가 발생했습니다',
-      message: '서버 오류가 발생했습니다'
-    });
+    clearTimeout(timeoutId);
+    return res.status(500).json({ error: '서버 오류가 발생했습니다' });
   }
 };

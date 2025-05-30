@@ -2,7 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 스크롤바 디자인 */
+/* 스크롤바 숨김 유틸리티 */
+@layer utilities {
+  .scrollbar-hide {
+    /* IE and Edge */
+    -ms-overflow-style: none !important;
+    /* Firefox */
+    scrollbar-width: none !important;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    /* Chrome, Safari and Opera */
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  /* 부드러운 스크롤 스냅 */
+  .scroll-smooth-snap {
+    scroll-behavior: smooth;
+    scroll-snap-type: y mandatory;
+  }
+
+  .snap-section {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+}
+
+/* 스크롤바 디자인 (일반 페이지용) */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -195,19 +223,19 @@ body::before {
     padding-left: 1rem;
     padding-right: 1rem;
   }
-  
+
   h1 {
     font-size: 1.75rem;
   }
-  
+
   h2 {
     font-size: 1.5rem;
   }
-  
+
   .card {
     @apply p-4;
   }
-  
+
   .btn {
     @apply w-full mb-2 flex justify-center;
   }
@@ -218,15 +246,15 @@ body::before {
   .battlenet-button {
     @apply py-2 px-4;
   }
-  
+
   .card {
     @apply p-3;
   }
-  
+
   h1 {
     font-size: 1.5rem;
   }
-  
+
   h2 {
     font-size: 1.25rem;
   }
@@ -241,4 +269,4 @@ h1.page-title {
 /* 페이지 컨테이너에 대한 공통 스타일 */
 .page-container {
   padding-top: 0.5rem;
-} 
+}

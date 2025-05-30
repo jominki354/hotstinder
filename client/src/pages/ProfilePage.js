@@ -29,7 +29,7 @@ const ProfilePage = () => {
       // 사용자 정보 강제 리프레시
       const timestamp = new Date().getTime();
       try {
-        const response = await axios.get(`/api/auth/user?t=${timestamp}`, {
+        const response = await axios.get(`/api/auth/me?t=${timestamp}`, {
           withCredentials: true,
           headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -133,7 +133,7 @@ const ProfilePage = () => {
 
         // 사용자 정보 새로고침 - 캐시 방지를 위한 타임스탬프 추가
         const timestamp = new Date().getTime();
-        const updatedUser = await axios.get(`/api/auth/user?t=${timestamp}`, {
+        const updatedUser = await axios.get(`/api/auth/me?t=${timestamp}`, {
           withCredentials: true,
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,

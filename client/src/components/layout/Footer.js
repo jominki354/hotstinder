@@ -45,6 +45,10 @@ const Footer = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+            <Link to="/about" className="text-slate-400 text-sm hover:text-indigo-400 transition-colors">
+              About
+            </Link>
+
             <p className="text-slate-400 text-sm">
               © {currentYear} HOTSTinder
             </p>

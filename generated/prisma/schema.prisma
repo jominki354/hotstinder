@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 사용자 모델
+model User {
+  id             Int      @id @default(autoincrement())
+  bnetId         String   @unique @map("bnet_id")
+  battletag      String
+  nickname       String
+  profilePicture String?  @map("profile_picture")
+  mmr            Int      @default(1500)
+  wins           Int      @default(0)
+  losses         Int      @default(0)
+  isAdmin        Boolean  @default(false) @map("is_admin")
+  isDummy        Boolean  @default(false) @map("is_dummy")
+  createdAt      DateTime @default(now()) @map("created_at")
+  lastLogin      DateTime @default(now()) @map("last_login")
+
+  // 관계
+  roles          UserRole[]
+  createdMatches Match[]       @relation("MatchCreator")
+  matchPlayers   MatchPlayer[]
+  playerStats    PlayerStat[]
+  mmrChanges     MmrChange[]
+  eventLogs      EventLog[]
+
+  @@map("users")
+}
+
+// 사용자 역할 (정규화된 테이블)
+model UserRole {
+  id     Int    @id @default(autoincrement())
+  userId Int    @map("user_id")
+  role   String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_roles")
+}
+
+// 매치 모델
+model Match {
+  id              Int         @id @default(autoincrement())
+  title           String
+  description     String?
+  createdById     Int         @map("created_by_id")
+  status          MatchStatus @default(OPEN)
+  gameMode        String      @default("ranked") @map("game_mode")
+  maxPlayers      Int         @default(10) @map("max_players")
+  map             String?
+  isPrivate       Boolean     @default(false) @map("is_private")
+  password        String?
+  balanceType     String      @default("mmr") @map("balance_type")
+  isSimulation    Boolean     @default(false) @map("is_simulation")
+  originalMatchId String?     @map("original_match_id")
+  replayData      Json?       @map("replay_data")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  scheduledTime   DateTime    @default(now()) @map("scheduled_time")
+
+  // 결과 정보
+  winner    String? // 'blue', 'red', 또는 null
+  blueScore Int     @default(0) @map("blue_score")
+  redScore  Int     @default(0) @map("red_score")
+  duration  Int     @default(0) // 초 단위
+
+  // 관계
+  createdBy   User          @relation("MatchCreator", fields: [createdById], references: [id])
+  players     MatchPlayer[]
+  playerStats PlayerStat[]
+  mmrChanges  MmrChange[]
+  eventLogs   EventLog[]
+
+  @@map("matches")
+}
+
+// 매치 플레이어 (팀 구성)
+model MatchPlayer {
+  id       Int      @id @default(autoincrement())
+  matchId  Int      @map("match_id")
+  userId   Int      @map("user_id")
+  team     Team
+  role     String?
+  hero     String?
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([matchId, userId])
+  @@map("match_players")
+}
+
+// 플레이어 통계
+model PlayerStat {
+  id                     Int     @id @default(autoincrement())
+  matchId                Int     @map("match_id")
+  userId                 Int?    @map("user_id")
+  userIdString           String? @map("user_id_string") // 시뮬레이션용
+  battletag              String
+  team                   Team
+  hero                   String?
+  kills                  Int?    @default(0)
+  deaths                 Int?    @default(0)
+  assists                Int?    @default(0)
+  heroDamage             Int?    @default(0) @map("hero_damage")
+  siegeDamage            Int?    @default(0) @map("siege_damage")
+  healing                Int?    @default(0)
+  experienceContribution Int?    @default(0) @map("experience_contribution")
+  mmrBefore              Int?    @map("mmr_before")
+  mmrAfter               Int?    @map("mmr_after")
+  mmrChange              Int?    @map("mmr_change")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id])
+
+  @@map("player_stats")
+}
+
+// MMR 변경 이력
+model MmrChange {
+  id      Int @id @default(autoincrement())
+  matchId Int @map("match_id")
+  userId  Int @map("user_id")
+  before  Int
+  after   Int
+  change  Int
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@map("mmr_changes")
+}
+
+// 이벤트 로그
+model EventLog {
+  id        Int      @id @default(autoincrement())
+  matchId   Int      @map("match_id")
+  userId    Int?     @map("user_id")
+  timestamp DateTime @default(now())
+  type      String
+  message   String
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id])
+
+  @@map("event_logs")
+}
+
+// 열거형 정의
+enum MatchStatus {
+  OPEN
+  FULL
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+
+  @@map("match_status")
+}
+
+enum Team {
+  BLUE
+  RED
+
+  @@map("team")
+}

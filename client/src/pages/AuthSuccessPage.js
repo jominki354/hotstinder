@@ -121,58 +121,88 @@ const AuthSuccessPage = () => {
   }, [searchParams, navigate]);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-slate-800 rounded-lg shadow-xl p-8 text-center border border-indigo-900/50">
-        <div className="mb-6">
-          {status === 'processing' && (
-            <div className="w-16 h-16 mx-auto mb-4">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-400"></div>
-            </div>
-          )}
+    <div className="min-h-screen relative overflow-hidden">
+      {/* 배경 패턴 */}
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+        }}
+      ></div>
 
-          {status === 'success' && (
-            <div className="w-16 h-16 mx-auto mb-4 bg-green-500 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-          )}
-
-          {status === 'error' && (
-            <div className="w-16 h-16 mx-auto mb-4 bg-red-500 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-          )}
-        </div>
-
-        <h1 className="text-2xl font-bold text-white mb-4">
-          {status === 'processing' && '인증 처리 중'}
-          {status === 'success' && '인증 성공!'}
-          {status === 'error' && '인증 실패'}
-        </h1>
-
-        <p className="text-gray-300 mb-6">
-          {message}
-        </p>
-
-        {status === 'success' && (
-          <p className="text-sm text-gray-400">
-            잠시 후 자동으로 이동합니다...
-          </p>
-        )}
-
-        {status === 'error' && (
-          <div className="mt-4">
-            <button
-              onClick={() => navigate('/login')}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-            >
-              지금 이동하기
-            </button>
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          {/* 헤더 */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+              HotsTinder
+            </h1>
           </div>
-        )}
+
+          {/* 상태 카드 */}
+          <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-600/30 rounded-3xl p-8 shadow-2xl text-center">
+            <div className="mb-6">
+              {status === 'processing' && (
+                <div className="w-20 h-20 mx-auto mb-6">
+                  <div className="animate-spin rounded-full h-20 w-20 border-4 border-slate-600 border-t-blue-400"></div>
+                </div>
+              )}
+
+              {status === 'success' && (
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-green-500/25">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+
+              {status === 'error' && (
+                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-red-500 to-rose-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/25">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            <h2 className="text-3xl font-bold text-white mb-4">
+              {status === 'processing' && '인증 처리 중'}
+              {status === 'success' && '인증 성공!'}
+              {status === 'error' && '인증 실패'}
+            </h2>
+
+            <p className="text-xl text-gray-300 mb-6">
+              {message}
+            </p>
+
+            {status === 'success' && (
+              <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-4 mb-6">
+                <p className="text-green-400 font-medium">
+                  잠시 후 자동으로 이동합니다...
+                </p>
+              </div>
+            )}
+
+            {status === 'error' && (
+              <div className="mt-6">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-3 px-8 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25"
+                >
+                  로그인 페이지로 이동
+                </button>
+              </div>
+            )}
+
+            {status === 'processing' && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4">
+                <p className="text-blue-400 font-medium">
+                  잠시만 기다려주세요...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

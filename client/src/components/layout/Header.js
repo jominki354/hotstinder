@@ -37,12 +37,13 @@ const Header = () => {
   // 다른 곳을 클릭하면 드롭다운이 닫히도록 처리
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownOpen && !event.target.closest('.relative')) {
+      if (dropdownOpen && !event.target.closest('.dropdown-container')) {
         setDropdownOpen(false);
       }
     };
 
     document.addEventListener('click', handleClickOutside);
+
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
@@ -55,9 +56,9 @@ const Header = () => {
 
   // 사용자 권한에 따른 스타일 및 표시 텍스트 결정
   const getBorderColor = () => {
-    if (isSuperAdmin) return 'border-red-500 bg-slate-800/80';
-    if (isAdmin) return 'border-green-500 bg-slate-800/80';
-    return 'border-indigo-500 bg-slate-800';
+    if (isSuperAdmin) return 'border-red-400/60 bg-slate-900/60 shadow-2xl shadow-red-500/20';
+    if (isAdmin) return 'border-green-400/60 bg-slate-900/60 shadow-2xl shadow-green-500/20';
+    return 'border-blue-400/60 bg-slate-900/60 shadow-2xl shadow-blue-500/20';
   };
 
   // 배틀태그 가져오기 함수 개선
@@ -109,28 +110,60 @@ const Header = () => {
       <div className="grid grid-cols-3 items-center max-w-6xl mx-auto w-full">
         {/* 로고 - 왼쪽 */}
         <div className="flex items-center">
-          <Link to="/" className="text-2xl font-bold text-white">
-            <span className="text-indigo-400">HOTS</span>Tinder
+          <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent hover:from-blue-300 hover:via-purple-300 hover:to-pink-300 transition-all duration-300">
+            HotsTinder
           </Link>
         </div>
 
         {/* 배틀태그 표시 - 중앙 */}
         <div className="flex justify-center">
           {isAuthenticated && user && (
-            <div className={`px-4 py-2 rounded-md text-center shadow-lg border ${getBorderColor()} flex items-center`}>
+            <div className={`relative px-6 py-3 rounded-2xl text-center shadow-xl border-2 transition-all duration-300 hover:scale-105 ${getBorderColor()}`}>
+              {/* 배경 글로우 효과 */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 blur-sm"></div>
+
               {isSuperAdmin ? (
-                <div className="flex flex-col">
-                  <span className="text-indigo-300 font-bold">{getBattleTag()}</span>
-                  <span className="text-red-400 text-xs font-semibold mt-1 bg-red-900/30 px-2 py-1 rounded">최고관리자</span>
+                <div className="relative flex flex-col items-center">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-gradient-to-r from-red-500 to-rose-500 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                      </svg>
+                    </div>
+                    <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                      {getBattleTag()}
+                    </span>
+                  </div>
+                  <div className="bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
+                    👑 최고관리자
+                  </div>
                 </div>
               ) : isAdmin ? (
-                <div className="flex flex-col">
-                  <span className="text-indigo-300 font-bold">{getBattleTag()}</span>
-                  <span className="text-green-400 text-xs font-semibold mt-1 bg-green-900/30 px-2 py-1 rounded">관리자</span>
+                <div className="relative flex flex-col items-center">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                      {getBattleTag()}
+                    </span>
+                  </div>
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                    ⚡ 관리자
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center">
-                  <span className="text-indigo-300 font-bold">{getBattleTag()}</span>
+                <div className="relative flex items-center justify-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    {getBattleTag()}
+                  </span>
                 </div>
               )}
             </div>
@@ -171,7 +204,7 @@ const Header = () => {
                 onClick={handleMatchFindingClick}
                 className="text-slate-300 hover:text-white transition-colors text-sm"
               >
-                {matchInProgress ? '진행 중인 매치' : '매치 찾기'}
+                {matchInProgress ? '매치 정보' : '매치 찾기'}
               </button>
             )}
 
@@ -181,7 +214,7 @@ const Header = () => {
             )}
 
             {isAuthenticated ? (
-              <div className="relative">
+              <div className="relative dropdown-container">
                 <button
                   onClick={toggleDropdown}
                   className="text-slate-300 hover:text-white flex items-center focus:outline-none text-sm"
@@ -195,13 +228,29 @@ const Header = () => {
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded shadow-lg py-1 z-10 animate-fadeIn">
                     {isAdmin ? (
-                      <span className="block px-4 py-2 text-sm text-slate-500 cursor-not-allowed">대시보드</span>
+                      <span
+                        className="block px-4 py-2 text-sm text-slate-500 cursor-not-allowed relative group"
+                        title="관리자는 대시보드에 접근할 수 없습니다"
+                      >
+                        대시보드
+                        <span className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-slate-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                          관리자는 대시보드에 접근할 수 없습니다
+                        </span>
+                      </span>
                     ) : (
                       <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">대시보드</Link>
                     )}
 
                     {isAdmin ? (
-                      <span className="block px-4 py-2 text-sm text-slate-500 cursor-not-allowed">프로필</span>
+                      <span
+                        className="block px-4 py-2 text-sm text-slate-500 cursor-not-allowed relative group"
+                        title="관리자는 프로필에 접근할 수 없습니다"
+                      >
+                        프로필
+                        <span className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-slate-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                          관리자는 프로필에 접근할 수 없습니다
+                        </span>
+                      </span>
                     ) : (
                       <Link to="/profile" className="block px-4 py-2 text-sm text-slate-300 hover:bg-slate-700">프로필</Link>
                     )}
@@ -239,20 +288,52 @@ const Header = () => {
       >
         <div className="pt-4 pb-2 px-4 space-y-3">
           {isAuthenticated && user && (
-            <div className={`px-4 py-2 rounded-md mb-4 text-center shadow-lg border ${getBorderColor()} flex items-center justify-center`}>
+            <div className={`relative px-6 py-3 rounded-2xl mb-4 text-center shadow-xl border-2 transition-all duration-300 ${getBorderColor()}`}>
+              {/* 배경 글로우 효과 */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 blur-sm"></div>
+
               {isSuperAdmin ? (
-                <div className="flex flex-col">
-                  <span className="text-indigo-300 font-bold">{getBattleTag()}</span>
-                  <span className="text-red-400 text-xs font-semibold mt-1 bg-red-900/30 px-2 py-1 rounded">최고관리자</span>
+                <div className="relative flex flex-col items-center">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-gradient-to-r from-red-500 to-rose-500 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                      </svg>
+                    </div>
+                    <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                      {getBattleTag()}
+                    </span>
+                  </div>
+                  <div className="bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
+                    👑 최고관리자
+                  </div>
                 </div>
               ) : isAdmin ? (
-                <div className="flex flex-col">
-                  <span className="text-indigo-300 font-bold">{getBattleTag()}</span>
-                  <span className="text-green-400 text-xs font-semibold mt-1 bg-green-900/30 px-2 py-1 rounded">관리자</span>
+                <div className="relative flex flex-col items-center">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                      {getBattleTag()}
+                    </span>
+                  </div>
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                    ⚡ 관리자
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center">
-                  <span className="text-indigo-300 font-bold">{getBattleTag()}</span>
+                <div className="relative flex items-center justify-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    {getBattleTag()}
+                  </span>
                 </div>
               )}
             </div>
@@ -273,7 +354,7 @@ const Header = () => {
               onClick={handleMatchFindingClick}
               className="block w-full text-left py-2 text-slate-300 hover:text-white transition-colors"
             >
-              {matchInProgress ? '진행 중인 매치' : '매치 찾기'}
+              {matchInProgress ? '매치 정보' : '매치 찾기'}
             </button>
           )}
 
@@ -285,13 +366,29 @@ const Header = () => {
           {isAuthenticated ? (
             <>
               {isAdmin ? (
-                <span className="block py-2 text-slate-500 cursor-not-allowed">대시보드</span>
+                <span
+                  className="block py-2 text-slate-500 cursor-not-allowed relative group"
+                  title="관리자는 대시보드에 접근할 수 없습니다"
+                >
+                  대시보드
+                  <span className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-slate-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                    관리자는 대시보드에 접근할 수 없습니다
+                  </span>
+                </span>
               ) : (
                 <Link to="/dashboard" className="block py-2 text-slate-300 hover:text-white">대시보드</Link>
               )}
 
               {isAdmin ? (
-                <span className="block py-2 text-slate-500 cursor-not-allowed">프로필</span>
+                <span
+                  className="block py-2 text-slate-500 cursor-not-allowed relative group"
+                  title="관리자는 프로필에 접근할 수 없습니다"
+                >
+                  프로필
+                  <span className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 bg-slate-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                    관리자는 프로필에 접근할 수 없습니다
+                  </span>
+                </span>
               ) : (
                 <Link to="/profile" className="block py-2 text-slate-300 hover:text-white">프로필</Link>
               )}

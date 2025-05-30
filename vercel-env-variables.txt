@@ -1,0 +1,60 @@
+VERCEL 환경 변수 설정 - 복사용
+=====================================
+
+다음 환경 변수들을 Vercel 대시보드에 하나씩 추가하세요:
+
+변수명: JWT_SECRET
+값: d5af502df8f7a5d4f4f12941db5462a3574afcdc97653b5979fadf8025229da8
+
+변수명: SESSION_SECRET
+값: 9bc1f3d69a40e194fc22200e4e30e6c9d978b0360616c9de297288cdf1fc19f8
+
+변수명: BNET_CLIENT_ID
+값: 2555749aa63d40d79055409e12a9b191
+
+변수명: BNET_CLIENT_SECRET
+값: 3c7ddrNaG7p5mUHK1XziVskdxGoHA21R
+
+변수명: BNET_CALLBACK_URL
+값: https://hotstinder.vercel.app/api/auth/bnet/callback
+
+변수명: BNET_REGION
+값: kr
+
+변수명: FRONTEND_URL
+값: https://hotstinder.vercel.app
+
+변수명: REACT_APP_API_URL
+값: https://hotstinder.vercel.app
+
+변수명: USE_MONGODB
+값: true
+
+변수명: MONGODB_URI
+값: mongodb+srv://kooingh354:674512%40Alsrl@hotstinder.gvbw5hv.mongodb.net/hotstinder?retryWrites=true&w=majority&appName=hotstinder
+
+변수명: NODE_ENV
+값: production
+
+변수명: JWT_EXPIRES_IN
+값: 7d
+
+변수명: MAX_FILE_SIZE
+값: 50MB
+
+변수명: LOG_LEVEL
+값: info
+
+=====================================
+설정 방법:
+1. vercel.com/dashboard 접속
+2. hotstinder 프로젝트 선택
+3. Settings → Environment Variables
+4. 위의 각 변수를 하나씩 추가 (Environment: Production)
+5. 완료 후 재배포 실행
+
+⚠️ 중요: MongoDB URI 수정 사항
+- 패스워드의 @ 기호를 URL 인코딩에서 일반 문자로 변경
+- 데이터베이스 이름 'hotstinder' 명시적으로 추가
+- 연결 문제 해결을 위한 형식 개선
+=====================================

@@ -101,8 +101,16 @@ const HERO_DATA = {
 // 전체 영웅 데이터를 하나의 배열로 평탄화
 const ALL_HEROES = Object.values(HERO_DATA).flat();
 
-// 역할 정의
-const ROLES = ['탱커', '투사', '브루저', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '전체'];
+// 역할 정의 - 매치메이킹 페이지와 동일하게 변경
+const ROLES = [
+  { id: '전체', name: '전체', icon: '🎯', description: '모든 역할 가능' },
+  { id: '탱커', name: '탱커', icon: '🛡️', description: '팀을 보호하는 전면 방어' },
+  { id: '브루저', name: '브루저', icon: '⚔️', description: '근접 전투 전문가' },
+  { id: '원거리 암살자', name: '원거리 딜러', icon: '🏹', description: '원거리 공격 전문' },
+  { id: '근접 암살자', name: '근접 딜러', icon: '🗡️', description: '기습과 암살 전문' },
+  { id: '지원가', name: '지원가', icon: '✨', description: '팀 지원 및 유틸리티' },
+  { id: '힐러', name: '힐러', icon: '💚', description: '팀원 치료 전문' }
+];
 
 // 티어 정의
 const TIERS = [
@@ -222,38 +230,80 @@ const ProfileSetupPage = () => {
       const selectedTier = TIERS.find(tier => tier.id === formData.previousTier);
       const initialMmr = Math.floor((selectedTier.minMmr + selectedTier.maxMmr) / 2); // 해당 티어의 중간값
 
-      // 서버에 전송할 데이터
+      // 서버에 전송할 데이터 - 명확한 JSON 구조
       const profileData = {
-        nickname: formData.nickname,
-        preferredRoles: formData.preferredRoles,
-        previousTier: formData.previousTier,
-        initialMmr: initialMmr,
-        isProfileComplete: true // 명시적으로 필드 추가
+        nickname: formData.nickname || '',
+        preferredRoles: formData.preferredRoles || [],
+        previousTier: formData.previousTier || 'placement',
+        initialMmr: initialMmr || 1500,
+        isProfileComplete: true
       };
 
-      console.log('프로필 데이터 전송:', profileData);
+      console.log('🔧 프로필 데이터 전송 준비:', profileData);
 
       let result;
       if (isEditMode) {
         // 기존 프로필 업데이트
         result = await updateProfile(profileData);
       } else {
-        // 새 프로필 생성
-        // API 요청
-        const response = await axios.post(
-          '/api/auth/profile/setup',
-          profileData,
-          {
-            withCredentials: true,
+        // 새 프로필 생성 - axios 요청 개선
+        try {
+          const token = localStorage.getItem('token');
+
+          if (!token) {
+            throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+          }
+
+          console.log('🔧 API 요청 시작:', {
+            url: '/api/auth/profile/setup',
+            method: 'POST',
+            hasToken: !!token,
+            dataKeys: Object.keys(profileData)
+          });
+
+          const response = await axios({
+            method: 'POST',
+            url: '/api/auth/profile/setup',
+            data: profileData,
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          }
-        );
+              'Authorization': `Bearer ${token}`
+            },
+            withCredentials: true,
+            timeout: 30000 // 30초 타임아웃
+          });
 
-        console.log('프로필 설정 응답:', response.data);
-        result = { success: response.data.success };
+          console.log('✅ 프로필 설정 응답 성공:', response.data);
+          result = { success: response.data.success };
+
+        } catch (apiError) {
+          console.error('❌ API 요청 실패:', {
+            status: apiError.response?.status,
+            statusText: apiError.response?.statusText,
+            data: apiError.response?.data,
+            message: apiError.message
+          });
+
+          // 구체적인 에러 메시지 제공
+          let errorMessage = '프로필 저장 중 오류가 발생했습니다.';
+
+          if (apiError.response?.status === 401) {
+            errorMessage = '인증이 만료되었습니다. 다시 로그인해주세요.';
+            // 토큰 제거 및 로그인 페이지로 리다이렉트
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            navigate('/login');
+            return;
+          } else if (apiError.response?.status === 400) {
+            errorMessage = apiError.response.data?.message || '입력 데이터에 문제가 있습니다.';
+          } else if (apiError.response?.status === 500) {
+            errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+          } else if (apiError.code === 'ECONNABORTED') {
+            errorMessage = '요청 시간이 초과되었습니다. 네트워크 연결을 확인해주세요.';
+          }
+
+          throw new Error(errorMessage);
+        }
       }
 
       if (result.success) {
@@ -288,12 +338,9 @@ const ProfileSetupPage = () => {
         throw new Error(result.error || '프로필 저장에 실패했습니다.');
       }
     } catch (err) {
-      console.error('프로필 설정 오류:', err);
+      console.error('💥 프로필 설정 오류:', err);
 
-      const errorMessage = err.response?.data?.message ||
-                          err.message ||
-                          '프로필 저장 중 오류가 발생했습니다.';
-
+      const errorMessage = err.message || '프로필 저장 중 오류가 발생했습니다.';
       setError(errorMessage);
       setIsLoading(false);
     }
@@ -332,234 +379,251 @@ const ProfileSetupPage = () => {
   };
 
   if (!isAuthenticated) {
-    return <div className="flex justify-center items-center min-h-screen bg-slate-900 text-white">로딩 중...</div>;
+    return <div className="flex justify-center items-center min-h-screen text-white">로딩 중...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 py-10 text-white">
-      <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto bg-slate-800 rounded-lg shadow-lg p-6 border border-indigo-900/50">
-          <h1 className="text-3xl font-bold text-white mb-2 text-center">
-            {isEditMode ? '프로필 관리' : '프로필 설정'}
-          </h1>
-
-          {/* 계정 정보 표시 */}
-          <div className="mb-6 text-center">
-            <p className="text-indigo-400">
-              배틀넷 계정 <span className="font-semibold">{getBattleTag()}</span>로 로그인했습니다.
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="relative z-10 p-4">
+        <div className="max-w-4xl mx-auto">
+          {/* 헤더 */}
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+              {isEditMode ? '프로필 관리' : '프로필 설정'}
+            </h1>
+            <p className="text-xl text-gray-300">
+              {isEditMode ? '프로필 정보를 수정하세요' : '게임 프로필을 설정하여 매치메이킹을 시작하세요'}
             </p>
-            <div className="mt-2 flex justify-center space-x-4 text-gray-400 text-sm">
-              <p>계정 ID: {getUserId()}</p>
-              <p>가입일: {getCreatedAt()}</p>
-            </div>
           </div>
 
-          {/* 탭 메뉴 */}
-          <div className="flex mb-6 border-b border-slate-700">
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`flex-1 py-2 px-4 text-center ${
-                activeTab === 'profile'
-                  ? 'text-indigo-400 border-b-2 border-indigo-500 font-medium'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              프로필 {isEditMode ? '수정' : '설정'}
-            </button>
-            <button
-              onClick={() => setActiveTab('delete')}
-              className={`flex-1 py-2 px-4 text-center ${
-                activeTab === 'delete'
-                  ? 'text-red-400 border-b-2 border-red-500 font-medium'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
+          <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-600/30 rounded-3xl p-8">
+            {/* 계정 정보 표시 */}
+            <div className="mb-8 text-center">
+              <div className="w-20 h-20 bg-slate-700/30 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl font-bold text-white">{getBattleTag().charAt(0) || '?'}</span>
+              </div>
+              <p className="text-blue-400 text-lg font-medium">
+                {getBattleTag()}
+              </p>
+              <div className="mt-2 flex justify-center space-x-4 text-gray-400 text-sm">
+                <p>계정 ID: {getUserId()}</p>
+                <p>가입일: {getCreatedAt()}</p>
+              </div>
+            </div>
+
+            {/* 탭 메뉴 */}
+            <div className="flex mb-8 border-b border-slate-600/50">
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`flex-1 py-3 px-4 text-center font-medium transition-all duration-300 ${
+                  activeTab === 'profile'
+                    ? 'text-blue-400 border-b-2 border-blue-500 bg-blue-500/10'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/30'
+                }`}
+              >
+                프로필 {isEditMode ? '수정' : '설정'}
+              </button>
+              <button
+                onClick={() => setActiveTab('delete')}
+                className={`flex-1 py-3 px-4 text-center font-medium transition-all duration-300 ${
+                  activeTab === 'delete'
+                    ? 'text-red-400 border-b-2 border-red-500 bg-red-500/10'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/30'
+                }`}
+              >
                 계정 탈퇴
-            </button>
-          </div>
-
-          {error && (
-            <div className="bg-red-900/30 border border-red-500 text-red-200 px-4 py-3 rounded-md mb-4">
-              {error}
+              </button>
             </div>
-          )}
 
-          {/* 프로필 설정/수정 폼 */}
-          {activeTab === 'profile' && (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* 닉네임 영역 */}
-              <div>
-                <label className="block text-white mb-2 font-semibold">
-                닉네임
-                </label>
-                <input
-                  type="text"
-                  name="nickname"
-                  value={formData.nickname}
-                  readOnly={true}
-                  className="w-full bg-slate-700 border border-slate-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-not-allowed opacity-75"
-                />
-                <p className="text-slate-400 text-sm mt-1">
-                배틀넷 계정의 배틀태그가 닉네임으로 사용됩니다. 변경할 수 없습니다.
-                </p>
+            {error && (
+              <div className="bg-red-900/30 border border-red-500 text-red-200 px-4 py-3 rounded-xl mb-6">
+                {error}
               </div>
+            )}
 
-              {/* 이전 티어 선택 영역 */}
-              <div>
-                <label className="block text-white mb-3 font-semibold">
-                  이전 시즌 티어
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {TIERS.map((tier) => (
-                    <button
-                      key={tier.id}
-                      type="button"
-                      onClick={() => handleTierSelect(tier.id)}
-                      className={`
-                        relative p-4 rounded-lg transition overflow-hidden
-                        ${formData.previousTier === tier.id
-                      ? 'ring-2 ring-white shadow-lg transform scale-105'
-                      : 'hover:shadow-md'}
-                      `}
-                    >
-                      <div className={`absolute inset-0 bg-gradient-to-br ${tier.color} opacity-70`}></div>
-                      <div className="relative z-10 flex flex-col items-center">
-                        <span className="text-2xl mb-1">{tier.icon}</span>
-                        <span className="font-bold text-white text-lg tracking-wide">{tier.name}</span>
-                        {tier.id !== 'placement' && (
-                          <span className="text-white/90 text-xs">{tier.minMmr} - {tier.maxMmr}</span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-slate-400 text-sm mt-2">
-                  선택한 티어의 평균 MMR이 초기값으로 설정됩니다.
-                </p>
-              </div>
-
-              {/* 선호하는 역할 영역 */}
-              <div>
-                <label className="block text-white mb-2 font-semibold">
-                선호하는 역할 (여러 개 선택 가능)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {ROLES.map(role => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => handleRoleToggle(role)}
-                      className={`
-                      px-4 py-2 rounded-md transition
-                      ${formData.preferredRoles.includes(role)
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}
-                    `}
-                    >
-                      {role}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-slate-400 text-sm mt-1">
-                  선택된 역할: {formData.preferredRoles.length}개
-                </p>
-              </div>
-
-              {/* 버튼 영역 */}
-              <div className="pt-4">
-                <button
-                  type="submit"
-                  disabled={isLoading || successState}
-                  className={`
-                    w-full py-3 rounded-md font-semibold text-white transition
-                    ${successState
-              ? 'bg-green-600 cursor-default'
-              : isLoading
-                ? 'bg-indigo-800 cursor-not-allowed'
-                : 'bg-indigo-600 hover:bg-indigo-700 transform hover:scale-105'}
-                  `}
-                >
-                  {successState
-                    ? '저장 성공!'
-                    : isLoading
-                      ? '저장 중...'
-                      : isEditMode
-                        ? '프로필 수정하기'
-                        : '프로필 저장하기'
-                  }
-                </button>
-
-                {isEditMode && (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/dashboard')}
-                    className="w-full mt-3 py-3 rounded-md font-semibold text-white bg-slate-700 hover:bg-slate-600 transition"
-                  >
-                    대시보드로 돌아가기
-                  </button>
-                )}
-              </div>
-            </form>
-          )}
-
-          {/* 계정 탈퇴 폼 */}
-          {activeTab === 'delete' && (
-            <div className="space-y-6">
-              <div className="bg-red-900/30 border border-red-500 rounded-md p-4">
-                <h3 className="text-xl font-bold text-red-400 mb-2">주의: 계정 탈퇴</h3>
-                <p className="text-gray-300 mb-2">
-                  계정을 탈퇴하면 프로필 정보, 게임 기록, 통계 등 모든 데이터가 삭제됩니다.
-                  이 작업은 되돌릴 수 없습니다.
-                </p>
-                <p className="text-gray-300">
-                  계정 탈퇴를 원하시면 아래에 배틀태그를 입력해주세요.
-                </p>
-              </div>
-
-              <form onSubmit={handleAccountDelete} className="space-y-4">
+            {/* 프로필 설정/수정 폼 */}
+            {activeTab === 'profile' && (
+              <form onSubmit={handleSubmit} className="space-y-8">
+                {/* 닉네임 영역 */}
                 <div>
-                  <label className="block text-white mb-2 font-semibold">
-                    배틀태그 확인
+                  <label className="block text-white mb-3 font-semibold text-lg">
+                    닉네임
                   </label>
                   <input
                     type="text"
-                    value={deleteConfirmation}
-                    onChange={(e) => setDeleteConfirmation(e.target.value)}
-                    placeholder={`배틀태그 입력 (${getBattleTag()})`}
-                    className="w-full bg-slate-700 border border-slate-600 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    name="nickname"
+                    value={formData.nickname}
+                    readOnly={true}
+                    className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-not-allowed opacity-75"
                   />
-                  <p className="text-slate-400 text-sm mt-1">
-                    정확한 배틀태그를 입력해야 계정 탈퇴가 진행됩니다.
+                  <p className="text-slate-400 text-sm mt-2">
+                    배틀넷 계정의 배틀태그가 닉네임으로 사용됩니다. 변경할 수 없습니다.
                   </p>
                 </div>
 
-                <div className="pt-4">
+                {/* 이전 티어 선택 영역 */}
+                <div>
+                  <label className="block text-white mb-4 font-semibold text-lg">
+                    이전 시즌 티어
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {TIERS.map((tier) => (
+                      <button
+                        key={tier.id}
+                        type="button"
+                        onClick={() => handleTierSelect(tier.id)}
+                        className={`
+                          relative p-6 rounded-2xl transition-all duration-300 overflow-hidden group
+                          ${formData.previousTier === tier.id
+                            ? 'ring-2 ring-white shadow-xl transform scale-105'
+                            : 'hover:shadow-lg hover:scale-102'}
+                        `}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br ${tier.color} opacity-80 group-hover:opacity-90 transition-opacity`}></div>
+                        <div className="relative z-10 flex flex-col items-center">
+                          <span className="text-3xl mb-2">{tier.icon}</span>
+                          <span className="font-bold text-white text-lg tracking-wide">{tier.name}</span>
+                          {tier.id !== 'placement' && (
+                            <span className="text-white/90 text-xs mt-1">{tier.minMmr} - {tier.maxMmr}</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-slate-400 text-sm mt-3">
+                    선택한 티어의 평균 MMR이 초기값으로 설정됩니다.
+                  </p>
+                </div>
+
+                {/* 선호하는 역할 영역 */}
+                <div>
+                  <label className="block text-white mb-6 font-semibold text-lg flex items-center gap-3">
+                    <div className="w-8 h-8 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                      <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    선호하는 역할 (여러 개 선택 가능)
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {ROLES.map((role) => (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => handleRoleToggle(role.id)}
+                        className={`p-4 rounded-2xl border-2 transition-all duration-300 text-center ${
+                          formData.preferredRoles.includes(role.id)
+                            ? 'border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/25'
+                            : 'border-slate-600/50 bg-slate-700/20 hover:border-slate-500 hover:bg-slate-700/30'
+                        }`}
+                      >
+                        <div className="text-2xl mb-2">{role.icon}</div>
+                        <div className="text-sm font-bold text-white mb-1">{role.name}</div>
+                        <div className="text-xs text-gray-400">{role.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-slate-400 text-sm mt-4">
+                    선택된 역할: {formData.preferredRoles.length}개
+                  </p>
+                </div>
+
+                {/* 버튼 영역 */}
+                <div className="pt-6">
                   <button
                     type="submit"
-                    disabled={isLoading || deleteConfirmation !== getBattleTag()}
+                    disabled={isLoading || successState}
                     className={`
-                      w-full py-3 rounded-md font-semibold text-white transition
-                  ${isLoading
-              ? 'bg-red-800 cursor-not-allowed'
-              : deleteConfirmation === getBattleTag()
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-red-900/50 cursor-not-allowed'}
-                `}
+                      w-full py-4 rounded-xl font-semibold text-white transition-all duration-300 text-lg
+                      ${successState
+                        ? 'bg-green-600 cursor-default'
+                        : isLoading
+                          ? 'bg-blue-800 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transform hover:scale-105 shadow-lg'}
+                    `}
                   >
-                    {isLoading ? '처리 중...' : '계정 탈퇴하기'}
+                    {successState
+                      ? '저장 성공!'
+                      : isLoading
+                        ? '저장 중...'
+                        : isEditMode
+                          ? '프로필 수정하기'
+                          : '프로필 저장하기'
+                    }
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('profile')}
-                    className="w-full mt-3 py-3 rounded-md font-semibold text-white bg-slate-700 hover:bg-slate-600 transition"
-                  >
-                    취소하고 돌아가기
-                  </button>
+                  {isEditMode && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/dashboard')}
+                      className="w-full mt-4 py-4 rounded-xl font-semibold text-white bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300"
+                    >
+                      대시보드로 돌아가기
+                    </button>
+                  )}
                 </div>
               </form>
-            </div>
-          )}
+            )}
+
+            {/* 계정 탈퇴 폼 */}
+            {activeTab === 'delete' && (
+              <div className="space-y-6">
+                <div className="bg-red-900/30 border border-red-500 rounded-xl p-6">
+                  <h3 className="text-xl font-bold text-red-400 mb-3">주의: 계정 탈퇴</h3>
+                  <p className="text-gray-300 mb-3">
+                    계정을 탈퇴하면 프로필 정보, 게임 기록, 통계 등 모든 데이터가 삭제됩니다.
+                    이 작업은 되돌릴 수 없습니다.
+                  </p>
+                  <p className="text-gray-300">
+                    계정 탈퇴를 원하시면 아래에 배틀태그를 입력해주세요.
+                  </p>
+                </div>
+
+                <form onSubmit={handleAccountDelete} className="space-y-6">
+                  <div>
+                    <label className="block text-white mb-3 font-semibold text-lg">
+                      배틀태그 확인
+                    </label>
+                    <input
+                      type="text"
+                      value={deleteConfirmation}
+                      onChange={(e) => setDeleteConfirmation(e.target.value)}
+                      placeholder={`배틀태그 입력 (${getBattleTag()})`}
+                      className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                    <p className="text-slate-400 text-sm mt-2">
+                      정확한 배틀태그를 입력해야 계정 탈퇴가 진행됩니다.
+                    </p>
+                  </div>
+
+                  <div className="pt-4">
+                    <button
+                      type="submit"
+                      disabled={isLoading || deleteConfirmation !== getBattleTag()}
+                      className={`
+                        w-full py-4 rounded-xl font-semibold text-white transition-all duration-300 text-lg
+                        ${isLoading
+                          ? 'bg-red-800 cursor-not-allowed'
+                          : deleteConfirmation === getBattleTag()
+                            ? 'bg-red-600 hover:bg-red-700 transform hover:scale-105'
+                            : 'bg-red-900/50 cursor-not-allowed'}
+                      `}
+                    >
+                      {isLoading ? '처리 중...' : '계정 탈퇴하기'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('profile')}
+                      className="w-full mt-4 py-4 rounded-xl font-semibold text-white bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300"
+                    >
+                      취소하고 돌아가기
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

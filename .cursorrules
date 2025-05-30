@@ -16,13 +16,14 @@ editable_patterns = [
 # - 프로덕션 환경 변수는 별도로 안전하게 관리하세요
 # - Git에 커밋하기 전에 민감한 정보가 포함되지 않았는지 확인하세요
 
-# HotsTinder 프로젝트 커서 규칙
+# HotsTinder 프로젝트 커서 규칙 (2025-05-30 업데이트)
 
 ## 🎯 프로젝트 개요
 Heroes of the Storm 매치메이킹 및 리플레이 분석 플랫폼
-- **Frontend**: React 18 + Vite + TailwindCSS
+- **Frontend**: React 18 + Vite + TailwindCSS + Zustand
 - **Backend**: Node.js + Express + PostgreSQL + Sequelize ORM
 - **Authentication**: JWT + Battle.net OAuth
+- **Real-time**: Socket.IO + Redis 캐시
 - **Deployment**: Vercel (Frontend + Serverless API)
 - **Language**: 한국어 (Korean) - 모든 응답은 한국어로
 
@@ -34,15 +35,21 @@ hotstinder/
 │   │   ├── components/     # 재사용 가능한 컴포넌트
 │   │   ├── pages/         # 페이지 컴포넌트
 │   │   ├── stores/        # Zustand 상태 관리
+│   │   ├── services/      # API 및 Socket 서비스
 │   │   └── utils/         # 유틸리티 함수
-├── server/                # Node.js 백엔드
+├── server/                # Node.js 백엔드 (개발용)
 │   ├── src/
 │   │   ├── routes/        # API 라우트
 │   │   ├── models/        # Sequelize 모델
+│   │   ├── services/      # 비즈니스 로직 서비스
 │   │   ├── utils/         # 백엔드 유틸리티
 │   │   └── middleware/    # 미들웨어
-├── api/                   # Vercel 서버리스 함수
-└── prisma/               # 데이터베이스 스키마
+├── api/                   # Vercel 서버리스 함수 (배포용)
+│   ├── auth/             # 인증 관련 API
+│   ├── matchmaking.js    # 매치메이킹 API
+│   ├── users.js          # 사용자 관리 API
+│   └── matches.js        # 매치 관리 API
+└── prisma/               # 데이터베이스 스키마 (참고용)
 ```
 
 ## 🛠️ 기술 스택 및 코딩 규칙
@@ -52,6 +59,7 @@ hotstinder/
 - **스타일링**: TailwindCSS 클래스 우선 사용
 - **라우팅**: React Router v6
 - **HTTP 클라이언트**: Axios
+- **실시간 통신**: Socket.IO Client
 - **알림**: react-toastify
 - **컴포넌트 구조**:
   ```jsx
@@ -60,6 +68,7 @@ hotstinder/
     // hooks 먼저
     const [state, setState] = useState();
     const navigate = useNavigate();
+    const { user, isAuthenticated } = useAuthStore();
 
     // 함수들
     const handleFunction = () => {};
@@ -71,7 +80,9 @@ hotstinder/
 
 ### Backend (Node.js)
 - **ORM**: Sequelize (PostgreSQL)
-- **인증**: JWT + bcrypt
+- **인증**: JWT + bcrypt + Battle.net OAuth
+- **실시간**: Socket.IO 서버
+- **캐싱**: Redis (폴백: 메모리 캐시)
 - **로깅**: Winston 기반 커스텀 로거
 - **API 구조**: RESTful + Express Router
 - **에러 처리**: try-catch + 상세 로깅
@@ -89,11 +100,12 @@ hotstinder/
   });
   ```
 
-### 데이터베이스
+### 데이터베이스 (PostgreSQL + Sequelize)
 - **Primary DB**: PostgreSQL (Sequelize ORM)
 - **Models**: User, Match, MatchParticipant, UserLog, MatchmakingQueue
 - **관계**: 1:N, N:M 관계 적절히 설정
 - **필드명**: camelCase (JS) ↔ snake_case (DB) 매핑
+- **타입 안전성**: DataTypes 명시적 사용
 
 ## 🎮 도메인 특화 규칙
 
@@ -105,11 +117,13 @@ hotstinder/
   - KDA (Kill/Death/Assist)
   - 영웅 피해량, 공성 피해량, 힐량, 경험치 기여도
 - **팀 구분**: blue(0), red(1) 숫자 코드 사용
+- **전장 목록**: 11개 전장 (용의 둥지, 저주받은 골짜기, 공포의 정원, 하늘사원, 거미 여왕의 무덤, 영원의 전쟁터, 불지옥 신단, 파멸의 탑, 브락식스 항전, 볼스카야 공장, 알터랙 고개)
 
 ### 매치메이킹 로직
 - **밸런싱**: MMR 기반 팀 구성
 - **대기열**: FIFO + MMR 범위 고려
 - **시뮬레이션**: 테스트용 가상 매치 지원
+- **실시간 알림**: WebSocket 기반 상태 업데이트
 
 ## 🔧 개발 가이드라인
 
@@ -148,11 +162,13 @@ DELETE /api/admin/matches      // 매치 삭제
 POST   /api/matchmaking/join   // 대기열 참가
 DELETE /api/matchmaking/leave  // 대기열 탈퇴
 GET    /api/matchmaking/status // 대기열 상태
+POST   /api/matchmaking/simulate // 시뮬레이션 매치
 
-// 리플레이 관련
-POST   /api/replay/upload      // 리플레이 업로드
-POST   /api/replay/analyze     // 리플레이 분석
-GET    /api/replay/:id         // 리플레이 조회
+// 인증 관련
+GET    /api/auth/me            // 현재 사용자 정보
+POST   /api/auth/admin-login   // 관리자 로그인
+GET    /api/auth/dashboard     // 관리자 대시보드
+GET    /api/auth/bnet/callback // Battle.net 콜백
 ```
 
 ### 클라이언트-서버 데이터 호환성
@@ -204,96 +220,6 @@ DB: siege_damage   → API: siegeDamage
 DB: mmr_change     → API: mmrChange
 ```
 
-### 에러 처리 표준화
-```javascript
-// 서버 측 에러 처리 패턴
-try {
-  // 비즈니스 로직
-  const result = await someOperation();
-
-  logger.info('작업 성공', {
-    operation: 'someOperation',
-    userId: req.user?.id,
-    result: result.id
-  });
-
-  res.json({
-    success: true,
-    data: result,
-    message: '작업이 완료되었습니다.'
-  });
-} catch (err) {
-  logger.error('작업 실패', {
-    operation: 'someOperation',
-    userId: req.user?.id,
-    error: err.message,
-    stack: err.stack
-  });
-
-  // 클라이언트에게 안전한 에러 메시지 전송
-  const statusCode = err.statusCode || 500;
-  const message = err.isOperational ? err.message : '서버 오류가 발생했습니다.';
-
-  res.status(statusCode).json({
-    success: false,
-    error: message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-}
-
-// 클라이언트 측 에러 처리 패턴
-try {
-  const response = await axios.post('/api/endpoint', data);
-
-  if (response.data.success) {
-    toast.success(response.data.message || '작업이 완료되었습니다.');
-    return response.data.data;
-  } else {
-    throw new Error(response.data.error || '알 수 없는 오류');
-  }
-} catch (err) {
-  const errorMessage = err.response?.data?.error || err.message || '네트워크 오류';
-  toast.error(errorMessage);
-
-  // 클라이언트 에러를 서버로 전송
-  if (window.reportClientError) {
-    window.reportClientError(err, 'API_CALL', { endpoint: '/api/endpoint' });
-  }
-
-  throw err;
-}
-```
-
-### 인증/인가 호환성
-```javascript
-// JWT 토큰 구조 표준화
-{
-  id: number,           // 사용자 ID
-  battleTag: string,    // Battle.net 태그
-  role: string,         // 'user' | 'admin'
-  iat: number,          // 발급 시간
-  exp: number           // 만료 시간
-}
-
-// 미들웨어 체인 표준화
-router.post('/protected-route',
-  authenticate,         // JWT 검증
-  validateInput,        // 입력값 검증
-  isAdmin,             // 관리자 권한 확인 (필요시)
-  async (req, res) => {
-    // 비즈니스 로직
-  }
-);
-
-// 클라이언트 인증 상태 관리
-const authStore = {
-  token: localStorage.getItem('token'),
-  user: JSON.parse(localStorage.getItem('user') || 'null'),
-  isAuthenticated: () => !!authStore.token && !isTokenExpired(authStore.token),
-  isAdmin: () => authStore.user?.role === 'admin'
-};
-```
-
 ## 🚀 배포 및 환경
 
 ### 환경 변수
@@ -301,10 +227,15 @@ const authStore = {
 - **프로덕션**: Vercel 환경 변수
 - **보안**: 민감 정보는 환경 변수로만
 
-### Vercel 배포
-- **Frontend**: 자동 배포
-- **API**: `/api` 폴더의 서버리스 함수
-- **데이터베이스**: 외부 PostgreSQL 연결
+### Vercel 배포 제약사항
+- **WebSocket 미지원**: Vercel 서버리스 함수는 WebSocket 연결을 지원하지 않음
+- **대안**: 개발 환경에서는 로컬 서버 사용, 프로덕션에서는 폴링 방식 고려
+- **Redis**: Vercel에서 Redis 연결 실패 시 메모리 캐시로 폴백
+
+### 데이터베이스 일관성
+- **모든 API 파일**: PostgreSQL + Sequelize 사용
+- **서버 코드**: PostgreSQL + Sequelize 사용
+- **MongoDB 제거**: 모든 MongoDB 관련 코드 제거 완료
 
 ## 📋 일관성 유지 규칙
 
@@ -320,35 +251,27 @@ const authStore = {
 3. **호환성 고려**: 기존 기능 영향 최소화
 4. **테스트 가능**: 수정 후 테스트 가능한 형태로 제공
 
-### 문제 해결 접근
-1. **원인 분석**: 문제의 근본 원인 파악
-2. **단계별 해결**: 복잡한 문제는 단계별로 분해
-3. **대안 제시**: 여러 해결 방안 제시 시 장단점 설명
-4. **검증 방법**: 해결책의 검증 방법 함께 제시
-
 ## 🎯 특별 지침
 
 ### 관리자 기능
 - **권한 검증**: 모든 관리자 API에 인증/인가 확인
 - **로그 기록**: 관리자 작업은 상세 로그 남기기
 - **UI 분리**: 일반 사용자와 관리자 UI 명확히 구분
+- **메뉴 숨김**: 관리자 로그인 시 대시보드와 프로필 메뉴 숨김
 
-### 리플레이 분석
-- **hots-parser**: Heroes of the Storm 리플레이 파싱 라이브러리 사용
-- **통계 처리**: 게임 통계를 DB 스키마에 맞게 변환
-- **에러 처리**: 리플레이 파일 손상/호환성 문제 대응
-
-### 성능 최적화
-- **DB 쿼리**: include/attributes로 필요한 데이터만 조회
-- **페이지네이션**: 대용량 데이터 처리 시 필수
-- **캐싱**: 자주 조회되는 데이터는 적절한 캐싱 전략
+### 실시간 기능
+- **WebSocket**: Socket.IO 기반 실시간 통신
+- **대기열 상태**: 전역 상태로 모든 페이지에서 표시
+- **자동 연결**: 로그인 시 자동 WebSocket 연결
+- **재연결**: 연결 끊김 시 자동 재연결
 
 ### UI/UX 패턴
 - **다크 테마**: slate 계열 색상 기본
 - **반응형**: 모바일 우선 설계
 - **로딩 상태**: 스피너 및 스켈레톤 UI
 - **에러 표시**: toast 알림 + 인라인 메시지
-- **관리자 기능**: 별도 페이지 분리
+- **전장 목록**: 3열 그리드 레이아웃
+- **대기열 상태창**: 그라데이션 배경 + 호버 효과
 
 ### TailwindCSS 클래스 표준화
 ```css
@@ -372,87 +295,10 @@ const authStore = {
 .table-container: "overflow-x-auto bg-slate-800 rounded-lg"
 .table-header: "bg-slate-700 text-gray-300 text-left px-4 py-3"
 .table-cell: "px-4 py-3 border-b border-slate-700"
-```
 
-### 컴포넌트 재사용성 규칙
-```javascript
-// 공통 컴포넌트 구조
-const Button = ({
-  variant = 'primary',
-  size = 'md',
-  loading = false,
-  disabled = false,
-  children,
-  onClick,
-  ...props
-}) => {
-  const baseClasses = "font-medium rounded transition focus:outline-none focus:ring-2";
-  const variantClasses = {
-    primary: "bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500",
-    secondary: "bg-gray-600 hover:bg-gray-700 text-white focus:ring-gray-500",
-    danger: "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500"
-  };
-  const sizeClasses = {
-    sm: "px-2 py-1 text-sm",
-    md: "px-4 py-2",
-    lg: "px-6 py-3 text-lg"
-  };
-
-  return (
-    <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabled || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-      disabled={disabled || loading}
-      onClick={onClick}
-      {...props}
-    >
-      {loading ? <Spinner size="sm" /> : children}
-    </button>
-  );
-};
-
-// 로딩 컴포넌트
-const LoadingSpinner = ({ size = 'md', className = '' }) => {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-8 h-8',
-    lg: 'w-12 h-12'
-  };
-
-  return (
-    <div className={`animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 ${sizeClasses[size]} ${className}`} />
-  );
-};
-
-// 모달 컴포넌트
-const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
-  if (!isOpen) return null;
-
-  const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-2xl',
-    lg: 'max-w-4xl',
-    xl: 'max-w-6xl'
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className={`bg-slate-800 rounded-lg ${sizeClasses[size]} w-full max-h-[90vh] overflow-y-auto`}>
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-white">{title}</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white text-2xl"
-            >
-              ×
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
+/* 대기열 상태창 */
+.queue-status: "fixed bottom-4 right-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg shadow-lg"
+.queue-stats-card: "bg-gradient-to-br from-slate-700/30 to-slate-600/20 p-6 rounded-lg hover:scale-105 transition-transform"
 ```
 
 ## 🔍 디버깅 및 문제 해결 가이드
@@ -464,7 +310,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
    - 예시: `bnet_id`를 문자열로 처리
 
 2. **Battle.net OAuth 오류**:
-   - 콜백 URL 확인: `http://localhost:5000/api/auth/bnet/callback`
+   - 콜백 URL 확인: `https://hotstinder.vercel.app/api/auth/bnet/callback`
    - 환경 변수 검증: `BNET_CLIENT_ID`, `BNET_CLIENT_SECRET`
    - 리디렉션 URI 매칭 확인
 
@@ -472,33 +318,37 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
    - 다양한 winner 값 형태 처리: `'red'`, `'blue'`, `0`, `1`, `'0'`, `'1'`
    - 클라이언트-서버 데이터 일관성 확인
 
-### 디버깅 도구
-- **서버 로그**: Winston 기반 상세 로깅
-- **클라이언트 에러**: 브라우저 콘솔 + 서버 전송
-- **데이터베이스**: 직접 쿼리 실행 스크립트
-- **API 테스트**: Postman 또는 curl 사용
+4. **NaN:NaN 시간 표시 문제**:
+   - formatTime 함수에서 NaN, undefined, null 체크
+   - 기본값 '00:00' 반환
 
-### 성능 모니터링
-- **DB 쿼리 최적화**: N+1 문제 방지
-- **메모리 사용량**: 대용량 데이터 처리 시 주의
-- **응답 시간**: API 엔드포인트별 성능 측정
+### 성능 최적화
+- **DB 쿼리**: include/attributes로 필요한 데이터만 조회
+- **페이지네이션**: 대용량 데이터 처리 시 필수
+- **캐싱**: Redis 기반 캐싱 (폴백: 메모리 캐시)
+- **WebSocket**: 불필요한 이벤트 최소화
 
-## 🎨 UI/UX 개선 가이드
+## 📝 최근 주요 업데이트 (2025-05-30)
 
-### 승리팀 표시 최적화
-- **크기 조정**: 테두리를 벗어나지 않도록 적절한 크기 유지
-- **시각적 계층**: 메인 카드와 상세 테이블의 일관성
-- **애니메이션**: 과도하지 않은 적절한 효과
+### 1. 데이터베이스 통일
+- **MongoDB → PostgreSQL**: 모든 API 파일을 PostgreSQL + Sequelize로 변경
+- **일관성 확보**: 서버 코드와 Vercel API 완전 통일
+- **타입 안전성**: DataTypes 명시적 사용
 
-### 반응형 디자인
-- **모바일 우선**: 작은 화면에서 먼저 테스트
-- **브레이크포인트**: sm, md, lg, xl 적절히 활용
-- **터치 친화적**: 버튼 크기 최소 44px
+### 2. UI/UX 개선
+- **전장 로테이션 → 전장 목록**: 11개 전장을 3열 그리드로 표시
+- **대기열 상태창**: 그라데이션 배경 + 호버 효과 + 전역 표시
+- **관리자 메뉴**: 관리자 로그인 시 대시보드/프로필 메뉴 숨김
 
-### 접근성 (a11y)
-- **키보드 네비게이션**: Tab 순서 논리적 구성
-- **스크린 리더**: aria-label, alt 텍스트 제공
-- **색상 대비**: WCAG 가이드라인 준수
+### 3. 실시간 기능 강화
+- **WebSocket 서비스**: Socket.IO 기반 실시간 알림
+- **Redis 캐시**: 고성능 캐싱 (폴백: 메모리 캐시)
+- **매치메이킹 개선**: MMR 기반 정교한 매칭 + 배치 처리
+
+### 4. 시스템 안정성
+- **에러 처리**: 타임아웃 + 상세 로깅
+- **타입 안전성**: PostgreSQL 데이터 타입 호환성 강화
+- **환경 설정**: 개발/프로덕션 환경 분리
 
 ---
 
@@ -506,8 +356,10 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
 게임의 특성과 사용자 경험을 항상 고려하여 개발해주세요.
 
 **최근 업데이트 (2025-05-30)**:
-- 승리팀 표시 UI 개선 및 크기 최적화
-- Battle.net OAuth 타입 불일치 오류 해결
-- PostgreSQL 데이터 타입 호환성 강화
-- 디버깅 도구 및 로깅 시스템 개선
-- 클라이언트-서버 에러 처리 표준화
+- PostgreSQL + Sequelize 완전 통일
+- 전장 목록 UI 개선 (3열 그리드)
+- 대기열 상태창 전역 표시 및 디자인 개선
+- WebSocket + Redis 실시간 시스템 구축
+- 관리자 기능 UI/UX 개선
+- NaN:NaN 시간 표시 문제 해결
+- 매치메이킹 시스템 확장성 대폭 개선

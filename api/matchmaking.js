@@ -1,127 +1,253 @@
-const mongoose = require('mongoose');
+const { Sequelize, DataTypes } = require('sequelize');
+const jwt = require('jsonwebtoken');
 
-// MongoDB 연결 함수 (더 관대한 타임아웃 설정)
-const connectMongoDB = async () => {
-  if (mongoose.connections[0].readyState) {
-    return;
+// PostgreSQL 연결 함수
+const connectPostgreSQL = async () => {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL 환경 변수가 설정되지 않았습니다.');
   }
 
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30초로 증가
-      socketTimeoutMS: 60000, // 60초로 증가
-      connectTimeoutMS: 30000, // 연결 타임아웃 30초
-      maxPoolSize: 5, // 연결 풀 크기 줄임
-      minPoolSize: 1, // 최소 연결 수 줄임
-      maxIdleTimeMS: 60000, // 60초 후 유휴 연결 해제
-      bufferCommands: false, // 연결 대기 중 명령 버퍼링 비활성화
-      bufferMaxEntries: 0, // 버퍼 크기 제한
-      retryWrites: true, // 재시도 활성화
-      retryReads: true // 읽기 재시도 활성화
-    });
-    console.log('MongoDB 연결 성공 (관대한 타임아웃)');
-  } catch (error) {
-    console.error('MongoDB 연결 실패:', error);
-    throw error;
-  }
+  const sequelize = new Sequelize(databaseUrl, {
+    dialect: 'postgres',
+    logging: false, // Vercel에서는 로깅 최소화
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    },
+    define: {
+      timestamps: true,
+      underscored: true,
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    }
+  });
+
+  // 연결 테스트
+  await sequelize.authenticate();
+  console.log('PostgreSQL 연결 성공');
+
+  return sequelize;
+};
+
+// User 모델 정의
+const defineUser = (sequelize) => {
+  return sequelize.define('User', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    battleTag: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      field: 'battle_tag'
+    },
+    bnetId: {
+      type: DataTypes.STRING(50),
+      unique: true,
+      field: 'bnet_id'
+    },
+    nickname: {
+      type: DataTypes.STRING(255)
+    },
+    email: {
+      type: DataTypes.STRING(255)
+    },
+    password: {
+      type: DataTypes.STRING(255)
+    },
+    role: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'user'
+    },
+    isProfileComplete: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'is_profile_complete'
+    },
+    preferredRoles: {
+      type: DataTypes.JSONB,
+      defaultValue: ['전체'],
+      field: 'preferred_roles'
+    },
+    previousTier: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'placement',
+      field: 'previous_tier'
+    },
+    mmr: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1500
+    },
+    wins: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    losses: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    lastLoginAt: {
+      type: DataTypes.DATE,
+      field: 'last_login_at'
+    }
+  }, {
+    tableName: 'users'
+  });
 };
 
 // Match 모델 정의
-const matchSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: String,
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  status: {
-    type: String,
-    enum: ['open', 'full', 'in_progress', 'completed', 'cancelled'],
-    default: 'open'
-  },
-  gameMode: { type: String, default: 'ranked' },
-  maxPlayers: { type: Number, default: 10 },
-  map: String,
-  isPrivate: { type: Boolean, default: false },
-  password: String,
-  balanceType: { type: String, default: 'mmr' },
-  teams: {
-    blue: [{
-      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      role: String,
-      hero: String,
-      joinedAt: { type: Date, default: Date.now }
-    }],
-    red: [{
-      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      role: String,
-      hero: String,
-      joinedAt: { type: Date, default: Date.now }
-    }]
-  },
-  result: {
-    winner: String, // 'blue', 'red', 또는 null
-    blueScore: { type: Number, default: 0 },
-    redScore: { type: Number, default: 0 },
-    duration: { type: Number, default: 0 } // 초 단위
-  },
-  playerStats: [{
-    userId: String,
-    battletag: String,
-    team: String,
-    hero: String,
-    kills: Number,
-    deaths: Number,
-    assists: Number,
-    heroDamage: Number,
-    siegeDamage: Number,
-    healing: Number,
-    experienceContribution: Number,
-    mmrBefore: Number,
-    mmrAfter: Number,
-    mmrChange: Number
-  }],
-  mmrChanges: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    before: Number,
-    after: Number,
-    change: Number
-  }],
-  eventLog: [{
-    timestamp: { type: Date, default: Date.now },
-    type: String,
-    message: String,
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-  }],
-  isSimulation: { type: Boolean, default: false },
-  originalMatchId: String,
-  replayData: mongoose.Schema.Types.Mixed,
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-  scheduledTime: { type: Date, default: Date.now }
-});
+const defineMatch = (sequelize) => {
+  return sequelize.define('Match', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    status: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'waiting'
+    },
+    gameMode: {
+      type: DataTypes.STRING(100),
+      field: 'game_mode'
+    },
+    mapName: {
+      type: DataTypes.STRING(255),
+      field: 'map_name'
+    },
+    maxPlayers: {
+      type: DataTypes.INTEGER,
+      defaultValue: 10,
+      field: 'max_players'
+    },
+    currentPlayers: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      field: 'current_players'
+    },
+    averageMmr: {
+      type: DataTypes.INTEGER,
+      field: 'average_mmr'
+    },
+    createdBy: {
+      type: DataTypes.UUID,
+      field: 'created_by',
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    startedAt: {
+      type: DataTypes.DATE,
+      field: 'started_at'
+    },
+    endedAt: {
+      type: DataTypes.DATE,
+      field: 'ended_at'
+    },
+    winner: {
+      type: DataTypes.STRING(10)
+    },
+    gameDuration: {
+      type: DataTypes.INTEGER,
+      field: 'game_duration'
+    },
+    notes: {
+      type: DataTypes.TEXT
+    }
+  }, {
+    tableName: 'matches'
+  });
+};
 
-const Match = mongoose.models.Match || mongoose.model('Match', matchSchema);
-
-// User 모델 정의
-const userSchema = new mongoose.Schema({
-  bnetId: { type: String, required: true, unique: true },
-  battletag: { type: String, required: true },
-  nickname: { type: String, required: true },
-  profilePicture: String,
-  mmr: { type: Number, default: 1500 },
-  wins: { type: Number, default: 0 },
-  losses: { type: Number, default: 0 },
-  preferredRoles: [{
-    type: String,
-    enum: ['탱커', '투사', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '브루저', '전체']
-  }],
-  isAdmin: { type: Boolean, default: false },
-  isDummy: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
-  lastLogin: { type: Date, default: Date.now }
-});
-
-const User = mongoose.models.User || mongoose.model('User', userSchema);
+// MatchParticipant 모델 정의
+const defineMatchParticipant = (sequelize) => {
+  return sequelize.define('MatchParticipant', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    matchId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      field: 'match_id',
+      references: {
+        model: 'matches',
+        key: 'id'
+      }
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      field: 'user_id',
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    team: {
+      type: DataTypes.STRING(10),
+      allowNull: false
+    },
+    role: {
+      type: DataTypes.STRING(50)
+    },
+    hero: {
+      type: DataTypes.STRING(100)
+    },
+    kills: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    deaths: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    assists: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    heroDamage: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0,
+      field: 'hero_damage'
+    },
+    siegeDamage: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0,
+      field: 'siege_damage'
+    },
+    healing: {
+      type: DataTypes.BIGINT,
+      defaultValue: 0
+    },
+    experienceContribution: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      field: 'experience_contribution'
+    },
+    mmrBefore: {
+      type: DataTypes.INTEGER,
+      field: 'mmr_before'
+    },
+    mmrAfter: {
+      type: DataTypes.INTEGER,
+      field: 'mmr_after'
+    },
+    mmrChange: {
+      type: DataTypes.INTEGER,
+      field: 'mmr_change'
+    }
+  }, {
+    tableName: 'match_participants'
+  });
+};
 
 // 맵 이름 번역 함수
 const translateMapName = (mapName) => {
@@ -239,6 +365,31 @@ const translateHeroName = (heroName) => {
   return heroTranslations[heroName] || heroName;
 };
 
+// 캐시 서비스 (메모리 캐시 사용)
+const cacheService = {
+  cache: new Map(),
+
+  async get(key) {
+    return this.cache.get(key);
+  },
+
+  async set(key, value, ttl = 300) {
+    this.cache.set(key, value);
+    // TTL 구현 (간단한 버전)
+    setTimeout(() => {
+      this.cache.delete(key);
+    }, ttl * 1000);
+  },
+
+  async del(key) {
+    return this.cache.delete(key);
+  },
+
+  async exists(key) {
+    return this.cache.has(key);
+  }
+};
+
 module.exports = async function handler(req, res) {
   // 요청 타임아웃 설정 (Vercel Functions 최대 시간)
   const timeoutId = setTimeout(() => {
@@ -266,36 +417,243 @@ module.exports = async function handler(req, res) {
       return res.status(200).end();
     }
 
-    // MongoDB 연결 (타임아웃 포함)
-    console.log('MongoDB 연결 시도 중...');
-    await Promise.race([
-      connectMongoDB(),
+    // PostgreSQL 연결 (타임아웃 포함)
+    console.log('PostgreSQL 연결 시도 중...');
+    const sequelize = await Promise.race([
+      connectPostgreSQL(),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('MongoDB 연결 타임아웃')), 15000)
+        setTimeout(() => reject(new Error('PostgreSQL 연결 타임아웃')), 15000)
       )
     ]);
-    console.log('MongoDB 연결 완료');
+    console.log('PostgreSQL 연결 완료');
+
+    // 모델 정의
+    const User = defineUser(sequelize);
+    const Match = defineMatch(sequelize);
+    const MatchParticipant = defineMatchParticipant(sequelize);
+
+    // 관계 설정
+    Match.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+    MatchParticipant.belongsTo(Match, { foreignKey: 'match_id', as: 'match' });
+    MatchParticipant.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+    Match.hasMany(MatchParticipant, { foreignKey: 'match_id', as: 'participants' });
 
     const { pathname } = new URL(req.url, `http://${req.headers.host}`);
     const pathParts = pathname.split('/').filter(Boolean);
+
+    // JWT 토큰 검증 함수
+    const verifyToken = (authHeader) => {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new Error('인증 토큰이 필요합니다');
+      }
+
+      const token = authHeader.substring(7);
+
+      try {
+        return jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+      } catch (err) {
+        throw new Error('유효하지 않은 토큰입니다');
+      }
+    };
+
+    // /api/matchmaking/join - 대기열 참가
+    if (pathParts[2] === 'join' && req.method === 'POST') {
+      try {
+        const decoded = verifyToken(req.headers.authorization);
+        const userId = decoded.id;
+
+        // 사용자 정보 조회
+        const user = await User.findOne({ where: { bnetId: userId } });
+        if (!user) {
+          clearTimeout(timeoutId);
+          return res.status(404).json({ success: false, error: '사용자를 찾을 수 없습니다' });
+        }
+
+        // 이미 대기열에 있는지 확인
+        const existingQueue = await cacheService.get(`queue:${userId}`);
+        if (existingQueue) {
+          clearTimeout(timeoutId);
+          return res.json({
+            success: true,
+            message: '이미 대기열에 참가되어 있습니다',
+            inQueue: true,
+            queueTime: Math.floor((Date.now() - new Date(existingQueue.joinedAt).getTime()) / 1000),
+            joinedAt: existingQueue.joinedAt
+          });
+        }
+
+        // 대기열 참가
+        const queueData = {
+          userId,
+          battletag: user.battleTag,
+          mmr: user.mmr || 1500,
+          preferredRoles: user.preferredRoles || [],
+          joinedAt: new Date().toISOString()
+        };
+
+        await cacheService.set(`queue:${userId}`, queueData, 3600); // 1시간 TTL
+
+        console.log(`사용자 ${user.battleTag} 대기열 참가`);
+
+        clearTimeout(timeoutId);
+        return res.json({
+          success: true,
+          message: '대기열에 참가했습니다',
+          inQueue: true,
+          queueTime: 0,
+          joinedAt: queueData.joinedAt
+        });
+
+      } catch (error) {
+        console.error('대기열 참가 오류:', error);
+        clearTimeout(timeoutId);
+        return res.status(401).json({ success: false, error: error.message });
+      }
+    }
+
+    // /api/matchmaking/leave - 대기열 탈퇴
+    if (pathParts[2] === 'leave' && req.method === 'POST') {
+      try {
+        const decoded = verifyToken(req.headers.authorization);
+        const userId = decoded.id;
+
+        // 대기열에서 제거
+        await cacheService.del(`queue:${userId}`);
+
+        console.log(`사용자 ${userId} 대기열 탈퇴`);
+
+        clearTimeout(timeoutId);
+        return res.json({
+          success: true,
+          message: '대기열에서 나왔습니다',
+          inQueue: false
+        });
+
+      } catch (error) {
+        console.error('대기열 탈퇴 오류:', error);
+        clearTimeout(timeoutId);
+        return res.status(401).json({ success: false, error: error.message });
+      }
+    }
+
+    // /api/matchmaking/status - 대기열 상태 확인
+    if (pathParts[2] === 'status' && req.method === 'GET') {
+      try {
+        const decoded = verifyToken(req.headers.authorization);
+        const userId = decoded.id;
+
+        // 대기열 상태 확인
+        const queueData = await cacheService.get(`queue:${userId}`);
+        const matchData = await cacheService.get(`match:${userId}`);
+
+        let response = {
+          success: true,
+          inQueue: !!queueData,
+          matchInProgress: !!matchData,
+          queueTime: 0,
+          joinedAt: null,
+          matchInfo: null,
+          serverTime: new Date().toISOString()
+        };
+
+        if (queueData) {
+          const joinedAt = new Date(queueData.joinedAt);
+          response.queueTime = Math.floor((Date.now() - joinedAt.getTime()) / 1000);
+          response.joinedAt = queueData.joinedAt;
+        }
+
+        if (matchData) {
+          response.matchInfo = matchData;
+        }
+
+        clearTimeout(timeoutId);
+        return res.json(response);
+
+      } catch (error) {
+        console.error('대기열 상태 확인 오류:', error);
+        clearTimeout(timeoutId);
+        return res.status(401).json({ success: false, error: error.message });
+      }
+    }
+
+    // /api/matchmaking/simulate - 시뮬레이션 매치 생성
+    if (pathParts[2] === 'simulate' && req.method === 'POST') {
+      try {
+        const decoded = verifyToken(req.headers.authorization);
+
+        // 시뮬레이션 매치 생성
+        const maps = ['용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원', '거미 여왕의 무덤'];
+        const randomMap = maps[Math.floor(Math.random() * maps.length)];
+
+        const simulationMatch = {
+          matchId: `sim_${Date.now()}`,
+          map: randomMap,
+          blueTeam: [
+            { nickname: '시뮬플레이어1', mmr: 1500 },
+            { nickname: '시뮬플레이어2', mmr: 1520 },
+            { nickname: '시뮬플레이어3', mmr: 1480 },
+            { nickname: '시뮬플레이어4', mmr: 1510 },
+            { nickname: '시뮬플레이어5', mmr: 1490 }
+          ],
+          redTeam: [
+            { nickname: '시뮬플레이어6', mmr: 1505 },
+            { nickname: '시뮬플레이어7', mmr: 1515 },
+            { nickname: '시뮬플레이어8', mmr: 1485 },
+            { nickname: '시뮬플레이어9', mmr: 1495 },
+            { nickname: '시뮬플레이어10', mmr: 1500 }
+          ],
+          createdAt: new Date().toISOString()
+        };
+
+        // 매치 정보 캐시에 저장
+        await cacheService.set(`match:${decoded.id}`, simulationMatch, 1800); // 30분 TTL
+
+        console.log(`시뮬레이션 매치 생성: ${simulationMatch.matchId}`);
+
+        clearTimeout(timeoutId);
+        return res.json({
+          success: true,
+          message: '시뮬레이션 매치가 생성되었습니다',
+          matchInfo: simulationMatch
+        });
+
+      } catch (error) {
+        console.error('시뮬레이션 매치 생성 오류:', error);
+        clearTimeout(timeoutId);
+        return res.status(401).json({ success: false, error: error.message });
+      }
+    }
 
     // /api/matchmaking/recent-games
     if (pathParts[2] === 'recent-games' && req.method === 'GET') {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 30;
-      const skip = (page - 1) * limit;
+      const offset = (page - 1) * limit;
 
       try {
         // 전체 완료된 게임 수 조회
-        const totalCount = await Match.countDocuments({ status: 'completed' });
+        const totalCount = await Match.count({ where: { status: 'completed' } });
 
         // 페이지네이션을 적용한 쿼리
-        const recentGames = await Match.find({ status: 'completed' })
-          .sort({ scheduledTime: -1 })
-          .skip(skip)
-          .limit(limit)
-          .populate('teams.blue.user', 'battleTag nickname mmr battletag')
-          .populate('teams.red.user', 'battleTag nickname mmr battletag');
+        const recentGames = await Match.findAll({
+          where: { status: 'completed' },
+          order: [['created_at', 'DESC']],
+          offset,
+          limit,
+          include: [
+            {
+              model: MatchParticipant,
+              as: 'participants',
+              include: [
+                {
+                  model: User,
+                  as: 'user',
+                  attributes: ['id', 'battleTag', 'nickname', 'mmr']
+                }
+              ]
+            }
+          ]
+        });
 
         // 전체 게임 수를 헤더에 추가
         res.set('X-Total-Count', totalCount.toString());
@@ -303,32 +661,21 @@ module.exports = async function handler(req, res) {
         // 클라이언트에 맞는 형식으로 변환
         const formattedGames = recentGames.map(game => {
           // 게임 시간 형식화
-          const gameDate = new Date(game.scheduledTime || Date.now());
+          const gameDate = new Date(game.createdAt);
           const formattedDate = `${gameDate.getFullYear()}년 ${gameDate.getMonth() + 1}월 ${gameDate.getDate()}일`;
           const hours = gameDate.getHours().toString().padStart(2, '0');
           const minutes = gameDate.getMinutes().toString().padStart(2, '0');
           const formattedTime = `${hours}:${minutes}`;
 
           // 게임 시간 형식화 (분:초)
-          const duration = game.result?.duration || 0;
+          const duration = game.gameDuration || 0;
           const durationMinutes = Math.floor(duration / 60);
           const durationSeconds = duration % 60;
           const formattedDuration = `${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
 
-          // 팀 구성 확인 및 변환
-          const blueTeam = Array.isArray(game.teams?.blue) ? game.teams.blue : [];
-          const redTeam = Array.isArray(game.teams?.red) ? game.teams.red : [];
-
-          // playerStats 배열에서 통계 데이터 가져오기
-          const playerStats = Array.isArray(game.playerStats) ? game.playerStats : [];
-
-          // 플레이어 통계를 battletag로 매핑하는 함수
-          const getPlayerStats = (battletag, team) => {
-            const stats = playerStats.find(stat =>
-              stat.battletag === battletag && stat.team === team
-            );
-            return stats || {};
-          };
+          // 팀별 참가자 분류
+          const blueTeam = game.participants?.filter(p => p.team === 'blue') || [];
+          const redTeam = game.participants?.filter(p => p.team === 'red') || [];
 
           // 평균 MMR 계산 함수
           const calcAvgMmr = (teamPlayers) => {
@@ -340,135 +687,72 @@ module.exports = async function handler(req, res) {
           };
 
           // 플레이어 정보 변환 함수
-          const formatPlayers = (teamPlayers, teamName) => {
+          const formatPlayers = (teamPlayers) => {
             if (!teamPlayers || !Array.isArray(teamPlayers)) return [];
 
-            return teamPlayers.map(player => {
-              const userInfo = player.user;
+            return teamPlayers.map(participant => {
+              const userInfo = participant.user;
               const nickname = userInfo?.nickname ||
-                (userInfo?.battletag ? userInfo.battletag.split('#')[0] :
-                  (userInfo?.battleTag ? userInfo.battleTag.split('#')[0] : '알 수 없음'));
-
-              // playerStats에서 해당 플레이어의 통계 찾기
-              const battletag = userInfo?.battletag || userInfo?.battleTag;
-              const stats = battletag ? getPlayerStats(battletag, teamName) : {};
+                (userInfo?.battleTag ? userInfo.battleTag.split('#')[0] : '알 수 없음');
 
               return {
-                id: userInfo?._id || 'unknown',
+                id: userInfo?.id || 'unknown',
                 nickname: nickname,
-                role: player.role || '알 수 없음',
-                hero: translateHeroName(stats?.hero) || translateHeroName(player.hero) || '알 수 없음',
-                kills: stats?.kills || 0,
-                deaths: stats?.deaths || 0,
-                assists: stats?.assists || 0,
-                heroDamage: stats?.heroDamage || 0,
-                siegeDamage: stats?.siegeDamage || 0,
-                healing: stats?.healing || 0,
-                experienceContribution: stats?.experienceContribution || 0,
-                mmrBefore: stats?.mmrBefore || 1500,
-                mmrAfter: stats?.mmrAfter || 1500,
-                mmrChange: stats?.mmrChange || 0
+                role: participant.role || '알 수 없음',
+                hero: translateHeroName(participant.hero) || '알 수 없음',
+                kills: participant.kills || 0,
+                deaths: participant.deaths || 0,
+                assists: participant.assists || 0,
+                heroDamage: participant.heroDamage || 0,
+                siegeDamage: participant.siegeDamage || 0,
+                healing: participant.healing || 0,
+                experienceContribution: participant.experienceContribution || 0,
+                mmrBefore: participant.mmrBefore || 1500,
+                mmrAfter: participant.mmrAfter || 1500,
+                mmrChange: participant.mmrChange || 0
               };
             });
           };
 
-          // 시뮬레이션 매치인지 확인
-          const isSimulationMatch = game.isSimulation ||
-            (playerStats.length > 0 && playerStats.some(p => p.userId && p.userId.startsWith('sim_')));
-
-          // 시뮬레이션 매치 처리
-          if (isSimulationMatch) {
-            const blueTeamStats = playerStats.filter(p => p.team === 'blue');
-            const redTeamStats = playerStats.filter(p => p.team === 'red');
-
-            const formatSimulationPlayers = (teamStats) => {
-              return teamStats.map(stat => ({
-                id: stat.userId || 'sim-unknown',
-                nickname: stat.battletag ? stat.battletag.split('#')[0] : '시뮬레이션 플레이어',
-                role: '알 수 없음',
-                hero: translateHeroName(stat.hero) || '알 수 없음',
-                kills: stat.kills || 0,
-                deaths: stat.deaths || 0,
-                assists: stat.assists || 0,
-                heroDamage: stat.heroDamage || 0,
-                siegeDamage: stat.siegeDamage || 0,
-                healing: stat.healing || 0,
-                experienceContribution: stat.experienceContribution || 0,
-                mmrBefore: stat.mmrBefore || 1500,
-                mmrAfter: stat.mmrAfter || 1500,
-                mmrChange: stat.mmrChange || 0
-              }));
-            };
-
-            const blueTeamAvgMmr = blueTeamStats.length > 0
-              ? Math.round(blueTeamStats.reduce((sum, p) => sum + (p.mmrBefore || 1500), 0) / blueTeamStats.length)
-              : 1500;
-
-            const redTeamAvgMmr = redTeamStats.length > 0
-              ? Math.round(redTeamStats.reduce((sum, p) => sum + (p.mmrBefore || 1500), 0) / redTeamStats.length)
-              : 1500;
-
-            return {
-              id: game._id,
-              title: game.title || '시뮬레이션 매치',
-              map: translateMapName(game.map) || '알 수 없는 맵',
-              gameMode: '시뮬레이션',
-              date: formattedDate,
-              time: formattedTime,
-              duration: formattedDuration,
-              winner: game.result?.winner || 'none',
-              blueTeam: {
-                name: '블루팀 (시뮬레이션)',
-                avgMmr: blueTeamAvgMmr,
-                players: formatSimulationPlayers(blueTeamStats)
-              },
-              redTeam: {
-                name: '레드팀 (시뮬레이션)',
-                avgMmr: redTeamAvgMmr,
-                players: formatSimulationPlayers(redTeamStats)
-              }
-            };
-          }
-
-          // 일반 매치 처리
-          const blueTeamName = blueTeam.length > 0 ? '블루팀' : '블루팀 (빈 팀)';
-          const redTeamName = redTeam.length > 0 ? '레드팀' : '레드팀 (빈 팀)';
-
           return {
-            id: game._id,
-            title: game.title || '알 수 없는 매치',
-            map: translateMapName(game.map) || '알 수 없는 맵',
+            id: game.id,
+            title: `매치 ${game.id.substring(0, 8)}`,
+            map: translateMapName(game.mapName) || '알 수 없는 맵',
             gameMode: game.gameMode || '일반 게임',
             date: formattedDate,
             time: formattedTime,
             duration: formattedDuration,
-            winner: game.result?.winner || 'none',
+            winner: game.winner || 'none',
             blueTeam: {
-              name: blueTeamName,
+              name: '블루팀',
               avgMmr: calcAvgMmr(blueTeam),
-              players: formatPlayers(blueTeam, 'blue')
+              players: formatPlayers(blueTeam)
             },
             redTeam: {
-              name: redTeamName,
+              name: '레드팀',
               avgMmr: calcAvgMmr(redTeam),
-              players: formatPlayers(redTeam, 'red')
+              players: formatPlayers(redTeam)
             }
           };
         });
 
         console.log(`최근 게임 ${formattedGames.length}개 반환 (총 ${totalCount}개)`);
+        clearTimeout(timeoutId);
         return res.json(formattedGames);
       } catch (err) {
         console.error('최근 게임 조회 오류:', err);
+        clearTimeout(timeoutId);
         return res.json([]);
       }
     }
 
     // 지원하지 않는 경로
+    clearTimeout(timeoutId);
     return res.status(404).json({ error: '요청한 리소스를 찾을 수 없습니다' });
 
   } catch (error) {
     console.error('/api/matchmaking 오류:', error);
+    clearTimeout(timeoutId);
     return res.status(500).json({ error: '서버 오류가 발생했습니다' });
   }
 };

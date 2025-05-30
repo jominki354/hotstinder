@@ -261,7 +261,38 @@ export const translateMap = (mapName) => {
 
 export const translateHero = (heroName) => {
   if (!heroName) return '알 수 없음';
-  return heroTranslations[heroName] || heroName;
+
+  // 원본 이름으로 먼저 시도
+  if (heroTranslations[heroName]) {
+    return heroTranslations[heroName];
+  }
+
+  // 대소문자 무시하고 검색
+  const lowerHeroName = heroName.toLowerCase();
+  for (const [key, value] of Object.entries(heroTranslations)) {
+    if (key.toLowerCase() === lowerHeroName) {
+      return value;
+    }
+  }
+
+  // 공백과 특수문자 제거 후 검색
+  const cleanHeroName = heroName.replace(/[^a-zA-Z가-힣]/g, '').toLowerCase();
+  for (const [key, value] of Object.entries(heroTranslations)) {
+    const cleanKey = key.replace(/[^a-zA-Z가-힣]/g, '').toLowerCase();
+    if (cleanKey === cleanHeroName) {
+      return value;
+    }
+  }
+
+  // 부분 매칭 시도
+  for (const [key, value] of Object.entries(heroTranslations)) {
+    if (key.toLowerCase().includes(lowerHeroName) || lowerHeroName.includes(key.toLowerCase())) {
+      return value;
+    }
+  }
+
+  // 번역을 찾지 못한 경우 원본 반환
+  return heroName;
 };
 
 export const translateGameMode = (gameMode) => {

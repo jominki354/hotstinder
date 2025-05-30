@@ -1,170 +1,243 @@
-const mongoose = require('mongoose');
+const { Sequelize, DataTypes } = require('sequelize');
 
-// MongoDB 연결 함수
-const connectMongoDB = async () => {
-  if (mongoose.connections[0].readyState) {
-    return;
+// PostgreSQL 연결 함수
+const connectPostgreSQL = async () => {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL 환경 변수가 설정되지 않았습니다.');
   }
 
-  try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000,
-      socketTimeoutMS: 60000,
-      connectTimeoutMS: 30000,
-      maxPoolSize: 5,
-      minPoolSize: 1,
-      maxIdleTimeMS: 60000,
-      bufferCommands: false,
-      bufferMaxEntries: 0,
-      retryWrites: true,
-      retryReads: true
-    });
-    console.log('MongoDB 연결 성공');
-  } catch (error) {
-    console.error('MongoDB 연결 실패:', error);
-    throw error;
-  }
+  const sequelize = new Sequelize(databaseUrl, {
+    dialect: 'postgres',
+    logging: false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    },
+    define: {
+      timestamps: true,
+      underscored: true,
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    }
+  });
+
+  await sequelize.authenticate();
+  console.log('PostgreSQL 연결 성공');
+
+  return sequelize;
 };
 
 // User 모델 정의
-const userSchema = new mongoose.Schema({
-  bnetId: { type: String, required: true, unique: true },
-  battletag: { type: String, required: true },
-  nickname: { type: String, required: true },
-  profilePicture: String,
-  mmr: { type: Number, default: 1500 },
-  wins: { type: Number, default: 0 },
-  losses: { type: Number, default: 0 },
-  preferredRoles: [{
-    type: String,
-    enum: ['탱커', '투사', '원거리 암살자', '근접 암살자', '지원가', '힐러', '서포터', '브루저', '전체']
-  }],
-  isAdmin: { type: Boolean, default: false },
-  isDummy: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
-  lastLogin: { type: Date, default: Date.now }
-});
-
-const User = mongoose.models.User || mongoose.model('User', userSchema);
+const defineUser = (sequelize) => {
+  return sequelize.define('User', {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    battleTag: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      field: 'battle_tag'
+    },
+    bnetId: {
+      type: DataTypes.STRING(50),
+      unique: true,
+      field: 'bnet_id'
+    },
+    nickname: {
+      type: DataTypes.STRING(255)
+    },
+    email: {
+      type: DataTypes.STRING(255)
+    },
+    password: {
+      type: DataTypes.STRING(255)
+    },
+    role: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'user'
+    },
+    isProfileComplete: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'is_profile_complete'
+    },
+    preferredRoles: {
+      type: DataTypes.JSONB,
+      defaultValue: ['전체'],
+      field: 'preferred_roles'
+    },
+    previousTier: {
+      type: DataTypes.STRING(50),
+      defaultValue: 'placement',
+      field: 'previous_tier'
+    },
+    mmr: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1500
+    },
+    wins: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    losses: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    lastLoginAt: {
+      type: DataTypes.DATE,
+      field: 'last_login_at'
+    }
+  }, {
+    tableName: 'users'
+  });
+};
 
 module.exports = async function handler(req, res) {
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      console.error('API 타임아웃 발생');
+      res.status(504).json({
+        error: '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
+        timeout: true
+      });
+    }
+  }, 25000);
+
   try {
-    console.log('샘플 데이터 초기화 API 호출:', req.method);
+    console.log('Vercel /api/init-data 요청 처리:', req.method);
 
     // CORS 헤더 설정
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'https://hotstinder.vercel.app');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     if (req.method === 'OPTIONS') {
+      clearTimeout(timeoutId);
       return res.status(200).end();
     }
 
     if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'POST 메서드만 허용됩니다' });
+      clearTimeout(timeoutId);
+      return res.status(405).json({ error: '지원하지 않는 메서드입니다' });
     }
 
-    // MongoDB 연결
-    await connectMongoDB();
+    // PostgreSQL 연결
+    console.log('PostgreSQL 연결 시도 중...');
+    const sequelize = await Promise.race([
+      connectPostgreSQL(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('PostgreSQL 연결 타임아웃')), 15000)
+      )
+    ]);
+    console.log('PostgreSQL 연결 완료');
 
-    // 기존 사용자 수 확인
-    const existingUserCount = await User.countDocuments();
-    console.log('기존 사용자 수:', existingUserCount);
+    // 모델 정의
+    const User = defineUser(sequelize);
 
-    // 샘플 사용자 데이터
-    const sampleUsers = [
+    // 더미 사용자 데이터 생성
+    const dummyUsers = [
       {
-        bnetId: 'sample1',
-        battletag: 'ProGamer#1234',
-        nickname: '프로게이머',
-        mmr: 2100,
-        wins: 45,
-        losses: 20,
+        bnetId: 'dummy_1',
+        battleTag: '테스트유저1#1234',
+        nickname: '테스트유저1',
+        mmr: 1600,
+        wins: 15,
+        losses: 10,
+        preferredRoles: ['탱커', '힐러'],
+        previousTier: 'gold',
+        isProfileComplete: true
+      },
+      {
+        bnetId: 'dummy_2',
+        battleTag: '테스트유저2#5678',
+        nickname: '테스트유저2',
+        mmr: 1450,
+        wins: 8,
+        losses: 12,
         preferredRoles: ['원거리 암살자'],
-        isDummy: true
+        previousTier: 'silver',
+        isProfileComplete: true
       },
       {
-        bnetId: 'sample2',
-        battletag: 'TankMaster#5678',
-        nickname: '탱크마스터',
-        mmr: 1950,
-        wins: 38,
-        losses: 25,
-        preferredRoles: ['탱커'],
-        isDummy: true
-      },
-      {
-        bnetId: 'sample3',
-        battletag: 'HealBot#9012',
-        nickname: '힐봇',
-        mmr: 1850,
-        wins: 42,
-        losses: 28,
-        preferredRoles: ['힐러'],
-        isDummy: true
-      },
-      {
-        bnetId: 'sample4',
-        battletag: 'AssassinKing#3456',
-        nickname: '암살자킹',
+        bnetId: 'dummy_3',
+        battleTag: '테스트유저3#9012',
+        nickname: '테스트유저3',
         mmr: 1750,
-        wins: 35,
-        losses: 30,
-        preferredRoles: ['근접 암살자'],
-        isDummy: true
+        wins: 25,
+        losses: 8,
+        preferredRoles: ['근접 암살자', '브루저'],
+        previousTier: 'platinum',
+        isProfileComplete: true
       },
       {
-        bnetId: 'sample5',
-        battletag: 'SupportGod#7890',
-        nickname: '서포트신',
-        mmr: 1650,
-        wins: 30,
-        losses: 25,
+        bnetId: 'dummy_4',
+        battleTag: '테스트유저4#3456',
+        nickname: '테스트유저4',
+        mmr: 1300,
+        wins: 5,
+        losses: 15,
         preferredRoles: ['지원가'],
-        isDummy: true
+        previousTier: 'bronze',
+        isProfileComplete: true
+      },
+      {
+        bnetId: 'dummy_5',
+        battleTag: '테스트유저5#7890',
+        nickname: '테스트유저5',
+        mmr: 1850,
+        wins: 30,
+        losses: 12,
+        preferredRoles: ['탱커', '브루저'],
+        previousTier: 'diamond',
+        isProfileComplete: true
       }
     ];
 
-    // 중복 제거를 위해 기존 사용자 확인
-    const existingBnetIds = await User.find({}, 'bnetId').lean();
-    const existingIds = existingBnetIds.map(u => u.bnetId);
+    let createdCount = 0;
+    let existingCount = 0;
 
-    const newUsers = sampleUsers.filter(user => !existingIds.includes(user.bnetId));
+    for (const userData of dummyUsers) {
+      try {
+        // 이미 존재하는 사용자인지 확인
+        const existingUser = await User.findOne({ where: { bnetId: userData.bnetId } });
 
-    if (newUsers.length === 0) {
-      return res.json({
-        success: true,
-        message: '모든 샘플 사용자가 이미 존재합니다.',
-        userCount: existingUserCount
-      });
+        if (existingUser) {
+          existingCount++;
+          console.log(`사용자 ${userData.battleTag} 이미 존재함`);
+        } else {
+          // 새 사용자 생성
+          await User.create(userData);
+          createdCount++;
+          console.log(`사용자 ${userData.battleTag} 생성 완료`);
+        }
+      } catch (error) {
+        console.error(`사용자 ${userData.battleTag} 생성 실패:`, error.message);
+      }
     }
 
-    // 새 사용자 생성
-    const createdUsers = await User.insertMany(newUsers);
-    console.log(`${createdUsers.length}명의 샘플 사용자 생성 완료`);
+    console.log(`더미 데이터 초기화 완료: 생성 ${createdCount}개, 기존 ${existingCount}개`);
 
-    const finalUserCount = await User.countDocuments();
-
+    clearTimeout(timeoutId);
     return res.json({
       success: true,
-      message: `${createdUsers.length}명의 샘플 사용자가 생성되었습니다.`,
-      createdCount: createdUsers.length,
-      totalUserCount: finalUserCount,
-      users: createdUsers.map(u => ({
-        nickname: u.nickname,
-        mmr: u.mmr,
-        wins: u.wins,
-        losses: u.losses
-      }))
+      message: '더미 데이터 초기화가 완료되었습니다',
+      stats: {
+        created: createdCount,
+        existing: existingCount,
+        total: dummyUsers.length
+      }
     });
 
   } catch (error) {
-    console.error('샘플 데이터 생성 오류:', error);
-    return res.status(500).json({
-      error: '샘플 데이터 생성 실패',
-      details: error.message
-    });
+    console.error('/api/init-data 오류:', error);
+    clearTimeout(timeoutId);
+    return res.status(500).json({ error: '서버 오류가 발생했습니다' });
   }
 };

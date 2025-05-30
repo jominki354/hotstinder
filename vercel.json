@@ -15,6 +15,12 @@
     "api/auth/me.js": {
       "maxDuration": 30
     },
+    "api/auth/profile-setup.js": {
+      "maxDuration": 30
+    },
+    "api/auth/dashboard.js": {
+      "maxDuration": 30
+    },
     "api/auth/admin-login.js": {
       "maxDuration": 30
     },
@@ -39,6 +45,15 @@
     "api/admin/create-test-matches.js": {
       "maxDuration": 60
     },
+    "api/matchmaking.js": {
+      "maxDuration": 30
+    },
+    "api/users.js": {
+      "maxDuration": 30
+    },
+    "api/matches.js": {
+      "maxDuration": 30
+    },
     "api/debug/env.js": {
       "maxDuration": 30
     },
@@ -58,6 +73,14 @@
     {
       "source": "/api/auth/me",
       "destination": "/api/auth/me.js"
+    },
+    {
+      "source": "/api/auth/profile/setup",
+      "destination": "/api/auth/profile-setup.js"
+    },
+    {
+      "source": "/api/auth/dashboard",
+      "destination": "/api/auth/dashboard.js"
     },
     {
       "source": "/api/auth/admin-login",
@@ -90,6 +113,18 @@
     {
       "source": "/api/admin/create-test-matches",
       "destination": "/api/admin/create-test-matches.js"
+    },
+    {
+      "source": "/api/matchmaking/(.*)",
+      "destination": "/api/matchmaking.js"
+    },
+    {
+      "source": "/api/users/(.*)",
+      "destination": "/api/users.js"
+    },
+    {
+      "source": "/api/matches/(.*)",
+      "destination": "/api/matches.js"
     },
     {
       "source": "/api/debug/env",

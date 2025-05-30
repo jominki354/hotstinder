@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import HomePage from './pages/HomePage';
+import AboutPage from './pages/AboutPage';
 import LoginPage from './pages/LoginPage';
 import AuthSuccessPage from './pages/AuthSuccessPage';
 import DashboardPage from './pages/DashboardPage';
@@ -56,16 +57,22 @@ function App() {
     currentMatchId,
     matchInfo,
     setMatchInfo,
-    loading: isLoading
+    loading: isLoading,
+    initialize
   } = useAuthStore();
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  // 앱 초기화 시 인증 상태 확인
+  // 앱 초기화 시 authStore 초기화 및 인증 상태 확인
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log('앱 초기화 중, 인증 상태 확인...');
+      console.log('앱 초기화 중, authStore 초기화...');
+
+      // authStore 초기화 (WebSocket 연결 포함)
+      initialize();
+
+      console.log('인증 상태 확인...');
 
       // 토큰이 있을 경우에만 사용자 정보 로드
       if (token) {
@@ -97,7 +104,7 @@ function App() {
     };
 
     initializeAuth();
-  }, [loadUser, checkAuth, token, setQueueStatus, setMatchProgress]);
+  }, [loadUser, checkAuth, token, setQueueStatus, setMatchProgress, initialize]);
 
   // 매치 정보 상태 확인
   useEffect(() => {
@@ -354,7 +361,16 @@ function App() {
   }, [isAuthenticated, isLoading, user]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 relative">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-purple-900 relative">
+      {/* 배경 효과 */}
+      <div className="fixed inset-0 opacity-10 pointer-events-none" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+      }}></div>
+
+      {/* 글로우 효과 */}
+      <div className="fixed top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
       <Header />
 
       {/* QueueStatus 컴포넌트 최적화된 래퍼 */}
@@ -362,9 +378,10 @@ function App() {
         <QueueStatus key={isAuthenticated ? 'authenticated' : 'anonymous'} />
       </div>
 
-      <main className="flex-grow container mx-auto px-3 sm:px-4 py-4 sm:py-6 mt-16 pt-1 relative">
+      <main className="flex-grow container mx-auto px-3 sm:px-4 py-4 sm:py-6 mt-16 pt-1 relative z-10">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />
           } />
@@ -394,7 +411,7 @@ function App() {
             </PrivateRoute>
           } />
 
-          {/* 매치 세부 정보 페이지 라우트 추가 */}
+          {/* 매치 세부 정보 페이지 라우트 */}
           <Route path="/match-details" element={
             <PrivateRoute>
               <MatchDetailsPage />

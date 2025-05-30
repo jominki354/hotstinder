@@ -1,41 +1,97 @@
-# 의존성 디렉토리
+# Dependencies
 node_modules/
-client/node_modules/
-server/node_modules/
+*/node_modules/
 
-# 환경 설정 파일 (보안상 중요)
+# Environment variables
 .env
-.env.*
-server/.env
-server/.env.*
+.env.local
+.env.development
+.env.production
 client/.env
-client/.env.*
+server/.env
+api/.env
+
+# Keep example files
 !.env.example
-!.env.production
+!client/.env.example
+!server/.env.example
 
-# Vercel 관련 민감 파일
-vercel-env-variables.*
-*.env
+# Build outputs
+dist/
+build/
+client/dist/
+client/build/
 
-# 로그 파일
+# Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-logs
-*.log
-server/logs/
-server/*.log
-server/*_log.txt
-server/debug.txt
-server/temp.txt
 
-# 빌드 디렉토리
-client/build/
-client/dist/
-server/build/
-server/dist/
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
 
-# 운영체제 관련 파일
+# Coverage directory used by tools like istanbul
+coverage/
+
+# nyc test coverage
+.nyc_output/
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env.test
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -44,39 +100,18 @@ server/dist/
 ehthumbs.db
 Thumbs.db
 
-# NeDB 데이터 파일
-server/data/
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+data/
 
-# IDE 관련 파일
-.idea/
-.vscode/
-*.sublime-workspace
-*.sublime-project
-.vs/
+# Redis dump
+dump.rdb
 
-# 임시 파일
-*.swp
-*.swo
-.tmp
-debug.txt
-temp*.txt
+# Temporary files
+tmp/
+temp/
 
-# 리플레이 파일 (용량이 큰 파일들)
-*.StormReplay
-*.replay
-
-# 분석 결과 파일 (용량이 큰 파일들)
-*_analysis*.json
-replay_analysis_results.json
-complete_replay_analysis.json
-final_complete_analysis.json
-
-# 업로드 파일
-server/uploads/
-
-# 캐시 파일
-.cache/
-.parcel-cache/
+# Vercel
 .vercel
-
-/generated/prisma

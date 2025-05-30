@@ -27,6 +27,8 @@ const debugRoutes = require('./routes/debug.routes');
 // 설정 및 유틸리티 가져오기
 const configPassport = require('./config/passport');
 const { setupSocketIO } = require('./socket');
+const socketService = require('./services/socketService');
+const cacheService = require('./services/cacheService');
 const logger = require('./utils/logger');
 
 // 애플리케이션 시작 로그
@@ -139,8 +141,27 @@ const corsOptions = {
 
 // 미들웨어 설정
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf, encoding) => {
+    try {
+      JSON.parse(buf);
+    } catch (err) {
+      logger.error('💥 JSON 파싱 오류', {
+        error: err.message,
+        body: buf.toString(),
+        url: req.url,
+        method: req.method,
+        contentType: req.headers['content-type']
+      });
+      err.status = 400;
+      err.body = buf;
+      err.type = 'entity.parse.failed';
+      throw err;
+    }
+  }
+}));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 // 업로드 디렉토리 정적 접근 허용
@@ -178,10 +199,10 @@ configPassport(passport);
 
 logger.info('🛡️ Passport 인증 설정 완료');
 
-// 소켓 설정
-const io = setupSocketIO(httpServer);
+// WebSocket 서비스 초기화
+socketService.init(httpServer);
 
-logger.info('🔌 Socket.IO 설정 완료');
+logger.info('🔌 WebSocket 서비스 초기화 완료');
 
 // 헬스체크 엔드포인트 (도커 헬스체크용)
 app.get('/api/health', (req, res) => {
@@ -189,7 +210,9 @@ app.get('/api/health', (req, res) => {
     uptime: process.uptime(),
     message: 'OK',
     timestamp: Date.now(),
-    database: isPostgreSQLConnected ? 'PostgreSQL connected' : 'Database disconnected'
+    database: isPostgreSQLConnected ? 'PostgreSQL connected' : 'Database disconnected',
+    cache: cacheService.getStats(),
+    websocket: socketService.getStatus()
   };
 
   try {
@@ -256,16 +279,41 @@ if (process.env.NODE_ENV === 'production' || process.env.USE_POSTGRESQL === 'tru
   });
 }
 
-// 오류 처리 미들웨어
+// JSON 파싱 오류 처리 미들웨어
 app.use((err, req, res, next) => {
-  logger.error('💥 서버 오류 발생', {
+  if (err.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    logger.error('💥 서버 오류 발생', {
+      error: err.message,
+      stack: err.stack,
+      url: req.url,
+      method: req.method,
+      body: err.body ? err.body.toString() : 'No body',
+      headers: {
+        'content-type': req.headers['content-type'],
+        'content-length': req.headers['content-length']
+      }
+    });
+
+    return res.status(400).json({
+      success: false,
+      message: 'JSON 데이터 형식이 올바르지 않습니다.',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+  next(err);
+});
+
+// 일반적인 오류 처리 미들웨어
+app.use((err, req, res, next) => {
+  logger.error('💥 일반 서버 오류', {
     error: err.message,
     stack: err.stack,
     url: req.url,
     method: req.method
   }, 'ERROR');
 
-  res.status(500).json({
+  res.status(err.status || 500).json({
+    success: false,
     message: '서버 오류가 발생했습니다.',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
@@ -278,6 +326,8 @@ httpServer.listen(PORT, () => {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     database: isPostgreSQLConnected ? 'PostgreSQL' : 'None',
+    cache: cacheService.getStats().type,
+    websocket: socketService.getStatus().isInitialized ? 'enabled' : 'disabled',
     uptime: process.uptime()
   }, 'SERVER');
 
@@ -292,3 +342,40 @@ httpServer.listen(PORT, () => {
     }, 'DB');
   }
 });
+
+// Graceful shutdown 처리
+process.on('SIGTERM', async () => {
+  logger.info('🛑 SIGTERM 신호 수신, 서버 종료 중...');
+  await gracefulShutdown();
+});
+
+process.on('SIGINT', async () => {
+  logger.info('🛑 SIGINT 신호 수신, 서버 종료 중...');
+  await gracefulShutdown();
+});
+
+async function gracefulShutdown() {
+  try {
+    // WebSocket 서비스 종료
+    socketService.close();
+
+    // 캐시 서비스 종료
+    await cacheService.close();
+
+    // HTTP 서버 종료
+    httpServer.close(() => {
+      logger.info('✅ 서버 종료 완료');
+      process.exit(0);
+    });
+
+    // 강제 종료 타임아웃 (30초)
+    setTimeout(() => {
+      logger.error('⚠️ 강제 서버 종료');
+      process.exit(1);
+    }, 30000);
+
+  } catch (err) {
+    logger.error('❌ 서버 종료 중 오류:', err);
+    process.exit(1);
+  }
+}

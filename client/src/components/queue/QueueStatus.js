@@ -211,7 +211,8 @@ const QueueStatus = () => {
     isAuthenticated,
     matchInProgress,
     currentMatchId,
-    setMatchProgress
+    setMatchProgress,
+    onSocketEvent
   } = useAuthStore();
 
   const navigate = useNavigate();
@@ -239,7 +240,6 @@ const QueueStatus = () => {
     estimatedTime: '00:00'
   });
   const [queueStatusState, setQueueState] = useState(queueStatusRef.current);
-  const [isVisible, setIsVisible] = useState(true);
   const [isLeavingQueue, setIsLeavingQueue] = useState(false);
   const [queueTime, setQueueTime] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -259,10 +259,21 @@ const QueueStatus = () => {
   // 애니메이션 타이밍 최적화
   const animationRef = useRef(null);
 
-  // 시간 포맷팅 함수 (초를 MM:SS 형식으로 변환)
+  // 시간 포맷팅 함수 (초를 MM:SS 형식으로 변환) - NaN 방지 개선
   const formatTime = useCallback((seconds) => {
+    // NaN, undefined, null 체크
+    if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) {
+      return '00:00';
+    }
+
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
+
+    // 추가 안전장치: 계산 결과가 NaN인 경우 처리
+    if (isNaN(mins) || isNaN(secs)) {
+      return '00:00';
+    }
+
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
@@ -485,30 +496,9 @@ const QueueStatus = () => {
     // 상태 변경을 감지하기 위한 플래그
     const { inQueue: prevInQueue, matchInProgress: prevMatchInProgress } = prevQueueStateRef.current;
 
-    // 로그인 상태가 아니면 팝업 숨김
+    // 로그인 상태가 아니면 상태 초기화
     if (!isAuthenticated) {
-      if (isVisible) {
-        setIsVisible(false);
-      }
       return;
-    }
-
-    // 시뮬레이션 상태 확인
-    const simulationRunning = localStorage.getItem('simulatedPlayers') !== null &&
-                             localStorage.getItem('simulationStartTime') !== null;
-
-    // 대기열이나 매치가 활성화되어 있으면 모든 페이지에서 표시
-    const newVisibleState = (inQueue || isMatchActive || simulationRunning) && isAuthenticated;
-
-    if (isVisible !== newVisibleState) {
-      // 애니메이션 타이밍을 최적화하기 위한 requestAnimationFrame
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-
-      animationRef.current = requestAnimationFrame(() => {
-        setIsVisible(newVisibleState);
-      });
     }
 
     // 상태 변경을 추적
@@ -520,7 +510,7 @@ const QueueStatus = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isAuthenticated, inQueue, isMatchActive, location.pathname, isVisible]);
+  }, [isAuthenticated, inQueue, isMatchActive, location.pathname]);
 
   // 대기열 상태 가져오기 - useCallback 최적화
   const fetchQueueStatus = useCallback(async () => {
@@ -683,24 +673,103 @@ const QueueStatus = () => {
     }
   }, [isAuthenticated, inQueue, isMatchActive, setQueueStatus, setMatchProgress]);
 
-  // useEffect 대기열 상태 가져오기 부분 추가
+  // 대기열 상태 주기적 업데이트 - useEffect 최적화
   useEffect(() => {
     let interval;
 
-    if (isVisible && isAuthenticated && inQueue && !isMatchActive) {
+    if (isAuthenticated && inQueue && !isMatchActive) {
       // 초기 데이터 로드
       fetchQueueStatus();
 
-      // 5초마다 상태 업데이트 (3초에서 5초로 변경하여 서버 부하 감소)
-      interval = setInterval(() => {
-        fetchQueueStatus();
-      }, 5000);
+      // 3초마다 상태 업데이트
+      interval = setInterval(fetchQueueStatus, 3000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isVisible, isAuthenticated, inQueue, isMatchActive, fetchQueueStatus]);
+  }, [isAuthenticated, inQueue, isMatchActive, fetchQueueStatus]);
+
+  // WebSocket 이벤트 리스너 설정
+  useEffect(() => {
+    if (!isAuthenticated || !onSocketEvent) return;
+
+    console.log('[QueueStatus] WebSocket 이벤트 리스너 설정');
+
+    // 대기열 업데이트 이벤트
+    const unsubscribeQueueUpdate = onSocketEvent('queue:update', (data) => {
+      console.log('[QueueStatus] WebSocket 대기열 업데이트:', data);
+
+      // 대기열 상태 업데이트
+      if (data.currentPlayers !== undefined) {
+        queueStatusRef.current = {
+          ...queueStatusRef.current,
+          currentPlayers: data.currentPlayers,
+          requiredPlayers: data.requiredPlayers || 10
+        };
+        setQueueState(queueStatusRef.current);
+      }
+    });
+
+    // 매치 찾음 이벤트
+    const unsubscribeMatchFound = onSocketEvent('match:found', (data) => {
+      console.log('[QueueStatus] WebSocket 매치 찾음 알림:', data);
+
+      // 대기열 상태 해제
+      localStorage.setItem('inQueue', 'false');
+      localStorage.setItem('matchInProgress', 'true');
+
+      if (data.matchId) {
+        localStorage.setItem('currentMatchId', data.matchId);
+        setMatchProgress(true, data.matchId);
+      }
+
+      setQueueStatus(false);
+      queueTimeState.reset();
+
+      // 매치 찾음 알림 표시
+      setMatchFound(true);
+    });
+
+    // 대기열 상태 변경 이벤트
+    const unsubscribeQueueStatus = onSocketEvent('queue:status', (data) => {
+      console.log('[QueueStatus] WebSocket 대기열 상태 변경:', data);
+
+      if (data.status === 'left') {
+        localStorage.setItem('inQueue', 'false');
+        setQueueStatus(false);
+        queueTimeState.reset();
+        setMatchFound(false);
+      } else if (data.status === 'joined') {
+        localStorage.setItem('inQueue', 'true');
+        setQueueStatus(true);
+
+        // 대기열 정보가 있으면 업데이트
+        if (data.queueEntry) {
+          queueTimeState.setServerTime(
+            data.queueEntry.waitTime || 0,
+            data.queueEntry.queueTime,
+            new Date().toISOString()
+          );
+        }
+      }
+    });
+
+    // 시스템 알림 이벤트
+    const unsubscribeSystemNotification = onSocketEvent('system:notification', (data) => {
+      console.log('[QueueStatus] WebSocket 시스템 알림:', data);
+      // 시스템 알림은 이미 socketService에서 toast로 처리됨
+    });
+
+    // 정리 함수
+    return () => {
+      console.log('[QueueStatus] WebSocket 이벤트 리스너 정리');
+      unsubscribeQueueUpdate();
+      unsubscribeMatchFound();
+      unsubscribeQueueStatus();
+      unsubscribeSystemNotification();
+    };
+  }, [isAuthenticated, onSocketEvent, setQueueStatus, setMatchProgress]);
 
   // 대기열 취소 - useCallback으로 최적화
   const leaveQueue = useCallback(async () => {
@@ -1008,16 +1077,21 @@ const QueueStatus = () => {
     initializeQueueStatus();
   }, [isAuthenticated]); // isAuthenticated가 변경될 때만 재실행
 
-  // 대기열에 없거나 매치 중이 아니거나 로그인 상태가 아니거나 매치메이킹 페이지인 경우 아무것도 보여주지 않음
-  if (!isVisible || !isAuthenticated || location.pathname === '/matchmaking' || location.pathname === '/match-details') return null;
+  // 로그인하지 않은 경우 또는 매치메이킹 페이지에서는 숨김 (중복 표시 방지)
+  if (!isAuthenticated || location.pathname === '/matchmaking') return null;
+
+  // 대기열 상태나 매치 진행 중일 때만 표시
+  const shouldShow = inQueue || matchInProgress;
+
+  if (!shouldShow) return null;
 
   return (
     <div
-      className={`queue-status-popup ${isVisible ? 'active' : ''} ${isMinimized ? 'minimized' : ''} ${matchInProgress ? 'match-active' : ''}`}
+      className={`queue-status-popup ${shouldShow ? 'active' : ''} ${isMinimized ? 'minimized' : ''} ${matchInProgress ? 'match-active' : ''}`}
       style={{
         willChange: 'transform, opacity',
-        visibility: isVisible ? 'visible' : 'hidden', // 렌더링 최적화
-        transitionDelay: isVisible ? '0s' : '0.15s' // 사라질 때 지연으로 깜박임 방지
+        visibility: shouldShow ? 'visible' : 'hidden', // 렌더링 최적화
+        transitionDelay: shouldShow ? '0s' : '0.15s' // 사라질 때 지연으로 깜박임 방지
       }}
       role="status"
       aria-live="polite"
