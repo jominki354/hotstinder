@@ -7,12 +7,12 @@ import './index.css';
 
 // API 기본 URL 설정
 const getApiBaseURL = () => {
-  // 프로덕션 환경 (Vercel 배포)
+  // 프로덕션 환경 (Vercel 배포) - 상대 경로 사용
   if (process.env.NODE_ENV === 'production') {
-    return process.env.REACT_APP_API_URL || 'https://hotstinder.vercel.app';
+    return ''; // 상대 경로로 /api/* 라우트 사용
   }
-  // 개발 환경에서는 프록시 사용 (상대 경로)
-  return '';
+  // 개발 환경에서는 로컬 서버 사용
+  return process.env.REACT_APP_API_URL || 'http://localhost:5000';
 };
 
 // axios 기본 설정
