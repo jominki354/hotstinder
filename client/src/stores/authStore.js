@@ -43,25 +43,28 @@ const useAuthStore = create(
 
       // 매치 진행 중 상태 설정 함수
       setMatchProgress: (status, matchId = '') => {
+        // status가 undefined나 null인 경우 false로 처리
+        const normalizedStatus = status !== undefined && status !== null ? status : false;
+
         // 상태 변경과 함께 localStorage에도 저장
-        localStorage.setItem('matchInProgress', status.toString());
-        if (status && matchId) {
+        localStorage.setItem('matchInProgress', normalizedStatus.toString());
+        if (normalizedStatus && matchId) {
           localStorage.setItem('currentMatchId', matchId);
-          set({ matchInProgress: status, currentMatchId: matchId });
+          set({ matchInProgress: normalizedStatus, currentMatchId: matchId });
         } else {
-          if (!status) {
+          if (!normalizedStatus) {
             localStorage.removeItem('currentMatchId');
           }
-          set({ matchInProgress: status, currentMatchId: status ? get().currentMatchId : '' });
+          set({ matchInProgress: normalizedStatus, currentMatchId: normalizedStatus ? get().currentMatchId : '' });
         }
 
         // 매치 진행 중이면 대기열 상태는 자동으로 false로 설정
-        if (status) {
+        if (normalizedStatus) {
           localStorage.setItem('inQueue', 'false');
           set({ inQueue: false });
         }
 
-        console.log('[AuthStore] 매치 진행 상태 변경:', status, matchId ? `매치 ID: ${matchId}` : '');
+        console.log('[AuthStore] 매치 진행 상태 변경:', normalizedStatus, matchId ? `매치 ID: ${matchId}` : '');
       },
 
       // localStorage와 상태 동기화 함수

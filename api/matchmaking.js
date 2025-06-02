@@ -756,8 +756,78 @@ module.exports = async function handler(req, res) {
         // 기존 대기열 상태 정리
         await cacheService.del(`queue:${userId}`);
 
+        // 실제 DB에서 사용자들 가져오기 (현재 사용자 포함)
+        const allUsers = await User.findAll({
+          where: {
+            isProfileComplete: true,
+            battleTag: { [Sequelize.Op.ne]: null }
+          },
+          order: [['mmr', 'DESC']],
+          limit: 50 // 상위 50명 중에서 선택
+        });
+
+        console.log(`시뮬레이션용 사용자 ${allUsers.length}명 조회됨`);
+
+        // 현재 사용자를 포함하여 10명 선택
+        let selectedUsers = [];
+
+        // 현재 사용자 먼저 추가
+        selectedUsers.push(user);
+
+        // 나머지 9명을 다른 사용자들 중에서 선택
+        const otherUsers = allUsers.filter(u => u.id !== user.id);
+        const shuffledUsers = otherUsers.sort(() => Math.random() - 0.5);
+        selectedUsers = selectedUsers.concat(shuffledUsers.slice(0, 9));
+
+        // 10명이 안 되면 현재 사용자 기반으로 가상 사용자 생성
+        while (selectedUsers.length < 10) {
+          const baseUser = selectedUsers[Math.floor(Math.random() * selectedUsers.length)];
+          selectedUsers.push({
+            id: `sim_${Date.now()}_${selectedUsers.length}`,
+            battleTag: `SimPlayer${selectedUsers.length}#${Math.floor(Math.random() * 9999)}`,
+            nickname: `SimPlayer${selectedUsers.length}`,
+            mmr: baseUser.mmr + Math.floor(Math.random() * 200) - 100, // ±100 MMR 범위
+            preferredRoles: baseUser.preferredRoles || ['전체']
+          });
+        }
+
+        // MMR 기반 팀 밸런싱
+        const sortedUsers = selectedUsers.sort((a, b) => (b.mmr || 1500) - (a.mmr || 1500));
+
+        const blueTeam = [];
+        const redTeam = [];
+
+        // 스네이크 드래프트 방식으로 팀 분배
+        for (let i = 0; i < 10; i++) {
+          if (i % 4 < 2) {
+            if (blueTeam.length < 5) {
+              blueTeam.push(sortedUsers[i]);
+            } else {
+              redTeam.push(sortedUsers[i]);
+            }
+          } else {
+            if (redTeam.length < 5) {
+              redTeam.push(sortedUsers[i]);
+            } else {
+              blueTeam.push(sortedUsers[i]);
+            }
+          }
+        }
+
+        // 팀 정보 포맷팅
+        const formatTeam = (team) => {
+          return team.map((player, index) => ({
+            id: player.id,
+            name: player.battleTag || player.nickname || `Player${index + 1}`,
+            nickname: player.nickname || (player.battleTag ? player.battleTag.split('#')[0] : `Player${index + 1}`),
+            mmr: player.mmr || 1500,
+            role: player.preferredRoles?.[0] || '전체',
+            isCurrentUser: player.id === user.id
+          }));
+        };
+
         // 시뮬레이션 매치 생성
-        const maps = ['용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원', '거미 여왕의 무덤'];
+        const maps = ['용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원', '거미 여왕의 무덤', '영원의 전쟁터', '불지옥 신단', '파멸의 탑', '볼스카야 공장', '알터랙 고개'];
         const randomMap = maps[Math.floor(Math.random() * maps.length)];
 
         const simulationMatch = {
@@ -766,27 +836,20 @@ module.exports = async function handler(req, res) {
           gameMode: '개발용 시뮬레이션',
           isSimulation: true,
           isDevelopment: true,
-          blueTeam: [
-            { nickname: '개발플레이어1', mmr: 1500, role: '탱커' },
-            { nickname: '개발플레이어2', mmr: 1520, role: '힐러' },
-            { nickname: '개발플레이어3', mmr: 1480, role: '원거리 딜러' },
-            { nickname: '개발플레이어4', mmr: 1510, role: '근접 딜러' },
-            { nickname: '개발플레이어5', mmr: 1490, role: '지원가' }
-          ],
-          redTeam: [
-            { nickname: '개발플레이어6', mmr: 1505, role: '탱커' },
-            { nickname: '개발플레이어7', mmr: 1515, role: '힐러' },
-            { nickname: '개발플레이어8', mmr: 1485, role: '원거리 딜러' },
-            { nickname: '개발플레이어9', mmr: 1495, role: '근접 딜러' },
-            { nickname: '개발플레이어10', mmr: 1500, role: '지원가' }
-          ],
-          createdAt: new Date().toISOString()
+          blueTeam: formatTeam(blueTeam),
+          redTeam: formatTeam(redTeam),
+          createdAt: new Date().toISOString(),
+          realUserCount: allUsers.length,
+          selectedUserCount: selectedUsers.filter(u => !u.id.toString().startsWith('sim_')).length
         };
 
         // 매치 정보 캐시에 저장
         await cacheService.set(`match:${userId}`, simulationMatch, 1800); // 30분 TTL
 
         console.log(`개발용 시뮬레이션 매치 생성: ${simulationMatch.matchId} (사용자: ${user.battleTag})`);
+        console.log(`실제 DB 사용자: ${simulationMatch.selectedUserCount}명, 전체: ${selectedUsers.length}명`);
+        console.log(`블루팀 평균 MMR: ${Math.round(blueTeam.reduce((sum, p) => sum + (p.mmr || 1500), 0) / blueTeam.length)}`);
+        console.log(`레드팀 평균 MMR: ${Math.round(redTeam.reduce((sum, p) => sum + (p.mmr || 1500), 0) / redTeam.length)}`);
 
         clearTimeout(timeoutId);
         return res.json({

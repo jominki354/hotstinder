@@ -277,6 +277,13 @@ module.exports = async function handler(req, res) {
     const { pathname } = new URL(req.url, `http://${req.headers.host}`);
     const pathParts = pathname.split('/').filter(Boolean);
 
+    console.log('[API 디버깅] URL 분석:', {
+      method: req.method,
+      pathname,
+      pathParts,
+      pathPartsLength: pathParts.length
+    });
+
     // JWT 토큰 검증 함수
     const verifyToken = (authHeader) => {
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -291,6 +298,129 @@ module.exports = async function handler(req, res) {
         throw new Error('유효하지 않은 토큰입니다');
       }
     };
+
+    // POST /api/matches/:id/complete - 매치 완료 (우선 체크)
+    if (req.method === 'POST' && pathParts.length >= 4 &&
+        pathParts[1] === 'matches' && pathParts[3] === 'complete') {
+      console.log('[매치 완료] 엔드포인트 매칭 성공:', {
+        method: req.method,
+        pathParts,
+        matchId: pathParts[2]
+      });
+
+      try {
+        const decoded = verifyToken(req.headers.authorization);
+        const matchId = pathParts[2];
+        const { replayData, winningTeam, gameLength, playerStats, isSimulation } = req.body;
+
+        console.log('[매치 완료] 요청 수신:', {
+          matchId,
+          winningTeam,
+          gameLength,
+          playerStatsCount: playerStats?.length || 0,
+          isSimulation
+        });
+
+        // 매치 조회
+        const match = await Match.findOne({ where: { id: matchId } });
+        if (!match) {
+          console.error('[매치 완료] 매치를 찾을 수 없음:', matchId);
+          clearTimeout(timeoutId);
+          return res.status(404).json({ success: false, error: '매치를 찾을 수 없습니다' });
+        }
+
+        // 매치 완료 처리
+        const updateData = {
+          status: 'completed',
+          winner: winningTeam,
+          gameDuration: gameLength || 0,
+          endedAt: new Date()
+        };
+
+        if (!match.startedAt) {
+          updateData.startedAt = new Date();
+        }
+
+        await match.update(updateData);
+        console.log('[매치 완료] 매치 상태 업데이트 완료');
+
+        // 플레이어 통계 저장 (실제 매치만)
+        if (!isSimulation && playerStats && Array.isArray(playerStats)) {
+          console.log('[매치 완료] 플레이어 통계 저장 시작');
+
+          for (const playerStat of playerStats) {
+            try {
+              // 사용자 조회 (배틀태그로)
+              let user = null;
+              if (playerStat.battletag && !playerStat.battletag.startsWith('blue_') && !playerStat.battletag.startsWith('red_')) {
+                user = await User.findOne({
+                  where: {
+                    battleTag: playerStat.battletag
+                  }
+                });
+              }
+
+              // MatchParticipant 생성
+              await MatchParticipant.create({
+                matchId: match.id,
+                userId: user?.id || null,
+                team: playerStat.team,
+                hero: playerStat.hero,
+                kills: playerStat.kills || 0,
+                deaths: playerStat.deaths || 0,
+                assists: playerStat.assists || 0,
+                heroDamage: playerStat.heroDamage || 0,
+                siegeDamage: playerStat.siegeDamage || 0,
+                healing: playerStat.healing || 0,
+                experienceContribution: playerStat.experienceContribution || 0,
+                mmrBefore: user?.mmr || 1500,
+                mmrAfter: user?.mmr || 1500,
+                mmrChange: 0
+              });
+
+              // 사용자 승/패 기록 업데이트 (실제 사용자만)
+              if (user) {
+                const isWinner = playerStat.team === winningTeam;
+                const updateUserData = {};
+
+                if (isWinner) {
+                  updateUserData.wins = (user.wins || 0) + 1;
+                } else {
+                  updateUserData.losses = (user.losses || 0) + 1;
+                }
+
+                await user.update(updateUserData);
+                console.log(`[매치 완료] 사용자 ${user.battleTag} 통계 업데이트: ${isWinner ? '승리' : '패배'}`);
+              }
+
+            } catch (playerError) {
+              console.error('[매치 완료] 플레이어 통계 저장 오류:', playerError);
+              // 개별 플레이어 오류는 전체 프로세스를 중단하지 않음
+            }
+          }
+        } else {
+          console.log('[매치 완료] 시뮬레이션 매치 - 플레이어 통계 저장 생략');
+        }
+
+        clearTimeout(timeoutId);
+        return res.json({
+          success: true,
+          message: isSimulation ? '시뮬레이션 매치가 완료되었습니다' : '매치가 완료되었습니다',
+          data: {
+            matchId: match.id,
+            status: 'completed',
+            winner: winningTeam,
+            gameDuration: gameLength,
+            isSimulation
+          }
+        });
+
+      } catch (error) {
+        console.error('[매치 완료] 오류:', error);
+        clearTimeout(timeoutId);
+        return res.status(500).json({ success: false, error: error.message });
+      }
+    }
 
     // GET /api/matches - 매치 목록 조회
     if (req.method === 'GET' && pathParts.length === 2) {

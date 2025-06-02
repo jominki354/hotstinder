@@ -508,9 +508,10 @@ const QueueStatus = () => {
 
   // 매치메이킹 페이지에서는 최소화된 형태로 표시
   const isMatchmakingPage = location.pathname === '/matchmaking';
+  const isMatchDetailsPage = location.pathname === '/match-details';
 
-  // 매치메이킹 페이지에서는 숨김 또는 표시되지 않을 때 숨김
-  if (!isVisible || isMatchmakingPage) {
+  // 매치메이킹 페이지나 매치 상세 페이지에서는 숨김 또는 표시되지 않을 때 숨김
+  if (!isVisible || isMatchmakingPage || isMatchDetailsPage) {
     return null;
   }
 

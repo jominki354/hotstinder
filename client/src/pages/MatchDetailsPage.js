@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { toast } from 'react-toastify';
+import ReplayUploadModal from '../components/common/ReplayUploadModal';
 
 const MatchDetailsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isAuthenticated, setMatchProgress, clearMatchInfo } = useAuthStore();
+  const { user, isAuthenticated, setMatchProgress, clearMatchInfo, setQueueStatus } = useAuthStore();
   const [showReplayUpload, setShowReplayUpload] = useState(false);
-  const [replayFile, setReplayFile] = useState(null);
 
   const matchInfo = location.state?.matchInfo;
 
@@ -25,16 +25,28 @@ const MatchDetailsPage = () => {
     }
   }, [isAuthenticated, matchInfo, navigate]);
 
-  const handleReplayUpload = () => {
-    if (!replayFile) {
-      toast.error('리플레이 파일을 선택해주세요.');
-      return;
-    }
-
-    // 실제로는 서버에 파일 업로드
-    toast.success('리플레이가 성공적으로 제출되었습니다.');
+  const handleReplayUploadComplete = (success) => {
     setShowReplayUpload(false);
-    setReplayFile(null);
+
+    if (success) {
+      toast.success('매치가 완료되었습니다!');
+
+      // 매치 상태 정리
+      setMatchProgress(false);
+      clearMatchInfo();
+      setQueueStatus(false);
+
+      // localStorage 정리
+      localStorage.removeItem('matchInProgress');
+      localStorage.removeItem('currentMatchId');
+      localStorage.removeItem('lastMatchInfo');
+      localStorage.removeItem('inQueue');
+      localStorage.removeItem('redirectedToMatch');
+      localStorage.removeItem('justFoundMatch');
+
+      // 매치메이킹 페이지로 이동
+      navigate('/matchmaking');
+    }
   };
 
   const handleCallAdmin = () => {
@@ -173,7 +185,20 @@ const MatchDetailsPage = () => {
             {/* 왼쪽: 돌아가기 버튼 */}
             <div className="flex justify-start">
               <button
-                onClick={() => navigate('/matchmaking')}
+                onClick={() => {
+                  // 매치 찾기 상태 초기화
+                  setMatchProgress(false);
+                  clearMatchInfo();
+
+                  // 대기열 상태 정리
+                  setQueueStatus(false);
+                  localStorage.setItem('inQueue', 'false');
+                  localStorage.removeItem('lastMatchInfo');
+                  localStorage.removeItem('matchInProgress');
+                  localStorage.removeItem('currentMatchId');
+
+                  navigate('/matchmaking');
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-600/50 text-white rounded-xl transition-all duration-300"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -432,41 +457,11 @@ const MatchDetailsPage = () => {
 
       {/* 리플레이 업로드 모달 */}
       {showReplayUpload && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-3xl p-8 max-w-md w-full">
-            <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold text-white mb-2">리플레이 파일 제출</h3>
-              <p className="text-gray-300">게임 종료 후 리플레이 파일을 업로드해주세요</p>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                리플레이 파일 (.StormReplay)
-              </label>
-              <input
-                type="file"
-                accept=".StormReplay"
-                onChange={(e) => setReplayFile(e.target.files[0])}
-                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 text-white rounded-xl focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowReplayUpload(false)}
-                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-xl transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleReplayUpload}
-                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors"
-              >
-                제출
-              </button>
-            </div>
-          </div>
-        </div>
+        <ReplayUploadModal
+          isOpen={showReplayUpload}
+          onClose={handleReplayUploadComplete}
+          matchId={matchInfo?.matchId}
+        />
       )}
     </div>
   );
