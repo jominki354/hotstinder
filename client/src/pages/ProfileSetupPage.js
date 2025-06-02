@@ -163,32 +163,65 @@ const ProfileSetupPage = () => {
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
-    } else {
-      // 이미 프로필 설정이 완료된 경우 편집 모드로 설정
-      if (user?.isProfileComplete) {
-        setIsEditMode(true);
-      }
+      return;
+    }
 
-      // 배틀태그에서 닉네임 설정
-      const battletag = getBattleTag();
+    // 이미 프로필 설정이 완료된 경우 편집 모드로 설정
+    if (user?.isProfileComplete) {
+      setIsEditMode(true);
+    }
 
-      if (battletag) {
-        setFormData(prev => ({
-          ...prev,
-          nickname: battletag
-        }));
-      }
+    // 배틀태그에서 닉네임 설정
+    const battletag = getBattleTag();
 
-      // 사용자 데이터가 있으면 기존 정보 설정
-      if (user) {
-        setFormData(prev => ({
-          ...prev,
-          preferredRoles: user.preferredRoles || [],
-          previousTier: user.previousTier || 'placement'
-        }));
-      }
+    // 사용자 데이터가 있으면 기존 정보 설정 (개선된 로직)
+    if (user) {
+      console.log('[ProfileSetupPage] 사용자 데이터 로드:', {
+        preferredRoles: user.preferredRoles,
+        previousTier: user.previousTier,
+        isProfileComplete: user.isProfileComplete,
+        battletag: battletag
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        nickname: battletag || prev.nickname,
+        preferredRoles: Array.isArray(user.preferredRoles) ? user.preferredRoles : [],
+        previousTier: user.previousTier || 'placement'
+      }));
+    } else if (battletag) {
+      // 사용자 데이터가 없지만 배틀태그가 있는 경우
+      setFormData(prev => ({
+        ...prev,
+        nickname: battletag
+      }));
     }
   }, [isAuthenticated, user, navigate]);
+
+  // 사용자 정보가 변경될 때마다 폼 데이터 업데이트
+  useEffect(() => {
+    if (user) {
+      const battletag = getBattleTag();
+
+      console.log('[ProfileSetupPage] 사용자 정보 변경 감지:', {
+        preferredRoles: user.preferredRoles,
+        previousTier: user.previousTier,
+        isProfileComplete: user.isProfileComplete
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        nickname: battletag || prev.nickname,
+        preferredRoles: Array.isArray(user.preferredRoles) ? user.preferredRoles : prev.preferredRoles,
+        previousTier: user.previousTier || prev.previousTier
+      }));
+
+      // 프로필 완료 상태에 따라 편집 모드 설정
+      if (user.isProfileComplete && !isEditMode) {
+        setIsEditMode(true);
+      }
+    }
+  }, [user?.preferredRoles, user?.previousTier, user?.isProfileComplete, isEditMode]);
 
   // 역할 토글 핸들러
   const handleRoleToggle = (role) => {
@@ -308,16 +341,23 @@ const ProfileSetupPage = () => {
 
       if (result.success) {
         // 사용자 정보 갱신
-        await refreshUser();
+        console.log('[ProfileSetupPage] 프로필 저장 성공, 사용자 정보 갱신 시작');
+        const updatedUser = await refreshUser();
+
+        if (updatedUser) {
+          console.log('[ProfileSetupPage] 사용자 정보 갱신 완료:', {
+            preferredRoles: updatedUser.preferredRoles,
+            previousTier: updatedUser.previousTier,
+            isProfileComplete: updatedUser.isProfileComplete
+          });
+        }
 
         // 성공 상태로 설정
         setIsLoading(false);
         setSuccessState(true);
 
-        // 로컬 스토리지에 프로필 완료 상태와 추가 정보 저장
+        // 로컬 스토리지에 프로필 완료 상태와 추가 정보 저장 (백업용)
         localStorage.setItem('profileComplete', 'true');
-
-        // 리로드 시에도 기본 프로필 정보를 유지하기 위해 추가 정보 저장
         localStorage.setItem('userPreferredRoles', JSON.stringify(formData.preferredRoles));
         localStorage.setItem('userPreviousTier', formData.previousTier);
         localStorage.setItem('userNickname', formData.nickname);
@@ -325,7 +365,7 @@ const ProfileSetupPage = () => {
         // 사용자 정보 갱신 후 1초 후 대시보드로 리다이렉션 (새 프로필 생성 시에만)
         if (!isEditMode) {
           setTimeout(() => {
-            console.log('프로필 설정 완료, 대시보드로 이동합니다.');
+            console.log('[ProfileSetupPage] 프로필 설정 완료, 대시보드로 이동');
             navigate('/dashboard');
           }, 1000);
         } else {
@@ -518,8 +558,7 @@ const ProfileSetupPage = () => {
                         }`}
                       >
                         <div className="text-2xl mb-2">{role.icon}</div>
-                        <div className="text-sm font-bold text-white mb-1">{role.name}</div>
-                        <div className="text-xs text-gray-400">{role.description}</div>
+                        <div className="text-sm font-bold text-white">{role.name}</div>
                       </button>
                     ))}
                   </div>

@@ -69,42 +69,25 @@ function App() {
     const initializeAuth = async () => {
       console.log('앱 초기화 중, authStore 초기화...');
 
-      // authStore 초기화 (WebSocket 연결 포함)
-      initialize();
+      try {
+        // authStore 초기화 (localStorage 동기화 + 서버 상태 동기화 포함)
+        await initialize();
+        console.log('authStore 초기화 완료');
+      } catch (err) {
+        console.error('authStore 초기화 중 오류:', err);
 
-      console.log('인증 상태 확인...');
-
-      // 토큰이 있을 경우에만 사용자 정보 로드
-      if (token) {
-        try {
-          await loadUser();
-          console.log('사용자 정보 로드 완료');
-        } catch (err) {
-          console.error('사용자 정보 로드 중 오류:', err);
-          // 인증 오류시 대기열 상태 및 매치 상태 초기화
-          localStorage.removeItem('inQueue');
-          localStorage.removeItem('matchInProgress');
-          localStorage.removeItem('currentMatchId');
-          setQueueStatus(false);
-          setMatchProgress(false);
-        }
-      } else {
-        // 토큰이 없으면 인증 상태 확인
-        const authResult = await checkAuth();
-        // 인증되지 않은 경우 대기열 상태 및 매치 상태 초기화
-        if (!authResult) {
-          localStorage.removeItem('inQueue');
-          localStorage.removeItem('matchInProgress');
-          localStorage.removeItem('currentMatchId');
-          localStorage.removeItem('lastMatchInfo');
-          setQueueStatus(false);
-          setMatchProgress(false);
-        }
+        // 초기화 실패 시 상태 정리
+        localStorage.removeItem('inQueue');
+        localStorage.removeItem('matchInProgress');
+        localStorage.removeItem('currentMatchId');
+        localStorage.removeItem('lastMatchInfo');
+        setQueueStatus(false);
+        setMatchProgress(false);
       }
     };
 
     initializeAuth();
-  }, [loadUser, checkAuth, token, setQueueStatus, setMatchProgress, initialize]);
+  }, [initialize, setQueueStatus, setMatchProgress]);
 
   // 매치 정보 상태 확인
   useEffect(() => {

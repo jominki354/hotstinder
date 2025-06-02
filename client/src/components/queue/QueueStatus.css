@@ -11,6 +11,7 @@
   overflow: hidden;
   transition: all 0.3s ease;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: slideInRight 0.3s ease-out;
 }
 
 .queue-status-container.expanded {
@@ -19,6 +20,10 @@
 
 .queue-status-container.collapsed {
   max-height: 50px;
+}
+
+.queue-status-container.hiding {
+  animation: slideOutRight 0.3s ease-in;
 }
 
 /* 매치 진행 중 상태 스타일 */
@@ -298,11 +303,11 @@
     transform: translateX(20px);
     border-radius: 12px;
   }
-  
+
   .queue-status-popup.active {
     transform: translateX(0);
   }
-  
+
   .queue-status-time {
     font-size: 20px;
   }
@@ -746,4 +751,233 @@
   100% {
     background-color: rgba(15, 23, 42, 0.98);
   }
-} 
+}
+
+/* QueueStatus 컴포넌트 스타일 */
+
+/* 글로벌 애니메이션 */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6);
+  }
+}
+
+@keyframes progressPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* 상태 표시등 */
+.queue-status-indicator {
+  position: relative;
+}
+
+.queue-status-indicator.active::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, transparent 70%);
+  animation: pulseGlow 2s infinite;
+  z-index: -1;
+}
+
+/* 진행률 바 애니메이션 */
+.queue-progress-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.queue-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* 플레이어 아이콘 애니메이션 */
+.player-icon {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.player-icon.filled {
+  animation: popIn 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 버튼 호버 효과 */
+.queue-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.queue-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.queue-button:hover::before {
+  left: 100%;
+}
+
+/* 알림 메시지 애니메이션 */
+.notification-enter {
+  transform: translateY(-20px);
+  opacity: 0;
+}
+
+.notification-enter-active {
+  transform: translateY(0);
+  opacity: 1;
+  transition: all 0.3s ease;
+}
+
+.notification-exit {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.notification-exit-active {
+  transform: translateY(-20px);
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+/* 시간 표시 애니메이션 */
+.time-display {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+}
+
+/* 최소화 상태 */
+.queue-status-minimized {
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .queue-status-container {
+    width: 280px !important;
+    right: 8px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .queue-status-container {
+    width: 260px !important;
+    right: 4px !important;
+  }
+}
+
+/* 다크 테마 최적화 */
+@media (prefers-color-scheme: dark) {
+  .queue-status-container {
+    box-shadow:
+      0 20px 25px -5px rgba(0, 0, 0, 0.3),
+      0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* 접근성 개선 */
+@media (prefers-reduced-motion: reduce) {
+  .queue-status-container,
+  .player-icon,
+  .queue-button,
+  .notification-enter-active,
+  .notification-exit-active {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .queue-progress-bar::after {
+    display: none;
+  }
+}
+
+/* 고대비 모드 지원 */
+@media (prefers-contrast: high) {
+  .queue-status-container {
+    border: 2px solid #ffffff;
+    background: #000000;
+  }
+
+  .queue-button {
+    border: 1px solid #ffffff;
+  }
+}

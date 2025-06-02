@@ -90,19 +90,34 @@ const MatchDetailsPage = () => {
     return simulatedUsers;
   };
 
-  const players = generateRealUserTeams();
+  // 플레이어 데이터 정규화 함수
+  const normalizePlayerData = (player) => {
+    // 다양한 데이터 구조를 통일된 형태로 변환
+    return {
+      id: player.id || player.userId || Math.random(),
+      name: player.name || player.battleTag || player.battletag || player.nickname || `Player${Math.floor(Math.random() * 1000)}`,
+      mmr: Math.round(player.mmr || player.currentMmr || 1500), // MMR을 정수로 변환
+      role: player.role || player.preferredRole || '알 수 없음',
+      hero: player.hero || '미정',
+      isCurrentUser: player.isCurrentUser || (user && (player.id === user.id || player.userId === user.id))
+    };
+  };
 
-  // 팀 분배 로직 개선 - 정확히 5명씩 분배
-  let blueTeam, redTeam;
+  // 팀 데이터 처리
+  let blueTeam = [];
+  let redTeam = [];
 
   if (matchInfo && matchInfo.blueTeam && matchInfo.redTeam) {
-    // 매치 정보에 이미 팀이 분배되어 있으면 사용
-    blueTeam = matchInfo.blueTeam;
-    redTeam = matchInfo.redTeam;
+    // 시뮬레이션에서 이미 팀이 분배되어 있으면 사용
+    blueTeam = matchInfo.blueTeam.map(normalizePlayerData);
+    redTeam = matchInfo.redTeam.map(normalizePlayerData);
+    console.log('시뮬레이션 팀 데이터 사용:', { blueTeam: blueTeam.length, redTeam: redTeam.length });
   } else {
-    // 팀이 분배되어 있지 않으면 정확히 5명씩 나누기
+    // 백업: 플레이어 데이터에서 팀 생성
+    const players = generateRealUserTeams().map(normalizePlayerData);
     redTeam = players.slice(0, 5);
     blueTeam = players.slice(5, 10);
+    console.log('백업 팀 데이터 생성:', { blueTeam: blueTeam.length, redTeam: redTeam.length });
   }
 
   // 안전장치: 정확히 5명씩 되도록 보장
@@ -114,11 +129,13 @@ const MatchDetailsPage = () => {
   }
 
   console.log(`최종 팀 분배: 레드팀 ${redTeam.length}명, 블루팀 ${blueTeam.length}명`);
+  console.log('레드팀 데이터:', redTeam);
+  console.log('블루팀 데이터:', blueTeam);
 
   // MMR 차이에 따른 밸런스 상태 계산
   const getBalanceStatus = () => {
-    const blueAvg = blueTeam.reduce((sum, p) => sum + p.mmr, 0) / 5;
-    const redAvg = redTeam.reduce((sum, p) => sum + p.mmr, 0) / 5;
+    const blueAvg = blueTeam.reduce((sum, p) => sum + (p.mmr || 1500), 0) / Math.max(blueTeam.length, 1);
+    const redAvg = redTeam.reduce((sum, p) => sum + (p.mmr || 1500), 0) / Math.max(redTeam.length, 1);
     const mmrDiff = Math.abs(blueAvg - redAvg);
 
     if (mmrDiff <= 50) return { status: '완벽', color: 'text-green-400', bgColor: 'bg-green-500/20' };
@@ -127,8 +144,8 @@ const MatchDetailsPage = () => {
   };
 
   const balanceStatus = getBalanceStatus();
-  const blueTeamAvgMmr = Math.round(blueTeam.reduce((sum, p) => sum + p.mmr, 0) / 5);
-  const redTeamAvgMmr = Math.round(redTeam.reduce((sum, p) => sum + p.mmr, 0) / 5);
+  const blueTeamAvgMmr = Math.round(blueTeam.reduce((sum, p) => sum + (p.mmr || 1500), 0) / Math.max(blueTeam.length, 1));
+  const redTeamAvgMmr = Math.round(redTeam.reduce((sum, p) => sum + (p.mmr || 1500), 0) / Math.max(redTeam.length, 1));
 
   if (!matchInfo) {
     return (
@@ -259,20 +276,36 @@ const MatchDetailsPage = () => {
 
               <div className="space-y-3">
                 {redTeam.map((player, index) => (
-                  <div key={player.id} className="flex items-center justify-between bg-slate-700/30 rounded-xl p-3">
+                  <div key={player.id} className={`flex items-center justify-between rounded-xl p-3 ${
+                    player.isCurrentUser
+                      ? 'bg-yellow-500/20 border border-yellow-500/30'
+                      : 'bg-slate-700/30'
+                  }`}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center relative">
                         {index === 0 && (
                           <span className="absolute -top-1 -right-1 text-yellow-400">👑</span>
                         )}
+                        {player.isCurrentUser && (
+                          <span className="absolute -bottom-1 -right-1 text-green-400 text-xs">●</span>
+                        )}
                         <span className="text-red-400 font-bold">{index + 1}</span>
                       </div>
                       <div>
-                        <div className="text-white font-medium">{player.name}</div>
+                        <div className={`font-medium ${player.isCurrentUser ? 'text-yellow-300' : 'text-white'}`}>
+                          {player.name}
+                          {player.isCurrentUser && <span className="ml-2 text-xs text-yellow-400">(나)</span>}
+                        </div>
                         <div className="text-xs text-gray-400">{player.role}</div>
+                        {player.hero && player.hero !== '미정' && (
+                          <div className="text-xs text-blue-400">{player.hero}</div>
+                        )}
                       </div>
                     </div>
-                    <div className="text-red-400 font-bold">{player.mmr}</div>
+                    <div className="text-right">
+                      <div className="text-red-400 font-bold">{player.mmr || 1500}</div>
+                      <div className="text-xs text-gray-400">MMR</div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -299,20 +332,36 @@ const MatchDetailsPage = () => {
 
               <div className="space-y-3">
                 {blueTeam.map((player, index) => (
-                  <div key={player.id} className="flex items-center justify-between bg-slate-700/30 rounded-xl p-3">
+                  <div key={player.id} className={`flex items-center justify-between rounded-xl p-3 ${
+                    player.isCurrentUser
+                      ? 'bg-yellow-500/20 border border-yellow-500/30'
+                      : 'bg-slate-700/30'
+                  }`}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center relative">
                         {index === 0 && (
                           <span className="absolute -top-1 -right-1 text-yellow-400">👑</span>
                         )}
+                        {player.isCurrentUser && (
+                          <span className="absolute -bottom-1 -right-1 text-green-400 text-xs">●</span>
+                        )}
                         <span className="text-blue-400 font-bold">{index + 1}</span>
                       </div>
                       <div>
-                        <div className="text-white font-medium">{player.name}</div>
+                        <div className={`font-medium ${player.isCurrentUser ? 'text-yellow-300' : 'text-white'}`}>
+                          {player.name}
+                          {player.isCurrentUser && <span className="ml-2 text-xs text-yellow-400">(나)</span>}
+                        </div>
                         <div className="text-xs text-gray-400">{player.role}</div>
+                        {player.hero && player.hero !== '미정' && (
+                          <div className="text-xs text-blue-400">{player.hero}</div>
+                        )}
                       </div>
                     </div>
-                    <div className="text-blue-400 font-bold">{player.mmr}</div>
+                    <div className="text-right">
+                      <div className="text-blue-400 font-bold">{player.mmr || 1500}</div>
+                      <div className="text-xs text-gray-400">MMR</div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -424,3 +473,7 @@ const MatchDetailsPage = () => {
 };
 
 export default MatchDetailsPage;
+
+
+
+

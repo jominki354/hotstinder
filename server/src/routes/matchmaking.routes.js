@@ -20,7 +20,21 @@ const authenticate = async (req, res, next) => {
       return res.status(500).json({ message: '데이터베이스가 초기화되지 않았습니다' });
     }
 
-    const user = await global.db.User.findByPk(decoded.id);
+    // JWT에서 받은 ID로 사용자 찾기 (UUID 우선, bnetId fallback)
+    let user = await global.db.User.findByPk(decoded.id);
+
+    // UUID로 찾지 못한 경우 bnetId로 시도 (기존 토큰 호환성)
+    if (!user) {
+      user = await global.db.User.findOne({ where: { bnetId: decoded.id } });
+      if (user) {
+        logger.info('기존 bnetId 기반 토큰 사용됨', {
+          bnetId: decoded.id,
+          userId: user.id,
+          battleTag: user.battleTag
+        });
+      }
+    }
+
     if (!user) {
       return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
     }
@@ -39,32 +53,77 @@ const authenticate = async (req, res, next) => {
  * @access  Private
  */
 router.post('/join', authenticate, async (req, res) => {
+  logger.info('=== 서버 매치찾기 JOIN 요청 시작 ===');
+
   try {
     const { preferredRole, gameMode } = req.body;
 
-    // 사용자 프로필 완성도 검증
+    logger.info('1. 요청 데이터 파싱 완료:', {
+      userId: req.user.id,
+      battleTag: req.user.battleTag,
+      preferredRole,
+      gameMode,
+      isProfileComplete: req.user.isProfileComplete,
+      preferredRoles: req.user.preferredRoles,
+      mmr: req.user.mmr,
+      userKeys: Object.keys(req.user.dataValues || {})
+    });
+
+    logger.info('2. 프로필 완성도 검증 시작');
+    // 프로필 완성도 검증 완화 - 경고만 표시하고 진행 허용
     if (!req.user.isProfileComplete) {
-      return res.status(400).json({
-        message: '프로필 설정을 완료해야 매치메이킹에 참가할 수 있습니다',
-        redirectTo: '/profile/setup'
+      logger.warn('2. 프로필 미완성 사용자의 매치찾기 시도:', {
+        userId: req.user.id,
+        battleTag: req.user.battleTag,
+        isProfileComplete: req.user.isProfileComplete,
+        nodeEnv: process.env.NODE_ENV
       });
+
+      // 개발 환경에서는 경고만 하고 진행
+      if (process.env.NODE_ENV !== 'production') {
+        logger.info('2. 개발 환경: 프로필 미완성이지만 매치찾기 허용');
+      } else {
+        // 프로덕션에서는 여전히 차단
+        logger.info('2. 프로덕션 환경: 프로필 미완성으로 차단');
+        return res.status(400).json({
+          message: '프로필 설정을 완료해야 매치메이킹에 참가할 수 있습니다',
+          redirectTo: '/profile/setup',
+          userInfo: {
+            isProfileComplete: req.user.isProfileComplete,
+            preferredRoles: req.user.preferredRoles,
+            battleTag: req.user.battleTag
+          }
+        });
+      }
+    } else {
+      logger.info('2. 프로필 완성도 검증 통과');
     }
 
+    logger.info('3. MMR 유효성 검증 시작');
     // MMR 유효성 검증
     const userMmr = req.user.mmr || 1500;
+    logger.info('3. MMR 값:', { userMmr, originalMmr: req.user.mmr });
+
     if (userMmr < 0 || userMmr > 5000) {
+      logger.warn('3. MMR 값이 유효하지 않음:', { userMmr });
       return res.status(400).json({
         message: 'MMR 값이 유효하지 않습니다',
         currentMmr: userMmr
       });
     }
+    logger.info('3. MMR 유효성 검증 통과');
 
+    logger.info('4. 캐시에서 기존 대기열 상태 확인 시작');
     // 캐시에서 기존 대기열 상태 확인
     const cacheKey = cacheService.getQueueCacheKey(req.user.id);
+    logger.info('4. 캐시 키 생성:', { cacheKey });
+
     const cachedQueue = await cacheService.get(cacheKey);
+    logger.info('4. 캐시 조회 결과:', { hasCachedQueue: !!cachedQueue });
 
     if (cachedQueue) {
       const waitTime = Math.floor((Date.now() - new Date(cachedQueue.queueTime).getTime()) / 1000);
+      logger.info('4. 캐시에서 기존 대기열 발견:', { waitTime, cachedQueue });
       return res.status(400).json({
         message: '이미 매치메이킹 대기열에 참가하고 있습니다',
         queueEntry: {
@@ -74,16 +133,20 @@ router.post('/join', authenticate, async (req, res) => {
       });
     }
 
+    logger.info('5. 데이터베이스에서 기존 대기열 확인 시작');
     // 이미 대기열에 있는지 확인
     const existingQueue = await global.db.MatchmakingQueue.findOne({
       where: { userId: req.user.id }
     });
+    logger.info('5. DB 대기열 조회 결과:', { hasExistingQueue: !!existingQueue });
 
     if (existingQueue) {
+      logger.info('5. DB에서 기존 대기열 발견, 캐시에 저장');
       // 캐시에 저장
       await cacheService.set(cacheKey, existingQueue.toJSON(), 300);
 
       const waitTime = Math.floor((Date.now() - new Date(existingQueue.queueTime).getTime()) / 1000);
+      logger.info('5. 기존 대기열 응답 준비:', { waitTime });
       return res.status(400).json({
         message: '이미 매치메이킹 대기열에 참가하고 있습니다',
         queueEntry: {
@@ -93,6 +156,7 @@ router.post('/join', authenticate, async (req, res) => {
       });
     }
 
+    logger.info('6. 진행 중인 매치 확인 시작');
     // 진행 중인 매치가 있는지 확인
     const activeMatch = await global.db.MatchParticipant.findOne({
       where: { userId: req.user.id },
@@ -106,8 +170,10 @@ router.post('/join', authenticate, async (req, res) => {
         }
       }]
     });
+    logger.info('6. 진행 중인 매치 조회 결과:', { hasActiveMatch: !!activeMatch });
 
     if (activeMatch) {
+      logger.info('6. 진행 중인 매치 발견:', { matchId: activeMatch.match.id });
       return res.status(400).json({
         message: '이미 진행 중인 매치가 있습니다',
         matchId: activeMatch.match.id,
@@ -115,11 +181,16 @@ router.post('/join', authenticate, async (req, res) => {
       });
     }
 
+    logger.info('7. 대기열 크기 제한 확인 시작');
     // 대기열 크기 제한 (캐시 활용)
     const statsKey = cacheService.getMatchmakingStatsKey(gameMode || 'Storm League');
+    logger.info('7. 통계 캐시 키:', { statsKey });
+
     let queueStats = await cacheService.get(statsKey);
+    logger.info('7. 통계 캐시 조회 결과:', { hasQueueStats: !!queueStats });
 
     if (!queueStats) {
+      logger.info('7. 통계 캐시 없음, DB에서 조회');
       const currentQueueSize = await global.db.MatchmakingQueue.count({
         where: {
           gameMode: gameMode || 'Storm League',
@@ -129,10 +200,17 @@ router.post('/join', authenticate, async (req, res) => {
 
       queueStats = { currentQueueSize };
       await cacheService.set(statsKey, queueStats, 30); // 30초 캐시
+      logger.info('7. 새로운 통계 생성 및 캐시 저장:', queueStats);
     }
 
     const maxQueueSize = process.env.MAX_QUEUE_SIZE || 1000;
+    logger.info('7. 대기열 크기 확인:', {
+      currentSize: queueStats.currentQueueSize,
+      maxSize: maxQueueSize
+    });
+
     if (queueStats.currentQueueSize >= maxQueueSize) {
+      logger.warn('7. 대기열이 가득 참');
       return res.status(503).json({
         message: '현재 대기열이 가득 찼습니다. 잠시 후 다시 시도해주세요',
         currentQueueSize: queueStats.currentQueueSize,
@@ -140,6 +218,7 @@ router.post('/join', authenticate, async (req, res) => {
       });
     }
 
+    logger.info('8. 대기열 엔트리 생성 시작');
     // 대기열에 추가
     const queueEntry = await global.db.MatchmakingQueue.create({
       userId: req.user.id,
@@ -149,23 +228,22 @@ router.post('/join', authenticate, async (req, res) => {
       queueTime: new Date(),
       status: 'waiting'
     });
+    logger.info('8. 대기열 엔트리 생성 완료:', {
+      queueEntryId: queueEntry.id,
+      userId: req.user.id
+    });
 
+    logger.info('9. 캐시에 대기열 엔트리 저장 시작');
     // 캐시에 저장
     await cacheService.set(cacheKey, queueEntry.toJSON(), 600); // 10분 캐시
+    logger.info('9. 캐시 저장 완료');
 
+    logger.info('10. 통계 캐시 무효화');
     // 통계 캐시 무효화
     await cacheService.del(statsKey);
 
-    logger.info('매치메이킹 대기열 참가:', {
-      userId: req.user.id,
-      battleTag: req.user.battleTag,
-      preferredRole,
-      gameMode: gameMode || 'Storm League',
-      mmr: userMmr,
-      queueSize: queueStats.currentQueueSize + 1
-    });
-
-    res.json({
+    logger.info('11. 응답 데이터 준비');
+    const responseData = {
       success: true,
       message: '매치메이킹 대기열에 참가했습니다',
       queueEntry: {
@@ -185,13 +263,34 @@ router.post('/join', authenticate, async (req, res) => {
           current: userMmr
         }
       }
+    };
+
+    logger.info('12. 매치메이킹 대기열 참가 성공:', {
+      userId: req.user.id,
+      battleTag: req.user.battleTag,
+      preferredRole,
+      gameMode: gameMode || 'Storm League',
+      mmr: userMmr,
+      queueSize: queueStats.currentQueueSize + 1
     });
 
+    logger.info('=== 서버 매치찾기 JOIN 요청 완료 ===');
+    res.json(responseData);
+
   } catch (err) {
-    logger.error('매치메이킹 참가 오류:', err);
+    logger.error('=== 서버 매치찾기 JOIN 오류 발생 ===');
+    logger.error('오류 상세:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name,
+      userId: req.user?.id,
+      battleTag: req.user?.battleTag
+    });
     res.status(500).json({
       message: '매치메이킹 참가에 실패했습니다',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      errorType: err.name,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -856,5 +955,226 @@ async function createMatchFromGroup(selectedGroup) {
     throw err;
   }
 }
+
+/**
+ * @route   POST /api/matchmaking/simulate
+ * @desc    개발용 매치 시뮬레이션 (실제 DB 유저 데이터 사용)
+ * @access  Private
+ */
+router.post('/simulate', authenticate, async (req, res) => {
+  try {
+    // 개발 환경에서만 허용
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        success: false,
+        message: '시뮬레이션은 개발 환경에서만 사용할 수 있습니다.'
+      });
+    }
+
+    logger.info('🔧 개발용 매치 시뮬레이션 시작 (실제 DB 유저 사용):', {
+      userId: req.user.id,
+      battleTag: req.user.battleTag
+    });
+
+    // 실제 DB에서 유저 데이터 가져오기
+    const realUsers = await global.db.User.findAll({
+      where: {
+        id: {
+          [Op.ne]: req.user.id // 현재 사용자 제외
+        }
+      },
+      attributes: ['id', 'battleTag', 'mmr', 'preferredRoles'],
+      limit: 20, // 충분한 수의 유저 가져오기
+      order: [['mmr', 'DESC']] // MMR 순으로 정렬
+    });
+
+    logger.info('🔧 실제 DB 유저 조회 결과:', {
+      totalUsers: realUsers.length,
+      userSample: realUsers.slice(0, 3).map(u => ({
+        id: u.id,
+        battleTag: u.battleTag,
+        mmr: u.mmr,
+        preferredRoles: u.preferredRoles,
+        preferredRolesType: typeof u.preferredRoles
+      }))
+    });
+
+    // 시뮬레이션 매치 정보 생성
+    const maps = [
+      '저주받은 골짜기', '용의 둥지', '불지옥 신단', '하늘 사원',
+      '거미 여왕의 무덤', '영원의 전쟁터', '파멸의 탑', '브락식스 항전',
+      '볼스카야 공장', '알터랙 고개', '공포의 정원'
+    ];
+
+    const roles = ['탱커', '브루저', '원거리 딜러', '근접 딜러', '지원가', '힐러'];
+
+    // 역할별 영웅 매핑
+    const heroesByRole = {
+      '탱커': ['Muradin', 'Johanna', 'Diablo', 'Arthas', 'E.T.C.', 'Garrosh'],
+      '브루저': ['Sonya', 'Thrall', 'Artanis', 'Leoric', 'Malthael', 'Yrel'],
+      '원거리 딜러': ['Valla', 'Raynor', 'Tychus', 'Jaina', 'Kael\'thas', 'Li-Ming'],
+      '근접 딜러': ['Illidan', 'Kerrigan', 'Zeratul', 'Greymane', 'Alarak', 'Maiev'],
+      '지원가': ['Tassadar', 'Tyrande', 'Abathur', 'Medivh', 'Zarya', 'Ana'],
+      '힐러': ['Uther', 'Rehgar', 'Malfurion', 'Brightwing', 'Lt. Morales', 'Stukov']
+    };
+
+    // 안전한 역할 추출 함수
+    const getSafeRole = (preferredRoles) => {
+      try {
+        if (!preferredRoles) return roles[Math.floor(Math.random() * roles.length)];
+
+        // 배열인 경우
+        if (Array.isArray(preferredRoles) && preferredRoles.length > 0) {
+          return preferredRoles[0];
+        }
+
+        // 문자열인 경우 (JSON 파싱 시도)
+        if (typeof preferredRoles === 'string') {
+          try {
+            const parsed = JSON.parse(preferredRoles);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed[0];
+            }
+          } catch (parseError) {
+            // JSON 파싱 실패 시 문자열 자체를 역할로 사용
+            return preferredRoles;
+          }
+        }
+
+        // 기본값 반환
+        return roles[Math.floor(Math.random() * roles.length)];
+      } catch (error) {
+        logger.warn('역할 추출 중 오류:', { preferredRoles, error: error.message });
+        return roles[Math.floor(Math.random() * roles.length)];
+      }
+    };
+
+    // 10명의 플레이어 생성 (현재 사용자 + 9명의 실제 DB 유저)
+    const baseMMR = req.user.mmr || 1500;
+    const players = [];
+
+    // 현재 사용자 추가 (임시로 랜덤 역할 사용)
+    const currentUserRole = roles[Math.floor(Math.random() * roles.length)];
+    players.push({
+      id: req.user.id,
+      name: req.user.battleTag,
+      battleTag: req.user.battleTag,
+      mmr: baseMMR,
+      role: currentUserRole,
+      hero: heroesByRole[currentUserRole][Math.floor(Math.random() * heroesByRole[currentUserRole].length)],
+      isCurrentUser: true
+    });
+
+    // 실제 DB 유저들 중에서 9명 선택
+    let selectedUsers = [];
+    if (realUsers.length >= 9) {
+      // MMR 기준으로 현재 사용자와 비슷한 유저들 우선 선택
+      const sortedByMmrDiff = realUsers.sort((a, b) => {
+        const diffA = Math.abs(a.mmr - baseMMR);
+        const diffB = Math.abs(b.mmr - baseMMR);
+        return diffA - diffB;
+      });
+      selectedUsers = sortedByMmrDiff.slice(0, 9);
+    } else {
+      // 실제 유저가 부족하면 모든 실제 유저 사용
+      selectedUsers = realUsers;
+    }
+
+    // 실제 DB 유저들을 플레이어로 변환 (임시로 랜덤 역할 사용)
+    selectedUsers.forEach(user => {
+      const userRole = roles[Math.floor(Math.random() * roles.length)];
+      players.push({
+        id: user.id,
+        name: user.battleTag,
+        battleTag: user.battleTag,
+        mmr: user.mmr || 1500,
+        role: userRole,
+        hero: heroesByRole[userRole][Math.floor(Math.random() * heroesByRole[userRole].length)],
+        isCurrentUser: false
+      });
+    });
+
+    // 10명이 안 되면 더미 플레이어로 채우기
+    while (players.length < 10) {
+      const dummyRole = roles[Math.floor(Math.random() * roles.length)];
+      const mmrVariation = Math.floor(Math.random() * 400) - 200; // ±200 MMR 범위
+      players.push({
+        id: `dummy_${Date.now()}_${players.length}`,
+        name: `더미플레이어${players.length}#${Math.floor(Math.random() * 9999)}`,
+        battleTag: `더미플레이어${players.length}#${Math.floor(Math.random() * 9999)}`,
+        mmr: Math.max(1000, Math.min(3000, baseMMR + mmrVariation)),
+        role: dummyRole,
+        hero: heroesByRole[dummyRole][Math.floor(Math.random() * heroesByRole[dummyRole].length)],
+        isCurrentUser: false,
+        isDummy: true
+      });
+    }
+
+    // 팀 분배 (MMR 기반 밸런싱)
+    const sortedPlayers = [...players].sort((a, b) => b.mmr - a.mmr);
+    const blueTeam = [];
+    const redTeam = [];
+
+    // 스네이크 드래프트 방식으로 팀 분배
+    for (let i = 0; i < 10; i++) {
+      if (i % 4 < 2) {
+        if (blueTeam.length < 5) {
+          blueTeam.push(sortedPlayers[i]);
+        } else {
+          redTeam.push(sortedPlayers[i]);
+        }
+      } else {
+        if (redTeam.length < 5) {
+          redTeam.push(sortedPlayers[i]);
+        } else {
+          blueTeam.push(sortedPlayers[i]);
+        }
+      }
+    }
+
+    // 매치 정보 생성
+    const matchInfo = {
+      matchId: `dev_sim_${Date.now()}`,
+      map: maps[Math.floor(Math.random() * maps.length)],
+      gameMode: '개발용 시뮬레이션 (실제 유저)',
+      estimatedDuration: '15-20분 (시뮬레이션)',
+      blueTeam,
+      redTeam,
+      createdAt: new Date().toISOString(),
+      isSimulation: true,
+      isDevelopment: true,
+      isDevelopmentMatch: true,
+      totalPlayers: 10,
+      averageMmr: Math.round(players.reduce((sum, p) => sum + p.mmr, 0) / 10),
+      realUserCount: players.filter(p => !p.isDummy).length,
+      dummyUserCount: players.filter(p => p.isDummy).length
+    };
+
+    logger.info('🔧 개발용 매치 시뮬레이션 완료 (실제 DB 유저):', {
+      matchId: matchInfo.matchId,
+      map: matchInfo.map,
+      blueTeamAvgMmr: Math.round(blueTeam.reduce((sum, p) => sum + p.mmr, 0) / 5),
+      redTeamAvgMmr: Math.round(redTeam.reduce((sum, p) => sum + p.mmr, 0) / 5),
+      currentUserTeam: blueTeam.find(p => p.isCurrentUser) ? 'blue' : 'red',
+      realUserCount: matchInfo.realUserCount,
+      dummyUserCount: matchInfo.dummyUserCount
+    });
+
+    res.json({
+      success: true,
+      isSimulation: true,
+      message: '개발용 매치 시뮬레이션이 생성되었습니다 (실제 DB 유저 사용)',
+      matchInfo
+    });
+
+  } catch (err) {
+    logger.error('개발용 매치 시뮬레이션 오류:', err);
+    res.status(500).json({
+      success: false,
+      message: '시뮬레이션 생성 중 오류가 발생했습니다',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
 
 module.exports = router;

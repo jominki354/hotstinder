@@ -52,7 +52,7 @@ const AdminUsersPage = () => {
       }, token);
 
       setUsers(response.data.users);
-      setTotalPages(response.data.totalPages);
+      setTotalPages(response.data.pagination?.totalPages || response.data.totalPages || 1);
       setLoading(false);
     } catch (err) {
       console.error('사용자 데이터 가져오기 오류:', err);
@@ -444,6 +444,37 @@ const AdminUsersPage = () => {
           다음
         </button>
       </div>
+
+      {/* 확인 모달 */}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 p-6 rounded-lg max-w-md w-full mx-4 border border-slate-700">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              {confirmAction.type === 'delete' ? '사용자 삭제' : '작업 확인'}
+            </h3>
+            <p className="text-gray-300 mb-6">
+              {confirmAction.isMultiple
+                ? `선택된 ${selectedUsers.length}명의 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`
+                : '이 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'
+              }
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={closeConfirmModal}
+                className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={executeConfirmAction}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

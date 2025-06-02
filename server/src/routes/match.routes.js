@@ -19,7 +19,12 @@ const authenticate = async (req, res, next) => {
       return res.status(500).json({ message: '데이터베이스가 초기화되지 않았습니다' });
     }
 
-    const user = await global.db.User.findByPk(decoded.id);
+    // JWT에서 받은 ID로 사용자 찾기 (UUID 우선, bnetId fallback)
+    let user = await global.db.User.findByPk(decoded.id);
+    if (!user) {
+      user = await global.db.User.findOne({ where: { bnetId: decoded.id } });
+    }
+
     if (!user) {
       return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
     }

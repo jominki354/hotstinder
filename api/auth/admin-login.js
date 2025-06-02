@@ -178,7 +178,8 @@ module.exports = async function handler(req, res) {
     // JWT 토큰 생성
     const token = jwt.sign(
       {
-        id: user.bnetId || user.id,
+        id: user.id,
+        bnetId: user.bnetId,
         email: user.email,
         role: user.role,
         battleTag: user.battleTag
@@ -198,7 +199,8 @@ module.exports = async function handler(req, res) {
       message: '관리자 로그인 성공',
       token,
       user: {
-        id: user.bnetId || user.id,
+        id: user.id,
+        bnetId: user.bnetId,
         email: user.email,
         battleTag: user.battleTag,
         nickname: user.nickname,

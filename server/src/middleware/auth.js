@@ -25,10 +25,23 @@ const authenticateToken = async (req, res, next) => {
 
         // PostgreSQL에서 사용자 조회
         if (global.db && global.db.User) {
-          logger.debug('PostgreSQL에서 사용자 조회 시도', { id: decoded.id });
+          logger.debug('PostgreSQL에서 사용자 조회 시도', { userId: decoded.id });
 
           try {
+            // JWT에서 받은 ID로 사용자 찾기 (UUID 우선)
             user = await global.db.User.findByPk(decoded.id);
+
+            // UUID로 찾지 못한 경우 bnetId로 시도 (기존 토큰 호환성)
+            if (!user) {
+              user = await global.db.User.findOne({ where: { bnetId: decoded.id } });
+              if (user) {
+                logger.info('기존 bnetId 기반 토큰 사용됨', {
+                  bnetId: decoded.id,
+                  userId: user.id,
+                  battleTag: user.battleTag
+                });
+              }
+            }
           } catch (dbErr) {
             logger.error('PostgreSQL 사용자 조회 오류:', dbErr);
           }

@@ -387,6 +387,16 @@ const cacheService = {
 
   async exists(key) {
     return this.cache.has(key);
+  },
+
+  async keys(pattern) {
+    const keys = [];
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(pattern.replace('*', ''))) {
+        keys.push(key);
+      }
+    }
+    return keys;
   }
 };
 
@@ -458,20 +468,85 @@ module.exports = async function handler(req, res) {
 
     // /api/matchmaking/join - 대기열 참가
     if (pathParts[2] === 'join' && req.method === 'POST') {
-      try {
-        const decoded = verifyToken(req.headers.authorization);
-        const userId = decoded.id;
+      console.log('=== 매치찾기 JOIN 요청 시작 ===');
 
-        // 사용자 정보 조회
-        const user = await User.findOne({ where: { bnetId: userId } });
+      try {
+        console.log('1. 토큰 검증 시작');
+        const decoded = verifyToken(req.headers.authorization);
+        const tokenId = decoded.id;
+        console.log('1. 토큰 검증 성공:', { tokenId, decodedKeys: Object.keys(decoded) });
+
+        console.log('2. 사용자 정보 조회 시작');
+        // 사용자 정보 조회 (UUID 우선, bnetId fallback)
+        let user = await User.findByPk(tokenId);
+        console.log('2-1. UUID 조회 결과:', { found: !!user, tokenId });
+
         if (!user) {
+          console.log('2-2. bnetId로 재시도');
+          user = await User.findOne({ where: { bnetId: tokenId } });
+          console.log('2-2. bnetId 조회 결과:', { found: !!user, tokenId });
+        }
+
+        if (!user) {
+          console.error('2. 사용자 조회 실패:', { tokenId });
           clearTimeout(timeoutId);
           return res.status(404).json({ success: false, error: '사용자를 찾을 수 없습니다' });
         }
 
+        console.log('2. 사용자 정보 조회 성공:', {
+          userId: user.id,
+          battleTag: user.battleTag,
+          isProfileComplete: user.isProfileComplete,
+          preferredRoles: user.preferredRoles,
+          mmr: user.mmr,
+          userDataKeys: Object.keys(user.dataValues || {})
+        });
+
+        const userId = user.id;
+
+        console.log('3. 프로필 완성도 검증 시작');
+        // 프로필 완성도 검증 완화 - 경고만 표시하고 진행 허용
+        if (!user.isProfileComplete) {
+          console.warn('3. 프로필 미완성 사용자의 매치찾기 시도:', {
+            userId: user.id,
+            battleTag: user.battleTag,
+            isProfileComplete: user.isProfileComplete,
+            nodeEnv: process.env.NODE_ENV
+          });
+
+          // 개발 환경에서는 경고만 하고 진행
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('3. 개발 환경: 프로필 미완성이지만 매치찾기 허용');
+          } else {
+            // 프로덕션에서는 여전히 차단
+            console.log('3. 프로덕션 환경: 프로필 미완성으로 차단');
+            clearTimeout(timeoutId);
+            return res.status(400).json({
+              success: false,
+              error: '프로필 설정을 완료해야 매치메이킹에 참가할 수 있습니다',
+              redirectTo: '/profile/setup',
+              userInfo: {
+                isProfileComplete: user.isProfileComplete,
+                preferredRoles: user.preferredRoles,
+                battleTag: user.battleTag
+              }
+            });
+          }
+        } else {
+          console.log('3. 프로필 완성도 검증 통과');
+        }
+
+        console.log('4. 기존 대기열 상태 확인 시작');
         // 이미 대기열에 있는지 확인
         const existingQueue = await cacheService.get(`queue:${userId}`);
+        console.log('4. 기존 대기열 상태:', {
+          hasExisting: !!existingQueue,
+          userId,
+          cacheKey: `queue:${userId}`
+        });
+
         if (existingQueue) {
+          console.log('4. 이미 대기열에 있는 사용자:', { userId, existingQueue });
           clearTimeout(timeoutId);
           return res.json({
             success: true,
@@ -482,32 +557,52 @@ module.exports = async function handler(req, res) {
           });
         }
 
+        console.log('5. 대기열 참가 데이터 생성 시작');
         // 대기열 참가
         const queueData = {
           userId,
+          bnetId: user.bnetId,
           battletag: user.battleTag,
           mmr: user.mmr || 1500,
-          preferredRoles: user.preferredRoles || [],
+          preferredRoles: user.preferredRoles || ['전체'],
           joinedAt: new Date().toISOString()
         };
+        console.log('5. 대기열 데이터 생성 완료:', queueData);
 
-        await cacheService.set(`queue:${userId}`, queueData, 3600); // 1시간 TTL
+        console.log('6. 캐시에 대기열 데이터 저장 시작');
+        await cacheService.set(`queue:${userId}`, queueData, 3600);
+        console.log('6. 캐시 저장 완료');
 
-        console.log(`사용자 ${user.battleTag} 대기열 참가`);
-
-        clearTimeout(timeoutId);
-        return res.json({
+        console.log('7. 응답 데이터 준비');
+        const responseData = {
           success: true,
           message: '대기열에 참가했습니다',
           inQueue: true,
           queueTime: 0,
           joinedAt: queueData.joinedAt
-        });
+        };
+        console.log('7. 응답 데이터:', responseData);
+
+        console.log(`8. 사용자 ${user.battleTag} (${userId}) 대기열 참가 성공`);
+
+        clearTimeout(timeoutId);
+        console.log('=== 매치찾기 JOIN 요청 완료 ===');
+        return res.json(responseData);
 
       } catch (error) {
-        console.error('대기열 참가 오류:', error);
+        console.error('=== 매치찾기 JOIN 오류 발생 ===');
+        console.error('오류 상세:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
         clearTimeout(timeoutId);
-        return res.status(401).json({ success: false, error: error.message });
+        return res.status(400).json({
+          success: false,
+          error: error.message,
+          errorType: error.name,
+          timestamp: new Date().toISOString()
+        });
       }
     }
 
@@ -515,12 +610,25 @@ module.exports = async function handler(req, res) {
     if (pathParts[2] === 'leave' && req.method === 'POST') {
       try {
         const decoded = verifyToken(req.headers.authorization);
-        const userId = decoded.id;
+        const tokenId = decoded.id;
+
+        // 사용자 정보 조회 (UUID 우선, bnetId fallback)
+        let user = await User.findByPk(tokenId);
+        if (!user) {
+          user = await User.findOne({ where: { bnetId: tokenId } });
+        }
+
+        if (!user) {
+          clearTimeout(timeoutId);
+          return res.status(404).json({ success: false, error: '사용자를 찾을 수 없습니다' });
+        }
+
+        const userId = user.id;
 
         // 대기열에서 제거
         await cacheService.del(`queue:${userId}`);
 
-        console.log(`사용자 ${userId} 대기열 탈퇴`);
+        console.log(`사용자 ${user.battleTag} (${userId}) 대기열 탈퇴`);
 
         clearTimeout(timeoutId);
         return res.json({
@@ -532,7 +640,7 @@ module.exports = async function handler(req, res) {
       } catch (error) {
         console.error('대기열 탈퇴 오류:', error);
         clearTimeout(timeoutId);
-        return res.status(401).json({ success: false, error: error.message });
+        return res.status(400).json({ success: false, error: error.message });
       }
     }
 
@@ -540,7 +648,20 @@ module.exports = async function handler(req, res) {
     if (pathParts[2] === 'status' && req.method === 'GET') {
       try {
         const decoded = verifyToken(req.headers.authorization);
-        const userId = decoded.id;
+        const tokenId = decoded.id;
+
+        // 사용자 정보 조회 (UUID 우선, bnetId fallback)
+        let user = await User.findByPk(tokenId);
+        if (!user) {
+          user = await User.findOne({ where: { bnetId: tokenId } });
+        }
+
+        if (!user) {
+          clearTimeout(timeoutId);
+          return res.status(404).json({ success: false, error: '사용자를 찾을 수 없습니다' });
+        }
+
+        const userId = user.id;
 
         // 대기열 상태 확인
         const queueData = await cacheService.get(`queue:${userId}`);
@@ -550,6 +671,10 @@ module.exports = async function handler(req, res) {
           success: true,
           inQueue: !!queueData,
           matchInProgress: !!matchData,
+          currentPlayers: 0,
+          totalInQueue: 0,
+          queuePosition: 0,
+          estimatedWaitTime: 0,
           queueTime: 0,
           joinedAt: null,
           matchInfo: null,
@@ -558,8 +683,25 @@ module.exports = async function handler(req, res) {
 
         if (queueData) {
           const joinedAt = new Date(queueData.joinedAt);
-          response.queueTime = Math.floor((Date.now() - joinedAt.getTime()) / 1000);
+          const queueTimeSeconds = Math.floor((Date.now() - joinedAt.getTime()) / 1000);
+
+          // 실제 대기열 통계 계산 (캐시 기반)
+          const allQueueKeys = await cacheService.keys('queue:*');
+          const totalInQueue = allQueueKeys.length;
+
+          response.queueTime = queueTimeSeconds;
           response.joinedAt = queueData.joinedAt;
+          response.currentPlayers = Math.min(totalInQueue, 10); // 실제 대기열 인원
+          response.totalInQueue = totalInQueue;
+          response.queuePosition = Math.max(1, totalInQueue - 5); // 대략적인 순서
+          response.estimatedWaitTime = Math.max(30, (10 - totalInQueue) * 15); // 예상 대기시간
+
+          // MMR 정보
+          response.mmrRange = {
+            current: user.mmr || 1500,
+            min: Math.max(0, (user.mmr || 1500) - 200),
+            max: Math.min(5000, (user.mmr || 1500) + 200)
+          };
         }
 
         if (matchData) {
@@ -572,55 +714,92 @@ module.exports = async function handler(req, res) {
       } catch (error) {
         console.error('대기열 상태 확인 오류:', error);
         clearTimeout(timeoutId);
-        return res.status(401).json({ success: false, error: error.message });
+        return res.status(400).json({
+          success: false,
+          error: error.message,
+          inQueue: false,
+          matchInProgress: false,
+          currentPlayers: 0,
+          serverTime: new Date().toISOString()
+        });
       }
     }
 
-    // /api/matchmaking/simulate - 시뮬레이션 매치 생성
+    // /api/matchmaking/simulate - 시뮬레이션 매치 생성 (개발용으로 명확히 구분)
     if (pathParts[2] === 'simulate' && req.method === 'POST') {
       try {
         const decoded = verifyToken(req.headers.authorization);
+        const tokenId = decoded.id;
+
+        // 개발 환경에서만 허용
+        if (process.env.NODE_ENV === 'production') {
+          clearTimeout(timeoutId);
+          return res.status(403).json({
+            success: false,
+            error: '시뮬레이션은 개발 환경에서만 사용할 수 있습니다'
+          });
+        }
+
+        // 사용자 정보 조회 (UUID 우선, bnetId fallback)
+        let user = await User.findByPk(tokenId);
+        if (!user) {
+          user = await User.findOne({ where: { bnetId: tokenId } });
+        }
+
+        if (!user) {
+          clearTimeout(timeoutId);
+          return res.status(404).json({ success: false, error: '사용자를 찾을 수 없습니다' });
+        }
+
+        const userId = user.id;
+
+        // 기존 대기열 상태 정리
+        await cacheService.del(`queue:${userId}`);
 
         // 시뮬레이션 매치 생성
         const maps = ['용의 둥지', '저주받은 골짜기', '공포의 정원', '하늘 사원', '거미 여왕의 무덤'];
         const randomMap = maps[Math.floor(Math.random() * maps.length)];
 
         const simulationMatch = {
-          matchId: `sim_${Date.now()}`,
+          matchId: `dev_sim_${Date.now()}`, // 개발용 시뮬레이션임을 명시
           map: randomMap,
+          gameMode: '개발용 시뮬레이션',
+          isSimulation: true,
+          isDevelopment: true,
           blueTeam: [
-            { nickname: '시뮬플레이어1', mmr: 1500 },
-            { nickname: '시뮬플레이어2', mmr: 1520 },
-            { nickname: '시뮬플레이어3', mmr: 1480 },
-            { nickname: '시뮬플레이어4', mmr: 1510 },
-            { nickname: '시뮬플레이어5', mmr: 1490 }
+            { nickname: '개발플레이어1', mmr: 1500, role: '탱커' },
+            { nickname: '개발플레이어2', mmr: 1520, role: '힐러' },
+            { nickname: '개발플레이어3', mmr: 1480, role: '원거리 딜러' },
+            { nickname: '개발플레이어4', mmr: 1510, role: '근접 딜러' },
+            { nickname: '개발플레이어5', mmr: 1490, role: '지원가' }
           ],
           redTeam: [
-            { nickname: '시뮬플레이어6', mmr: 1505 },
-            { nickname: '시뮬플레이어7', mmr: 1515 },
-            { nickname: '시뮬플레이어8', mmr: 1485 },
-            { nickname: '시뮬플레이어9', mmr: 1495 },
-            { nickname: '시뮬플레이어10', mmr: 1500 }
+            { nickname: '개발플레이어6', mmr: 1505, role: '탱커' },
+            { nickname: '개발플레이어7', mmr: 1515, role: '힐러' },
+            { nickname: '개발플레이어8', mmr: 1485, role: '원거리 딜러' },
+            { nickname: '개발플레이어9', mmr: 1495, role: '근접 딜러' },
+            { nickname: '개발플레이어10', mmr: 1500, role: '지원가' }
           ],
           createdAt: new Date().toISOString()
         };
 
         // 매치 정보 캐시에 저장
-        await cacheService.set(`match:${decoded.id}`, simulationMatch, 1800); // 30분 TTL
+        await cacheService.set(`match:${userId}`, simulationMatch, 1800); // 30분 TTL
 
-        console.log(`시뮬레이션 매치 생성: ${simulationMatch.matchId}`);
+        console.log(`개발용 시뮬레이션 매치 생성: ${simulationMatch.matchId} (사용자: ${user.battleTag})`);
 
         clearTimeout(timeoutId);
         return res.json({
           success: true,
-          message: '시뮬레이션 매치가 생성되었습니다',
-          matchInfo: simulationMatch
+          message: '개발용 시뮬레이션 매치가 생성되었습니다',
+          matchInfo: simulationMatch,
+          isSimulation: true
         });
 
       } catch (error) {
         console.error('시뮬레이션 매치 생성 오류:', error);
         clearTimeout(timeoutId);
-        return res.status(401).json({ success: false, error: error.message });
+        return res.status(400).json({ success: false, error: error.message });
       }
     }
 

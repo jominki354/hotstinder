@@ -11,8 +11,8 @@ const getApiBaseURL = () => {
   if (process.env.NODE_ENV === 'production') {
     return process.env.REACT_APP_API_URL || 'https://hotstinder.vercel.app';
   }
-  // 개발 환경
-  return process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  // 개발 환경에서는 프록시 사용 (상대 경로)
+  return '';
 };
 
 // axios 기본 설정
@@ -21,7 +21,7 @@ axios.defaults.withCredentials = true;
 
 // 개발 환경에서 API URL 로깅
 if (process.env.NODE_ENV === 'development') {
-  console.log('API Base URL:', getApiBaseURL());
+  console.log('API Base URL:', getApiBaseURL() || '프록시 사용 (상대 경로)');
 }
 
 // axios 인터셉터 설정

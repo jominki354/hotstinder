@@ -159,11 +159,16 @@ module.exports = async function handler(req, res) {
     // 모델 정의
     const User = defineUser(sequelize);
 
-    // 사용자 정보 조회
-    const user = await User.findOne({
-      where: { bnetId: decoded.id },
-      attributes: ['id', 'battleTag', 'nickname', 'email', 'role', 'mmr', 'wins', 'losses', 'preferredRoles', 'previousTier', 'isProfileComplete', 'createdAt', 'lastLoginAt']
-    });
+    // 사용자 정보 조회 (UUID 우선, bnetId fallback)
+    let user = await User.findByPk(decoded.id);
+
+    // UUID로 찾지 못한 경우 bnetId로 시도 (기존 토큰 호환성)
+    if (!user) {
+      user = await User.findOne({ where: { bnetId: decoded.id } });
+      if (user) {
+        console.log(`기존 bnetId 기반 토큰 사용됨: ${decoded.id} → ${user.id} (${user.battleTag})`);
+      }
+    }
 
     if (!user) {
       clearTimeout(timeoutId);

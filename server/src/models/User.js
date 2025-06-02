@@ -10,7 +10,7 @@ module.exports = (sequelize) => {
       primaryKey: true
     },
     bnetId: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.STRING(50),
       unique: true,
       field: 'bnet_id'
     },

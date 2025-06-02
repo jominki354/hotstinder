@@ -3,18 +3,49 @@ const logger = require('../utils/logger');
 
 let sequelize = null;
 
+// Prisma Accelerate URL을 일반 PostgreSQL URL로 변환
+const convertPrismaUrl = (url) => {
+  if (url && url.startsWith('prisma+postgres://')) {
+    // Prisma Accelerate URL에서 실제 PostgreSQL URL 추출
+    const urlObj = new URL(url);
+    const apiKey = urlObj.searchParams.get('api_key');
+
+    if (apiKey) {
+      // API 키에서 실제 데이터베이스 정보 추출 (JWT 디코딩)
+      try {
+        const payload = JSON.parse(Buffer.from(apiKey.split('.')[1], 'base64').toString());
+        logger.info('Prisma Accelerate 연결 감지됨');
+
+        // Prisma Accelerate는 직접 PostgreSQL 연결을 지원하지 않으므로
+        // 환경 변수에서 직접 PostgreSQL URL을 찾아야 합니다
+        return process.env.POSTGRES_URL_NON_POOLING || process.env.DIRECT_URL;
+      } catch (error) {
+        logger.warn('Prisma URL 파싱 실패, 원본 URL 사용:', error.message);
+      }
+    }
+  }
+  return url;
+};
+
 const connectPostgreSQL = async () => {
   try {
     // Vercel PostgreSQL 환경 변수 우선 사용
-    const databaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+    let databaseUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+
+    // Prisma Accelerate URL 처리
+    if (databaseUrl && databaseUrl.startsWith('prisma+postgres://')) {
+      logger.info('Prisma Accelerate URL 감지됨, 직접 연결 URL로 변환 시도');
+      databaseUrl = convertPrismaUrl(databaseUrl) || process.env.POSTGRES_URL_NON_POOLING;
+    }
 
     if (!databaseUrl) {
-      throw new Error('POSTGRES_URL 또는 DATABASE_URL 환경 변수가 설정되지 않았습니다.');
+      throw new Error('POSTGRES_URL, POSTGRES_URL_NON_POOLING 또는 DATABASE_URL 환경 변수가 설정되지 않았습니다.');
     }
 
     logger.info('PostgreSQL 연결 시도:', {
       url: databaseUrl.replace(/:[^:@]*@/, ':***@'), // 비밀번호 마스킹
-      environment: process.env.NODE_ENV
+      environment: process.env.NODE_ENV,
+      isPrismaUrl: databaseUrl.includes('prisma')
     });
 
     sequelize = new Sequelize(databaseUrl, {

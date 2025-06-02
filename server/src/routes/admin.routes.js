@@ -19,7 +19,12 @@ const authenticate = async (req, res, next) => {
       return res.status(500).json({ message: '데이터베이스가 초기화되지 않았습니다' });
     }
 
-    const user = await global.db.User.findByPk(decoded.id);
+    // JWT에서 받은 ID로 사용자 찾기 (UUID 우선, bnetId fallback)
+    let user = await global.db.User.findByPk(decoded.id);
+    if (!user) {
+      user = await global.db.User.findOne({ where: { bnetId: decoded.id } });
+    }
+
     if (!user) {
       return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
     }
@@ -242,33 +247,34 @@ router.get('/users/:id/matches', authenticate, isAdmin, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
 
     // Match 모델이 있는지 확인
-    if (!global.db.Match) {
-      // Match 모델이 없으면 빈 배열 반환
+    if (!global.db.Match || !global.db.MatchParticipant) {
+      // 필요한 모델이 없으면 빈 배열 반환
       return res.json([]);
     }
 
-    // 사용자가 참여한 매치 조회 (MatchPlayer를 통해)
+    // 사용자가 참여한 매치 조회 (MatchParticipant를 통해)
     const matches = await global.db.Match.findAll({
       include: [{
-        model: global.db.MatchPlayer,
-        as: 'players',
+        model: global.db.MatchParticipant,
+        as: 'participants',
         where: { userId },
-        attributes: ['team', 'hero']
+        attributes: ['team', 'hero', 'role']
       }],
       order: [['createdAt', 'DESC']],
       limit,
-      attributes: ['id', 'map', 'winner', 'status', 'createdAt']
+      attributes: ['id', 'mapName', 'winner', 'status', 'createdAt']
     });
 
     // 매치 데이터 변환
     const matchHistory = matches.map(match => {
-      const playerData = match.players[0]; // 해당 사용자의 플레이어 데이터
+      const playerData = match.participants[0]; // 해당 사용자의 플레이어 데이터
       return {
         id: match.id,
-        map: match.map,
+        map: match.mapName,
         winner: match.winner,
         playerTeam: playerData ? playerData.team : null,
         hero: playerData ? playerData.hero : null,
+        role: playerData ? playerData.role : null,
         status: match.status,
         createdAt: match.createdAt
       };
@@ -1481,6 +1487,114 @@ router.post('/matches/invalidate', authenticate, isAdmin, async (req, res) => {
     });
     res.status(500).json({
       error: '매치 무효화 중 오류가 발생했습니다.',
+      message: process.env.NODE_ENV === 'development' ? err.message : '서버 오류가 발생했습니다.'
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/users/:id
+ * @desc    개별 사용자 삭제 (관리자용)
+ * @access  Admin
+ */
+router.delete('/users/:id', authenticate, isAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    logger.info('개별 사용자 삭제 요청:', {
+      adminId: req.user.id,
+      targetUserId: userId
+    });
+
+    // 삭제할 사용자 조회
+    const userToDelete = await global.db.User.findByPk(userId);
+
+    if (!userToDelete) {
+      return res.status(404).json({
+        success: false,
+        message: '삭제할 사용자를 찾을 수 없습니다.'
+      });
+    }
+
+    // 관리자 계정은 삭제하지 않도록 보호
+    if (userToDelete.role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: '관리자 계정은 삭제할 수 없습니다.'
+      });
+    }
+
+    // 자기 자신은 삭제할 수 없도록 보호
+    if (userToDelete.id === req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: '자기 자신의 계정은 삭제할 수 없습니다.'
+      });
+    }
+
+    // 관련 데이터 정리 (외래키 제약 조건 때문에)
+    try {
+      // 매치 참가자 데이터 삭제
+      if (global.db.MatchParticipant) {
+        await global.db.MatchParticipant.destroy({
+          where: { userId: userId }
+        });
+      }
+
+      // 매치메이킹 대기열에서 제거
+      if (global.db.MatchmakingQueue) {
+        await global.db.MatchmakingQueue.destroy({
+          where: { userId: userId }
+        });
+      }
+
+      // 사용자 로그 삭제
+      if (global.db.UserLog) {
+        await global.db.UserLog.destroy({
+          where: { userId: userId }
+        });
+      }
+
+      // 사용자가 생성한 매치들의 생성자 정보 정리
+      if (global.db.Match) {
+        await global.db.Match.update(
+          { createdBy: null },
+          { where: { createdBy: userId } }
+        );
+      }
+    } catch (cleanupErr) {
+      logger.warn('사용자 관련 데이터 정리 중 일부 오류:', cleanupErr);
+    }
+
+    // 사용자 삭제
+    await userToDelete.destroy();
+
+    logger.info('개별 사용자 삭제 완료:', {
+      adminId: req.user.id,
+      deletedUserId: userId,
+      deletedUserBattleTag: userToDelete.battleTag
+    });
+
+    res.json({
+      success: true,
+      message: `사용자 ${userToDelete.battleTag}가 성공적으로 삭제되었습니다.`,
+      deletedUser: {
+        id: userToDelete.id,
+        battleTag: userToDelete.battleTag,
+        nickname: userToDelete.nickname
+      }
+    });
+
+  } catch (err) {
+    logger.error('개별 사용자 삭제 오류:', {
+      error: err.message,
+      stack: err.stack,
+      adminId: req.user?.id,
+      targetUserId: req.params.id
+    });
+    res.status(500).json({
+      success: false,
+      error: '사용자 삭제 중 오류가 발생했습니다.',
       message: process.env.NODE_ENV === 'development' ? err.message : '서버 오류가 발생했습니다.'
     });
   }

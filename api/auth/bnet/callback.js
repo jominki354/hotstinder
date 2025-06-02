@@ -22,7 +22,8 @@ passport.use('bnet', new (require('passport-bnet').Strategy)({
       generateAuthToken: function() {
         return jwt.sign(
           {
-            id: this.bnetId,
+            id: this.id,        // UUID 사용 (이 시점에서는 아직 없으므로 나중에 설정)
+            bnetId: this.bnetId,
             battleTag: this.battleTag
           },
           process.env.JWT_SECRET || 'your-jwt-secret',
@@ -261,7 +262,8 @@ module.exports = async function handler(req, res) {
     // JWT 토큰 생성
     const token = jwt.sign(
       {
-        id: user.bnetId,
+        id: user.id,
+        bnetId: user.bnetId,
         battleTag: user.battleTag,
         role: user.role
       },
@@ -272,7 +274,8 @@ module.exports = async function handler(req, res) {
     // 프론트엔드로 리디렉션 (토큰과 함께)
     const frontendUrl = process.env.FRONTEND_URL || 'https://hotstinder.vercel.app';
     const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
-      id: user.bnetId,
+      id: user.id,
+      bnetId: user.bnetId,
       battleTag: user.battleTag,
       nickname: user.nickname,
       role: user.role,

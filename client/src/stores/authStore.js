@@ -25,26 +25,18 @@ const useAuthStore = create(
       user: null,
       loading: true,
       error: null,
-      // 대기열 상태 추가 - localStorage에서 읽어옴
-      inQueue: localStorage.getItem('inQueue') === 'true',
-      // 매치 진행 중 상태 추가 - localStorage에서 읽어옴
-      matchInProgress: localStorage.getItem('matchInProgress') === 'true',
-      currentMatchId: localStorage.getItem('currentMatchId') || '',
-      // 매치 정보 상태 추가
-      matchInfo: (() => {
-        try {
-          const savedMatchInfo = localStorage.getItem('lastMatchInfo');
-          return savedMatchInfo ? JSON.parse(savedMatchInfo) : null;
-        } catch (err) {
-          console.error('[AuthStore] 매치 정보 파싱 오류:', err);
-          return null;
-        }
-      })(),
+      // 대기열 상태 - persist에서 관리하되 localStorage와 동기화
+      inQueue: false,
+      // 매치 진행 중 상태 - persist에서 관리하되 localStorage와 동기화
+      matchInProgress: false,
+      currentMatchId: '',
+      // 매치 정보 상태
+      matchInfo: null,
 
       // 대기열 상태 설정 함수
       setQueueStatus: (status) => {
         // 상태 변경과 함께 localStorage에도 저장
-        localStorage.setItem('inQueue', status);
+        localStorage.setItem('inQueue', status.toString());
         set({ inQueue: status });
         console.log('[AuthStore] 대기열 상태 변경:', status);
       },
@@ -52,7 +44,7 @@ const useAuthStore = create(
       // 매치 진행 중 상태 설정 함수
       setMatchProgress: (status, matchId = '') => {
         // 상태 변경과 함께 localStorage에도 저장
-        localStorage.setItem('matchInProgress', status);
+        localStorage.setItem('matchInProgress', status.toString());
         if (status && matchId) {
           localStorage.setItem('currentMatchId', matchId);
           set({ matchInProgress: status, currentMatchId: matchId });
@@ -65,11 +57,107 @@ const useAuthStore = create(
 
         // 매치 진행 중이면 대기열 상태는 자동으로 false로 설정
         if (status) {
-          localStorage.setItem('inQueue', false);
+          localStorage.setItem('inQueue', 'false');
           set({ inQueue: false });
         }
 
         console.log('[AuthStore] 매치 진행 상태 변경:', status, matchId ? `매치 ID: ${matchId}` : '');
+      },
+
+      // localStorage와 상태 동기화 함수
+      syncWithLocalStorage: () => {
+        const localInQueue = localStorage.getItem('inQueue') === 'true';
+        const localMatchInProgress = localStorage.getItem('matchInProgress') === 'true';
+        const localCurrentMatchId = localStorage.getItem('currentMatchId') || '';
+
+        let localMatchInfo = null;
+        try {
+          const savedMatchInfo = localStorage.getItem('lastMatchInfo');
+          localMatchInfo = savedMatchInfo ? JSON.parse(savedMatchInfo) : null;
+        } catch (err) {
+          console.error('[AuthStore] 매치 정보 파싱 오류:', err);
+        }
+
+        const currentState = get();
+        const needsUpdate =
+          currentState.inQueue !== localInQueue ||
+          currentState.matchInProgress !== localMatchInProgress ||
+          currentState.currentMatchId !== localCurrentMatchId;
+
+        if (needsUpdate) {
+          console.log('[AuthStore] localStorage와 상태 동기화:', {
+            before: {
+              inQueue: currentState.inQueue,
+              matchInProgress: currentState.matchInProgress,
+              currentMatchId: currentState.currentMatchId
+            },
+            after: {
+              inQueue: localInQueue,
+              matchInProgress: localMatchInProgress,
+              currentMatchId: localCurrentMatchId
+            }
+          });
+
+          set({
+            inQueue: localInQueue,
+            matchInProgress: localMatchInProgress,
+            currentMatchId: localCurrentMatchId,
+            matchInfo: localMatchInfo
+          });
+        }
+      },
+
+      // 서버 상태 확인 및 동기화 함수
+      syncWithServer: async () => {
+        const token = get().token;
+        if (!token) return;
+
+        try {
+          console.log('[AuthStore] 서버 상태 동기화 시작');
+
+          const response = await axios.get('/api/matchmaking/status', {
+            headers: { 'Authorization': `Bearer ${token}` },
+            timeout: 8000
+          });
+
+          if (response.data.success) {
+            const serverState = response.data;
+            const currentState = get();
+
+            console.log('[AuthStore] 서버 상태 확인:', {
+              server: {
+                inQueue: serverState.inQueue,
+                matchInProgress: serverState.matchInProgress,
+                matchId: serverState.matchInfo?.matchId
+              },
+              client: {
+                inQueue: currentState.inQueue,
+                matchInProgress: currentState.matchInProgress,
+                matchId: currentState.currentMatchId
+              }
+            });
+
+            // 서버 상태와 클라이언트 상태가 다르면 서버 상태로 동기화
+            if (serverState.inQueue !== currentState.inQueue) {
+              console.log('[AuthStore] 대기열 상태 서버 동기화:', serverState.inQueue);
+              get().setQueueStatus(serverState.inQueue);
+            }
+
+            if (serverState.matchInProgress !== currentState.matchInProgress) {
+              console.log('[AuthStore] 매치 상태 서버 동기화:', serverState.matchInProgress);
+              get().setMatchProgress(serverState.matchInProgress, serverState.matchInfo?.matchId);
+            }
+
+            if (serverState.matchInfo && serverState.matchInProgress) {
+              get().setMatchInfo(serverState.matchInfo);
+            }
+
+            return true;
+          }
+        } catch (error) {
+          console.error('[AuthStore] 서버 상태 동기화 실패:', error);
+          return false;
+        }
       },
 
       // 매치 정보 설정 함수 추가
@@ -459,45 +547,53 @@ const useAuthStore = create(
           // 사용자 정보 정규화
           const normalizedUser = get().normalizeUserData(response.data.user);
 
-          // 로컬 스토리지에서 프로필 정보 확인
+          console.log('[AuthStore] 서버에서 받은 사용자 정보:', {
+            preferredRoles: normalizedUser.preferredRoles,
+            previousTier: normalizedUser.previousTier,
+            isProfileComplete: normalizedUser.isProfileComplete,
+            nickname: normalizedUser.nickname
+          });
+
+          // 서버 정보를 우선시하되, 서버에 정보가 없는 경우에만 로컬 스토리지 사용
           const localProfileComplete = localStorage.getItem('profileComplete');
           const preferredRoles = localStorage.getItem('userPreferredRoles');
           const previousTier = localStorage.getItem('userPreviousTier');
           const nickname = localStorage.getItem('userNickname');
 
-          // 로컬 스토리지에 저장된 프로필 정보로 보강
-          if (localProfileComplete === 'true') {
+          // 서버에 프로필 완료 정보가 없고 로컬에 있는 경우에만 적용
+          if (normalizedUser.isProfileComplete === undefined && localProfileComplete === 'true') {
             normalizedUser.isProfileComplete = true;
-            console.log('로컬 스토리지의 profileComplete 값에 따라 isProfileComplete를 true로 설정합니다.');
+            console.log('[AuthStore] 로컬 스토리지의 profileComplete 값 적용');
+          }
 
-            // 추가 프로필 정보가 있으면 적용
-            if (preferredRoles) {
-              try {
-                normalizedUser.preferredRoles = JSON.parse(preferredRoles);
-                console.log('로컬 스토리지에서 선호하는 역할 정보를 적용했습니다:', normalizedUser.preferredRoles);
-              } catch (e) {
-                console.error('선호하는 역할 정보 파싱 오류:', e);
-              }
-            }
-
-            if (previousTier) {
-              normalizedUser.previousTier = previousTier;
-              console.log('로컬 스토리지에서 이전 티어 정보를 적용했습니다:', normalizedUser.previousTier);
-            }
-
-            if (nickname && !normalizedUser.nickname) {
-              normalizedUser.nickname = nickname;
+          // 서버에 선호 역할 정보가 없고 로컬에 있는 경우에만 적용
+          if ((!normalizedUser.preferredRoles || normalizedUser.preferredRoles.length === 0) && preferredRoles) {
+            try {
+              normalizedUser.preferredRoles = JSON.parse(preferredRoles);
+              console.log('[AuthStore] 로컬 스토리지의 선호 역할 정보 적용:', normalizedUser.preferredRoles);
+            } catch (e) {
+              console.error('[AuthStore] 선호 역할 정보 파싱 오류:', e);
             }
           }
 
-          console.log('사용자 정보 갱신 결과:', normalizedUser);
-          console.log('프로필 설정 완료 여부 (갱신 전):', get().user?.isProfileComplete);
-          console.log('프로필 설정 완료 여부 (갱신 후):', normalizedUser.isProfileComplete);
-          console.log('프로필 설정 완료 상태 값 타입:', typeof normalizedUser.isProfileComplete);
-
-          if (normalizedUser.isProfileComplete !== get().user?.isProfileComplete) {
-            console.log('프로필 설정 완료 상태가 변경되었습니다!');
+          // 서버에 이전 티어 정보가 없고 로컬에 있는 경우에만 적용
+          if (!normalizedUser.previousTier && previousTier) {
+            normalizedUser.previousTier = previousTier;
+            console.log('[AuthStore] 로컬 스토리지의 이전 티어 정보 적용:', normalizedUser.previousTier);
           }
+
+          // 서버에 닉네임이 없고 로컬에 있는 경우에만 적용
+          if (!normalizedUser.nickname && nickname) {
+            normalizedUser.nickname = nickname;
+            console.log('[AuthStore] 로컬 스토리지의 닉네임 정보 적용:', normalizedUser.nickname);
+          }
+
+          console.log('[AuthStore] 최종 사용자 정보:', {
+            preferredRoles: normalizedUser.preferredRoles,
+            previousTier: normalizedUser.previousTier,
+            isProfileComplete: normalizedUser.isProfileComplete,
+            nickname: normalizedUser.nickname
+          });
 
           set({
             isAuthenticated: true,
@@ -773,11 +869,28 @@ const useAuthStore = create(
       // 오류 초기화
       clearError: () => set({ error: null }),
 
-      // 초기화 (앱 시작 시 localStorage에서 상태 복원)
-      initialize: () => {
+      // 초기화 (앱 시작 시 localStorage에서 상태 복원 및 서버 동기화)
+      initialize: async () => {
+        console.log('[AuthStore] 앱 초기화 시작');
+
+        // 1. localStorage와 상태 동기화
+        get().syncWithLocalStorage();
+
+        // 2. 토큰이 있으면 사용자 정보 로드
         const token = localStorage.getItem('token');
         if (token && !isTokenExpired(token)) {
-          get().loadUser();
+          try {
+            await get().loadUser();
+
+            // 3. 사용자 정보 로드 성공 시 서버 상태 동기화
+            await get().syncWithServer();
+
+            console.log('[AuthStore] 앱 초기화 완료 - 사용자 인증 및 상태 동기화 성공');
+          } catch (error) {
+            console.error('[AuthStore] 앱 초기화 중 사용자 정보 로드 실패:', error);
+          }
+        } else {
+          console.log('[AuthStore] 앱 초기화 완료 - 토큰 없음 또는 만료됨');
         }
       },
 
