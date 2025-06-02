@@ -270,9 +270,9 @@ const LeaderboardPage = () => {
                           <div className={`
                             inline-flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm
                             ${index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black shadow-lg' :
-                              index === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-500 text-black shadow-lg' :
-                              index === 2 ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg' :
-                              'bg-slate-600/50 text-white'}
+                        index === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-500 text-black shadow-lg' :
+                          index === 2 ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg' :
+                            'bg-slate-600/50 text-white'}
                           `}>
                             {player.rank || (index + 1)}
                           </div>

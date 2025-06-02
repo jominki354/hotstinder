@@ -470,5 +470,3 @@ const MatchDetailsPage = () => {
 export default MatchDetailsPage;
 
 
-
-

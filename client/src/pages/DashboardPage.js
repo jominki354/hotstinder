@@ -469,8 +469,8 @@ const DashboardPage = () => {
                           <div className="flex items-center gap-3">
                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${
                               index === 0 ? 'bg-yellow-500/20 text-yellow-400' :
-                              index === 1 ? 'bg-gray-400/20 text-gray-400' :
-                              'bg-orange-600/20 text-orange-400'
+                                index === 1 ? 'bg-gray-400/20 text-gray-400' :
+                                  'bg-orange-600/20 text-orange-400'
                             }`}>
                               {hero.name.charAt(0)}
                             </div>

@@ -159,7 +159,6 @@ export const heroTranslations = {
   'Barb': '소냐',
   'Barbarian': '소냐',
   'Genn': '겐 그레이메인',
-  'Greymane': '겐 그레이메인',
   'Demo': '발라',
   'Demon Hunter': '발라',
   'Thra': '스랄',

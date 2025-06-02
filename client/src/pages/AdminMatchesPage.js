@@ -755,7 +755,7 @@ const AdminMatchesPage = () => {
                             <td className="px-3 py-2 text-center">
                               <span className={`${
                                 (player.mmrChange || 0) > 0 ? 'text-green-400' :
-                                (player.mmrChange || 0) < 0 ? 'text-red-400' : 'text-gray-400'
+                                  (player.mmrChange || 0) < 0 ? 'text-red-400' : 'text-gray-400'
                               }`}>
                                 {player.mmrChange > 0 ? '+' : ''}{player.mmrChange || 0}
                               </span>

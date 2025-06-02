@@ -275,8 +275,8 @@ const FindMatchPage = () => {
       interval = setInterval(() => {
         // 전역 타이머가 없거나 작동하지 않을 때만 로컬 계산 사용
         if (!window.queueTimeState || window.queueTimeState.time === 0) {
-        const elapsed = Math.floor((Date.now() - searchStartTime) / 1000);
-        setElapsedTime(elapsed);
+          const elapsed = Math.floor((Date.now() - searchStartTime) / 1000);
+          setElapsedTime(elapsed);
         }
 
         // 실제 대기열 상태인 경우 서버에서 플레이어 수 가져오기
@@ -384,11 +384,11 @@ const FindMatchPage = () => {
 
       // 대기열에 없는 경우 기본 통계만 표시 (시뮬레이션 제거)
       if (!inQueue) {
-      const baseStats = {
+        const baseStats = {
           playersInQueue: 0,
           activeMatches: 0
         };
-      setQueueStats(baseStats);
+        setQueueStats(baseStats);
       }
     } catch (error) {
       console.error('큐 통계 가져오기 실패:', error);
@@ -402,8 +402,8 @@ const FindMatchPage = () => {
       console.warn('프로필 미완성으로 프로필 설정 페이지로 이동');
       toast.warning('프로필 설정을 먼저 완료해주세요.');
       navigate('/profile/setup');
-        return;
-      }
+      return;
+    }
 
     // 버튼 애니메이션 시작
     setIsStartingSearch(true);
@@ -542,7 +542,7 @@ const FindMatchPage = () => {
 
         console.log('6-3. 응답 데이터 상세:', response.data);
 
-      if (response.data.success) {
+        if (response.data.success) {
           console.log('7. 서버 대기열 참가 성공');
 
           // 전역 상태 업데이트 (가장 중요!)
@@ -666,7 +666,7 @@ const FindMatchPage = () => {
                     statusResponse.data.serverTime
                   );
                 }
-      } else {
+              } else {
                 setSearchStartTime(Date.now());
                 setElapsedTime(0);
 
@@ -1109,8 +1109,8 @@ const FindMatchPage = () => {
             preferredRoles: user.preferredRoles || [],
             wins: user.wins || 0,
             losses: user.losses || 0
-            }));
-          }
+          }));
+        }
         console.log('일반 매치에서 기본 사용자 API로 사용자 목록 가져오기 성공:', realUsers.length);
       } catch (fallbackError) {
         console.warn('기본 사용자 API도 실패:', fallbackError.message);
@@ -1393,7 +1393,7 @@ const FindMatchPage = () => {
     return null;
   }
 
-    return (
+  return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="relative z-10 p-4">
         <div className="max-w-6xl mx-auto">
@@ -1419,12 +1419,12 @@ const FindMatchPage = () => {
                     <svg className="w-12 h-12 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-          </div>
+                  </div>
                   <p className="text-gray-400 mb-8">{searchMessages.waiting}</p>
 
-          {/* 버튼 그룹 */}
+                  {/* 버튼 그룹 */}
                   <div className="space-y-4">
-            <button
+                    <button
                       onClick={() => {
                         console.log('[FindMatchPage] 매치 찾기 버튼 클릭됨!');
                         handleStartSearch();
@@ -1434,12 +1434,12 @@ const FindMatchPage = () => {
                         !user?.isProfileComplete || isStartingSearch
                           ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                           : buttonAnimation === 'pulse'
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white animate-pulse scale-105'
-                          : buttonAnimation === 'success'
-                          ? 'bg-gradient-to-r from-green-600 to-green-500 text-white scale-105'
-                          : buttonAnimation === 'error'
-                          ? 'bg-gradient-to-r from-red-600 to-red-500 text-white'
-                          : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white hover:scale-105'
+                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white animate-pulse scale-105'
+                            : buttonAnimation === 'success'
+                              ? 'bg-gradient-to-r from-green-600 to-green-500 text-white scale-105'
+                              : buttonAnimation === 'error'
+                                ? 'bg-gradient-to-r from-red-600 to-red-500 text-white'
+                                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white hover:scale-105'
                       }`}
                     >
                       {/* 로딩 스피너 */}
@@ -1463,22 +1463,22 @@ const FindMatchPage = () => {
 
                       <span className={isStartingSearch || showSuccessAnimation ? 'opacity-0' : 'opacity-100'}>
                         {!user?.isProfileComplete ? '프로필 설정 필요' :
-                         isStartingSearch ? '매치 찾는 중...' :
-                         buttonAnimation === 'joined' ? '매치메이킹 시작됨!' :
-                         buttonAnimation === 'already-joined' ? '이미 대기열 참가 중' :
-                         buttonAnimation === 'error' ? '다시 시도해주세요' :
-                         '매치 찾기 시작'}
+                          isStartingSearch ? '매치 찾는 중...' :
+                            buttonAnimation === 'joined' ? '매치메이킹 시작됨!' :
+                              buttonAnimation === 'already-joined' ? '이미 대기열 참가 중' :
+                                buttonAnimation === 'error' ? '다시 시도해주세요' :
+                                  '매치 찾기 시작'}
                       </span>
-            </button>
+                    </button>
 
                     {/* 개발용 시뮬레이션 버튼 */}
                     {isDevelopment && (
-          <button
+                      <button
                         onClick={handleDevMatchSimulation}
                         className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-3 px-6 rounded-2xl text-sm transition-all duration-300 transform hover:scale-105 border border-orange-500/30"
-          >
+                      >
                         🔧 개발용 빠른 매치 시뮬레이션
-          </button>
+                      </button>
                     )}
 
                     {/* 강제 대기열 정리 버튼 (문제 해결용) */}
@@ -1496,14 +1496,14 @@ const FindMatchPage = () => {
                       프로필 설정을 완료해야 매치메이킹을 시작할 수 있습니다.
                     </p>
                   )}
-              </div>
+                </div>
               ) : (
                 <div className="text-center">
                   {/* 상태 아이콘 */}
                   <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 transition-all duration-500 ${
                     searchPhase === 'found' ? 'bg-green-500/20 animate-bounce' :
-                    searchPhase === 'failed' ? 'bg-red-500/20' :
-                    'bg-blue-500/20 animate-pulse'
+                      searchPhase === 'failed' ? 'bg-red-500/20' :
+                        'bg-blue-500/20 animate-pulse'
                   }`}>
                     {searchPhase === 'found' ? (
                       <svg className="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1518,19 +1518,19 @@ const FindMatchPage = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     )}
-            </div>
+                  </div>
 
                   {/* 시간 및 상태 */}
                   <div className="mb-6">
                     <div className="text-3xl font-bold text-blue-400 mb-2">{formatTime(elapsedTime)}</div>
                     <p className={`text-lg transition-colors duration-300 ${
                       searchPhase === 'found' ? 'text-green-400' :
-                      searchPhase === 'failed' ? 'text-red-400' :
-                      'text-gray-300'
+                        searchPhase === 'failed' ? 'text-red-400' :
+                          'text-gray-300'
                     }`}>
                       {searchMessages[searchPhase]}
                     </p>
-          </div>
+                  </div>
 
                   {/* 플레이어 모집 현황 */}
                   {searchPhase !== 'failed' && (
@@ -1539,14 +1539,14 @@ const FindMatchPage = () => {
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm text-gray-400">플레이어 모집</span>
                           <span className="text-sm text-gray-400">MMR 기반 매칭</span>
-              </div>
+                        </div>
                         <div className="text-center">
                           <div className="text-4xl font-bold text-blue-400 mb-2">
                             {playersFound}/10
-                      </div>
+                          </div>
                           <div className="text-sm text-gray-300">
                             {playersFound < 10 ? `${10 - playersFound}명 더 필요` : '매치 준비 완료!'}
-                    </div>
+                          </div>
                         </div>
                         {/* 플레이어 아이콘 표시 */}
                         <div className="flex justify-center mt-4 gap-1">
@@ -1560,9 +1560,9 @@ const FindMatchPage = () => {
                               }`}
                             />
                           ))}
-            </div>
-              </div>
+                        </div>
                       </div>
+                    </div>
                   )}
 
                   {/* 대기열 상세 정보 - 시간 표시 문제로 인해 비활성화
@@ -1592,21 +1592,21 @@ const FindMatchPage = () => {
 
                   {/* 취소 버튼 */}
                   {searchPhase !== 'found' && searchPhase !== 'failed' && (
-            <button
+                    <button
                       onClick={handleStopSearch}
                       disabled={isStoppingSearch}
                       className={`w-full relative overflow-hidden font-bold py-4 px-6 rounded-2xl text-lg transition-all duration-300 transform ${
                         isStoppingSearch
                           ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                           : buttonAnimation === 'stopping'
-                          ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white animate-pulse scale-105'
-                          : buttonAnimation === 'cancel-success'
-                          ? 'bg-gradient-to-r from-green-600 to-green-500 text-white scale-105'
-                          : buttonAnimation === 'warning'
-                          ? 'bg-gradient-to-r from-yellow-600 to-orange-500 text-white'
-                          : buttonAnimation === 'error'
-                          ? 'bg-gradient-to-r from-red-600 to-red-500 text-white'
-                          : 'bg-red-600 hover:bg-red-700 text-white hover:scale-105'
+                            ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white animate-pulse scale-105'
+                            : buttonAnimation === 'cancel-success'
+                              ? 'bg-gradient-to-r from-green-600 to-green-500 text-white scale-105'
+                              : buttonAnimation === 'warning'
+                                ? 'bg-gradient-to-r from-yellow-600 to-orange-500 text-white'
+                                : buttonAnimation === 'error'
+                                  ? 'bg-gradient-to-r from-red-600 to-red-500 text-white'
+                                  : 'bg-red-600 hover:bg-red-700 text-white hover:scale-105'
                       }`}
                     >
                       {/* 로딩 스피너 */}
@@ -1621,26 +1621,26 @@ const FindMatchPage = () => {
 
                       <span className={isStoppingSearch ? 'opacity-0' : 'opacity-100'}>
                         {isStoppingSearch ? '취소 중...' :
-                         buttonAnimation === 'cancel-success' ? '취소 완료!' :
-                         buttonAnimation === 'warning' ? '강제 취소됨' :
-                         buttonAnimation === 'error' ? '취소 실패' :
-                         '매치 찾기 취소'}
+                          buttonAnimation === 'cancel-success' ? '취소 완료!' :
+                            buttonAnimation === 'warning' ? '강제 취소됨' :
+                              buttonAnimation === 'error' ? '취소 실패' :
+                                '매치 찾기 취소'}
                       </span>
-            </button>
+                    </button>
                   )}
 
                   {/* 재시도 버튼 */}
                   {searchPhase === 'failed' && (
-            <button
+                    <button
                       onClick={handleStartSearch}
                       className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-4 px-6 rounded-2xl text-lg transition-all duration-300"
-            >
+                    >
                       다시 시도하기
-            </button>
+                    </button>
                   )}
-          </div>
+                </div>
               )}
-          </div>
+            </div>
 
             {/* 플레이어 정보 */}
             <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-600/30 rounded-3xl p-8">
@@ -1650,20 +1650,20 @@ const FindMatchPage = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">배틀태그</span>
                   <div className="flex items-center gap-2">
-                  <span className="text-white font-medium">{user?.battleTag || user?.battletag}</span>
+                    <span className="text-white font-medium">{user?.battleTag || user?.battletag}</span>
                     <span className="text-lg">{getTierIcon(getTierFromMMR(user?.mmr || 1500))}</span>
                   </div>
-          </div>
+                </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400">현재 MMR</span>
                   <span className="text-blue-400 font-bold">{user?.mmr || 1500}</span>
-              </div>
+                </div>
 
                 {/* 선호 역할 선택 */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                  <span className="text-gray-400">선호 역할</span>
+                    <span className="text-gray-400">선호 역할</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -1684,11 +1684,11 @@ const FindMatchPage = () => {
                         </div>
                       </button>
                     ))}
-                    </div>
-                    </div>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
 
           {/* 통계 및 전장 정보 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -1698,16 +1698,16 @@ const FindMatchPage = () => {
                 <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                    </div>
+              </div>
               <div className="text-3xl font-bold text-blue-400 mb-2 tabular-nums">
                 {queueStats.playersInQueue}
-                    </div>
+              </div>
               <div className="text-gray-300 font-medium mb-2">대기 중인 플레이어</div>
               <div className="flex items-center justify-center gap-2">
                 <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                 <span className="text-xs text-blue-300">실시간 업데이트</span>
-                  </div>
-                </div>
+              </div>
+            </div>
 
             {/* 진행 중인 매치 */}
             <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 backdrop-blur-sm border border-pink-500/30 rounded-2xl p-6 text-center hover:border-pink-400/50 transition-all duration-300 group">
@@ -1718,14 +1718,14 @@ const FindMatchPage = () => {
               </div>
               <div className="text-3xl font-bold text-pink-400 mb-2 tabular-nums">
                 {queueStats.activeMatches}
-                      </div>
+              </div>
               <div className="text-gray-300 font-medium mb-2">진행 중인 매치</div>
               <div className="flex items-center justify-center gap-2">
                 <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse"></div>
                 <span className="text-xs text-pink-300">라이브 게임</span>
-                      </div>
-                    </div>
-                    </div>
+              </div>
+            </div>
+          </div>
 
           {/* 메인 설정 영역 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1814,7 +1814,7 @@ const FindMatchPage = () => {
                   <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                   </svg>
-                  </div>
+                </div>
                 전장 목록
               </h2>
 
@@ -1823,10 +1823,10 @@ const FindMatchPage = () => {
                   <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-slate-700/20 border border-slate-600/30 hover:bg-slate-700/30 hover:border-slate-500/50 transition-all duration-200">
                     <span className="text-xl">{bg.icon}</span>
                     <span className="text-white font-medium text-sm">{bg.name}</span>
-          </div>
+                  </div>
                 ))}
-        </div>
-      </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

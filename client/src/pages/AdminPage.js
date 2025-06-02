@@ -588,7 +588,7 @@ const AdminPage = () => {
                 <span className={`font-medium ${getStatusColor(debugData.database.status)}`}>
                   {debugData.database.status}
                 </span>
-        </div>
+              </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">데이터베이스:</span>
                 <span className="text-white">{safeRender(debugData.database.database)}</span>
@@ -827,7 +827,7 @@ const AdminPage = () => {
 
   // 로딩 중 표시
   if (loading) {
-  return (
+    return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
@@ -924,27 +924,27 @@ const AdminPage = () => {
 
         {activeTab === 'dashboard' && (
           <>
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
-          <h3 className="text-gray-400 mb-1">총 사용자</h3>
-          <p className="text-3xl font-bold text-white">{stats.totalUsers}</p>
-        </div>
-        <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
-          <h3 className="text-gray-400 mb-1">총 매치</h3>
-          <p className="text-3xl font-bold text-white">{stats.totalMatches}</p>
-        </div>
-        <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
-          <h3 className="text-gray-400 mb-1">활성 사용자</h3>
-          <p className="text-3xl font-bold text-white">{stats.activeUsers}</p>
-          <p className="text-xs text-gray-500">최근 7일 로그인</p>
-        </div>
-        <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
-          <h3 className="text-gray-400 mb-1">최근 매치</h3>
-          <p className="text-3xl font-bold text-white">{stats.recentMatches}</p>
-          <p className="text-xs text-gray-500">최근 24시간</p>
-        </div>
-      </div>
+            {/* 통계 카드 */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
+                <h3 className="text-gray-400 mb-1">총 사용자</h3>
+                <p className="text-3xl font-bold text-white">{stats.totalUsers}</p>
+              </div>
+              <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
+                <h3 className="text-gray-400 mb-1">총 매치</h3>
+                <p className="text-3xl font-bold text-white">{stats.totalMatches}</p>
+              </div>
+              <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
+                <h3 className="text-gray-400 mb-1">활성 사용자</h3>
+                <p className="text-3xl font-bold text-white">{stats.activeUsers}</p>
+                <p className="text-xs text-gray-500">최근 7일 로그인</p>
+              </div>
+              <div className="bg-indigo-900/30 p-4 rounded-lg shadow-lg">
+                <h3 className="text-gray-400 mb-1">최근 매치</h3>
+                <p className="text-3xl font-bold text-white">{stats.recentMatches}</p>
+                <p className="text-xs text-gray-500">최근 24시간</p>
+              </div>
+            </div>
 
             {/* 관리 도구 섹션 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -953,8 +953,8 @@ const AdminPage = () => {
                 <h2 className="text-xl font-bold text-white mb-4">🛠️ 테스트 데이터 생성</h2>
                 <p className="text-gray-400 mb-4">개발 및 테스트를 위한 더미 데이터를 생성합니다.</p>
 
-        <div className="space-y-4">
-          <div>
+                <div className="space-y-4">
+                  <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       생성할 테스트 계정 수
                     </label>
@@ -1055,32 +1055,32 @@ const AdminPage = () => {
 
             {/* 파일 업로드 섹션 */}
             <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
               리플레이 파일 선택 (.StormReplay)
-            </label>
-            <input
-              id="replayFileInput"
-              type="file"
-              accept=".StormReplay"
-              onChange={handleReplayFileChange}
+              </label>
+              <input
+                id="replayFileInput"
+                type="file"
+                accept=".StormReplay"
+                onChange={handleReplayFileChange}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            {replayFile && (
+              />
+              {replayFile && (
                 <p className="mt-2 text-sm text-green-400">
                   선택된 파일: {replayFile.name} ({(replayFile.size / 1024 / 1024).toFixed(2)} MB)
                 </p>
-            )}
-          </div>
+              )}
+            </div>
 
             {/* 분석 버튼 */}
             <div className="mb-6 flex space-x-4">
-            <button
-              onClick={analyzeReplay}
-              disabled={!replayFile || replayAnalyzing}
+              <button
+                onClick={analyzeReplay}
+                disabled={!replayFile || replayAnalyzing}
                 className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-            >
+              >
                 {replayAnalyzing ? '분석 중...' : '리플레이 분석 시작'}
-            </button>
+              </button>
 
               <button
                 onClick={clearAnalysis}
@@ -1088,30 +1088,30 @@ const AdminPage = () => {
               >
                 초기화
               </button>
-        </div>
+            </div>
 
             {/* 분석 오류 표시 */}
-        {analysisError && (
+            {analysisError && (
               <div className="mb-6 bg-red-900/20 border border-red-800 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-red-400 mb-2">분석 오류</h3>
                 <p className="text-red-300">{analysisError}</p>
 
                 {/* 오류 로그 표시 */}
-            {analysisLogs.length > 0 && (
+                {analysisLogs.length > 0 && (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium text-red-400 mb-2">상세 로그:</h4>
                     <div className="bg-black/30 p-3 rounded text-xs text-gray-300 max-h-40 overflow-y-auto">
-                  {analysisLogs.map((log, index) => (
+                      {analysisLogs.map((log, index) => (
                         <div key={index} className="mb-1">{log}</div>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* 분석 결과 표시 */}
-        {analysisResult && (
+            {/* 분석 결과 표시 */}
+            {analysisResult && (
               <div className="space-y-6">
                 <h3 className="text-xl font-bold text-white">분석 결과</h3>
 
@@ -1123,9 +1123,9 @@ const AdminPage = () => {
                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>
                       <span className="text-yellow-400 font-medium">시뮬레이션 매치 감지됨</span>
-                </div>
+                    </div>
                     <p className="text-yellow-300 mt-2">이 리플레이는 시뮬레이션으로 생성된 매치입니다.</p>
-                </div>
+                  </div>
                 )}
 
                 {/* 매치 카드 스타일로 변경 */}
@@ -1134,9 +1134,9 @@ const AdminPage = () => {
                     <div className="flex items-center gap-4">
                       <div className="flex-shrink-0 w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center">
                         <span className="text-xl">🎮</span>
-                </div>
+                      </div>
 
-                <div>
+                      <div>
                         <h3 className="text-lg font-bold text-white">
                           {getKoreanMapName(analysisResult.metadata?.mapName) || '알 수 없음'}
                         </h3>
@@ -1145,9 +1145,9 @@ const AdminPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <p>게임 시간: {analysisResult.metadata?.gameDuration ? formatDuration(analysisResult.metadata.gameDuration) : '알 수 없음'}</p>
-                </div>
-              </div>
-            </div>
+                        </div>
+                      </div>
+                    </div>
 
                     <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
                       <div className="flex items-center gap-4">
@@ -1166,14 +1166,14 @@ const AdminPage = () => {
                               )}
                             </div>
                           )}
-                  </div>
+                        </div>
 
                         <div className={`px-4 py-2 rounded-lg font-medium ${analysisResult.metadata?.winner === 'blue' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-slate-700/50 text-slate-300 border border-slate-600'}`}>
                           <span>블루팀</span>
-                          </div>
-                          </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
 
                   {/* 매치 상세 정보 */}
                   <div className="p-5 bg-slate-900/50">
@@ -1254,15 +1254,15 @@ const AdminPage = () => {
                               })}
                             </tbody>
                           </table>
-                  </div>
-                </div>
+                        </div>
+                      </div>
 
-                {/* 블루 팀 */}
+                      {/* 블루 팀 */}
                       <div className={`w-full p-4 rounded-lg ${analysisResult.metadata?.winner === 'blue' ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-slate-800/50 border border-slate-700/30'}`}>
                         <div className="flex justify-between items-center mb-3">
                           <h4 className="text-blue-300 font-bold">블루 팀</h4>
                           {analysisResult.metadata?.winner === 'blue' && <div className="bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-medium">승리</div>}
-                  </div>
+                        </div>
                         <div className="overflow-x-auto">
                           <table className="w-full">
                             <thead>
@@ -1307,7 +1307,7 @@ const AdminPage = () => {
                                         <span className="text-sm whitespace-nowrap" title={player.name || '알 수 없음'}>
                                           {player.name || '알 수 없음'}
                                         </span>
-                          </div>
+                                      </div>
                                     </td>
                                     <td className="py-3 px-3 text-blue-300 text-sm whitespace-nowrap" title={translateHero(player.hero) || '알 수 없음'}>
                                       {translateHero(player.hero) || '알 수 없음'}
@@ -1333,9 +1333,9 @@ const AdminPage = () => {
                               })}
                             </tbody>
                           </table>
-                </div>
-              </div>
-                  </div>
+                        </div>
+                      </div>
+                    </div>
 
                     {/* 게임 통계 요약 */}
                     {analysisResult.statistics && (
@@ -1353,24 +1353,24 @@ const AdminPage = () => {
                           <div className="text-center">
                             <div className="text-2xl font-bold text-yellow-400">{analysisResult.statistics.totalAssists || 0}</div>
                             <div className="text-gray-400">총 어시스트</div>
-                        </div>
+                          </div>
                           <div className="text-center">
                             <div className="text-2xl font-bold text-purple-400">
                               {analysisResult.statistics?.averageLevel ||
                                (analysisResult.players?.all ?
-                                Math.round(analysisResult.players.all.reduce((sum, p) => sum + (p.stats?.Level || p.heroLevel || 0), 0) / analysisResult.players.all.length) :
-                                0)}
-                      </div>
+                                 Math.round(analysisResult.players.all.reduce((sum, p) => sum + (p.stats?.Level || p.heroLevel || 0), 0) / analysisResult.players.all.length) :
+                                 0)}
+                            </div>
                             <div className="text-gray-400">평균 레벨</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )}
-              </div>
-            </div>
           </div>
-        )}
-      </div>
         )}
 
         {/* 디버깅 탭들 */}
@@ -1387,7 +1387,7 @@ const AdminPage = () => {
                     <h2 className="text-2xl font-bold text-white mb-2">🔧 API 엔드포인트</h2>
                     <p className="text-gray-400">모든 API 엔드포인트의 상태를 확인합니다.</p>
                   </div>
-            <button
+                  <button
                     onClick={() => loadDebugData('endpoints')}
                     disabled={debugLoading}
                     className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
@@ -1401,14 +1401,14 @@ const AdminPage = () => {
                       <>
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+                        </svg>
                         새로고침
                       </>
                     )}
-            </button>
-          </div>
+                  </button>
+                </div>
                 {renderEndpointsTab()}
-      </div>
+              </div>
             )}
 
             {activeTab === 'debug-database' && (
@@ -1417,8 +1417,8 @@ const AdminPage = () => {
                   <div>
                     <h2 className="text-2xl font-bold text-white mb-2">🗄️ 데이터베이스</h2>
                     <p className="text-gray-400">데이터베이스 연결 상태와 테이블 정보를 확인합니다.</p>
-            </div>
-            <button
+                  </div>
+                  <button
                     onClick={() => loadDebugData('database')}
                     disabled={debugLoading}
                     className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
@@ -1436,20 +1436,20 @@ const AdminPage = () => {
                         새로고침
                       </>
                     )}
-            </button>
-          </div>
+                  </button>
+                </div>
                 {renderDatabaseTab()}
-        </div>
+              </div>
             )}
 
             {activeTab === 'debug-models' && (
-          <div>
+              <div>
                 <div className="mb-6 flex justify-between items-center">
                   <div>
                     <h2 className="text-2xl font-bold text-white mb-2">📋 모델 정보</h2>
                     <p className="text-gray-400">Sequelize 모델 정보와 필드 매핑을 확인합니다.</p>
-            </div>
-            <button
+                  </div>
+                  <button
                     onClick={() => loadDebugData('models')}
                     disabled={debugLoading}
                     className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
@@ -1463,23 +1463,23 @@ const AdminPage = () => {
                       <>
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+                        </svg>
                         새로고침
                       </>
                     )}
-            </button>
-          </div>
+                  </button>
+                </div>
                 {renderModelsTab()}
-        </div>
+              </div>
             )}
 
             {activeTab === 'debug-test' && (
-          <div>
+              <div>
                 <div className="mb-6 flex justify-between items-center">
-          <div>
+                  <div>
                     <h2 className="text-2xl font-bold text-white mb-2">🧪 실시간 테스트</h2>
                     <p className="text-gray-400">실제 API 엔드포인트를 테스트하고 응답 시간을 측정합니다.</p>
-          </div>
+                  </div>
                   <button
                     onClick={() => loadDebugData('test')}
                     disabled={debugLoading}
@@ -1494,14 +1494,14 @@ const AdminPage = () => {
                       <>
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+                        </svg>
                         테스트 실행
                       </>
                     )}
                   </button>
-          </div>
+                </div>
                 {renderTestTab()}
-          </div>
+              </div>
             )}
           </>
         )}

@@ -65,7 +65,7 @@ const queueTimeState = {
     this.time = 0;
     this.intervalId = setInterval(() => {
       this.time++;
-          this.notify();
+      this.notify();
     }, 1000);
 
     this.notify();
@@ -236,7 +236,7 @@ const QueueStatus = () => {
           // 서버 시간 동기화 - 우선순위 개선
           if (statusData.waitTime !== undefined && statusData.joinedAt && statusData.serverTime) {
             // 1순위: 완전한 서버 시간 정보가 있는 경우
-        queueTimeState.setServerTime(
+            queueTimeState.setServerTime(
               statusData.waitTime,
               statusData.joinedAt,
               statusData.serverTime
@@ -363,9 +363,9 @@ const QueueStatus = () => {
 
       // 2. 시뮬레이션 모드 정리
       if (window.isSimulationRunning || localStorage.getItem('simulatedPlayers')) {
-            localStorage.removeItem('simulatedPlayers');
-            localStorage.removeItem('simulationStartTime');
-            window.isSimulationRunning = false;
+        localStorage.removeItem('simulatedPlayers');
+        localStorage.removeItem('simulationStartTime');
+        window.isSimulationRunning = false;
         console.log('[QueueStatus] 시뮬레이션 모드 정리 완료');
       }
 
@@ -410,11 +410,11 @@ const QueueStatus = () => {
     } finally {
       // 6. 최종 상태 정리 (중복이지만 확실히 하기 위해)
       setIsLeavingQueue(false);
-        localStorage.setItem('inQueue', 'false');
+      localStorage.setItem('inQueue', 'false');
       localStorage.removeItem('queueStartTime');
-        setQueueStatus(false);
-        queueTimeState.reset();
-        setMatchFound(false);
+      setQueueStatus(false);
+      queueTimeState.reset();
+      setMatchFound(false);
       setError(null);
       setNotification(null);
 
@@ -515,7 +515,7 @@ const QueueStatus = () => {
     return null;
   }
 
-    return (
+  return (
     <div className={`fixed top-20 right-4 z-[200] transition-all duration-300 pointer-events-auto ${
       isMinimized ? 'w-48' : 'w-56'
     }`}>
@@ -558,11 +558,11 @@ const QueueStatus = () => {
           <div className="flex items-center space-x-1.5">
             <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
               matchInProgress ? 'bg-green-400 animate-pulse shadow-lg shadow-green-400/50' :
-              inQueue ? 'bg-blue-400 animate-pulse shadow-lg shadow-blue-400/50' : 'bg-gray-400'
+                inQueue ? 'bg-blue-400 animate-pulse shadow-lg shadow-blue-400/50' : 'bg-gray-400'
             }`} />
             <h3 className="text-white font-semibold text-xs">
               {matchInProgress ? '매치 진행 중' :
-               inQueue ? `대기열 (${queueStatusState.currentPlayers}/${queueStatusState.requiredPlayers})` : '상태'}
+                inQueue ? `대기열 (${queueStatusState.currentPlayers}/${queueStatusState.requiredPlayers})` : '상태'}
             </h3>
           </div>
 
@@ -570,7 +570,7 @@ const QueueStatus = () => {
           <div className="text-slate-300 transition-transform duration-200">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-200 ${isMinimized ? 'rotate-180' : ''}`}>
               <path d="M6 9l6 6 6-6" />
-          </svg>
+            </svg>
           </div>
         </div>
 
@@ -588,23 +588,23 @@ const QueueStatus = () => {
                     </div>
                     <div className="text-gray-400 text-xs">대기 시간</div>
                   </div>
-        </div>
+                </div>
 
                 {/* 플레이어 진행률 */}
                 <div className="bg-gradient-to-br from-slate-700/30 to-slate-600/20 rounded-lg p-2.5 border border-slate-600/30">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs text-gray-400">플레이어 모집</span>
                     <span className="text-xs text-gray-400">MMR 매칭</span>
-        </div>
+                  </div>
 
                   <div className="text-center mb-1.5">
                     <div className="text-sm font-bold text-white mb-1">
                       {queueStatusState.currentPlayers}/{queueStatusState.requiredPlayers}
-            </div>
+                    </div>
                     <div className="text-xs text-gray-300">
                       {queueStatusState.currentPlayers < 10 ? `${10 - queueStatusState.currentPlayers}명 더 필요` : '매치 준비 완료!'}
                     </div>
-          </div>
+                  </div>
 
                   {/* 진행률 바 */}
                   <div className="w-full bg-slate-700/50 rounded-full h-1 mb-1.5 overflow-hidden">
@@ -626,8 +626,8 @@ const QueueStatus = () => {
                         }`}
                       />
                     ))}
-          </div>
-        </div>
+                  </div>
+                </div>
 
                 {error && (
                   <div className="text-red-400 text-xs text-center bg-red-900/20 border border-red-500/30 p-1.5 rounded-lg">
@@ -642,7 +642,7 @@ const QueueStatus = () => {
 
                 {/* 액션 버튼들 */}
                 <div className="flex space-x-1.5 pointer-events-auto">
-          <button
+                  <button
                     onClick={(e) => {
                       console.log('[QueueStatus] 상세보기 버튼 클릭됨');
                       e.preventDefault();
@@ -655,12 +655,12 @@ const QueueStatus = () => {
                     <div className="flex items-center justify-center gap-1">
                       <svg className="w-2.5 h-2.5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
                       상세보기
                     </div>
-          </button>
-          <button
+                  </button>
+                  <button
                     onClick={(e) => {
                       console.log('[QueueStatus] 나가기 버튼 클릭됨', { isLoading });
                       e.preventDefault();
@@ -678,7 +678,7 @@ const QueueStatus = () => {
                         <svg className="animate-spin w-2.5 h-2.5" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+                        </svg>
                       ) : (
                         <svg className="w-2.5 h-2.5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -686,9 +686,9 @@ const QueueStatus = () => {
                       )}
                       {isLoading ? '처리 중...' : '나가기'}
                     </div>
-          </button>
-        </div>
-      </div>
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* 매치 진행 상태 */}
@@ -698,13 +698,13 @@ const QueueStatus = () => {
                   <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg p-2.5 border border-green-500/20">
                     <div className="font-bold text-green-400 mb-1 text-sm">
           매치 진행 중
-        </div>
+                    </div>
                     <div className="text-gray-400 text-xs">매치 ID: #{currentMatchId?.slice(-6) || 'Unknown'}</div>
-          </div>
-          </div>
+                  </div>
+                </div>
 
                 <div className="flex space-x-1.5 pointer-events-auto">
-          <button
+                  <button
                     onClick={(e) => {
                       console.log('[QueueStatus] 매치 정보 버튼 클릭됨');
                       e.preventDefault();
@@ -717,11 +717,11 @@ const QueueStatus = () => {
                     <div className="flex items-center justify-center gap-1">
                       <svg className="w-2.5 h-2.5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+                      </svg>
             매치 정보
                     </div>
-          </button>
-          <button
+                  </button>
+                  <button
                     onClick={(e) => {
                       console.log('[QueueStatus] 정리 버튼 클릭됨');
                       e.preventDefault();
@@ -735,12 +735,12 @@ const QueueStatus = () => {
                     <div className="flex items-center justify-center gap-1">
                       <svg className="w-2.5 h-2.5 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+                      </svg>
                       정리
                     </div>
-          </button>
-        </div>
-      </div>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}

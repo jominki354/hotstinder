@@ -515,8 +515,8 @@ const ProfileSetupPage = () => {
                         className={`
                           relative p-6 rounded-2xl transition-all duration-300 overflow-hidden group
                           ${formData.previousTier === tier.id
-                            ? 'ring-2 ring-white shadow-xl transform scale-105'
-                            : 'hover:shadow-lg hover:scale-102'}
+                        ? 'ring-2 ring-white shadow-xl transform scale-105'
+                        : 'hover:shadow-lg hover:scale-102'}
                         `}
                       >
                         <div className={`absolute inset-0 bg-gradient-to-br ${tier.color} opacity-80 group-hover:opacity-90 transition-opacity`}></div>
@@ -575,10 +575,10 @@ const ProfileSetupPage = () => {
                     className={`
                       w-full py-4 rounded-xl font-semibold text-white transition-all duration-300 text-lg
                       ${successState
-                        ? 'bg-green-600 cursor-default'
-                        : isLoading
-                          ? 'bg-blue-800 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transform hover:scale-105 shadow-lg'}
+                ? 'bg-green-600 cursor-default'
+                : isLoading
+                  ? 'bg-blue-800 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transform hover:scale-105 shadow-lg'}
                     `}
                   >
                     {successState
@@ -642,10 +642,10 @@ const ProfileSetupPage = () => {
                       className={`
                         w-full py-4 rounded-xl font-semibold text-white transition-all duration-300 text-lg
                         ${isLoading
-                          ? 'bg-red-800 cursor-not-allowed'
-                          : deleteConfirmation === getBattleTag()
-                            ? 'bg-red-600 hover:bg-red-700 transform hover:scale-105'
-                            : 'bg-red-900/50 cursor-not-allowed'}
+                ? 'bg-red-800 cursor-not-allowed'
+                : deleteConfirmation === getBattleTag()
+                  ? 'bg-red-600 hover:bg-red-700 transform hover:scale-105'
+                  : 'bg-red-900/50 cursor-not-allowed'}
                       `}
                     >
                       {isLoading ? '처리 중...' : '계정 탈퇴하기'}

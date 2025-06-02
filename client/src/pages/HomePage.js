@@ -187,16 +187,16 @@ const HomePage = () => {
                     key={player.id}
                     className={`bg-slate-800/50 backdrop-blur-sm border rounded-2xl p-6 hover:border-yellow-500/50 transition-all duration-300 ${
                       index === 0 ? 'border-yellow-500/30 bg-gradient-to-r from-yellow-900/20 to-slate-800/50' :
-                      index === 1 ? 'border-gray-400/30' :
-                      'border-orange-600/30'
+                        index === 1 ? 'border-gray-400/30' :
+                          'border-orange-600/30'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-xl ${
                           index === 0 ? 'bg-yellow-500 text-black' :
-                          index === 1 ? 'bg-gray-400 text-black' :
-                          'bg-orange-600 text-white'
+                            index === 1 ? 'bg-gray-400 text-black' :
+                              'bg-orange-600 text-white'
                         }`}>
                           {index + 1}
                         </div>

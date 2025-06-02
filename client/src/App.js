@@ -47,6 +47,7 @@ function App() {
   const {
     isAuthenticated,
     user,
+    logout,
     loadUser,
     checkAuth,
     token,
@@ -60,6 +61,10 @@ function App() {
     loading: isLoading,
     initialize
   } = useAuthStore();
+
+  const _loadUser = loadUser;
+  const _checkAuth = checkAuth;
+  const _token = localStorage.getItem('token');
 
   const location = useLocation();
   const navigate = useNavigate();

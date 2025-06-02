@@ -858,7 +858,7 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
         <div className="mb-6">
           <label className="block text-white mb-2 font-medium text-sm">
               리플레이 파일 (.StormReplay)
-            </label>
+          </label>
 
           {/* 드래그 앤 드롭 영역 */}
           <div
@@ -989,9 +989,9 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                   </h5>
                   <div className={`px-3 py-1.5 rounded-full text-sm font-bold border ${
                     analysisResult.consistency?.status === 'excellent' ? 'bg-green-500/20 text-green-400 border-green-500/50' :
-                    analysisResult.consistency?.status === 'good' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' :
-                    analysisResult.consistency?.status === 'warning' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' :
-                    'bg-red-500/20 text-red-400 border-red-500/50'
+                      analysisResult.consistency?.status === 'good' ? 'bg-blue-500/20 text-blue-400 border-blue-500/50' :
+                        analysisResult.consistency?.status === 'warning' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' :
+                          'bg-red-500/20 text-red-400 border-red-500/50'
                   }`}>
                     {analysisResult.consistency?.percentage || 0}%
                   </div>
@@ -1134,12 +1134,12 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                     <span className="text-slate-300 text-sm flex-1">플레이어 일치율</span>
                     <span className={`text-xs ${
                       analysisResult.consistency?.status === 'excellent' ? 'text-green-400' :
-                      analysisResult.consistency?.status === 'good' ? 'text-blue-400' :
-                      analysisResult.consistency?.status === 'warning' ? 'text-yellow-400' :
-                      'text-red-400'
+                        analysisResult.consistency?.status === 'good' ? 'text-blue-400' :
+                          analysisResult.consistency?.status === 'warning' ? 'text-yellow-400' :
+                            'text-red-400'
                     }`}>
                       {analysisResult.consistency?.percentage >= 80 ? '✓' :
-                       analysisResult.consistency?.percentage >= 50 ? '⚠' : '✗'}
+                        analysisResult.consistency?.percentage >= 50 ? '⚠' : '✗'}
                     </span>
                   </div>
                 </div>
@@ -1147,16 +1147,16 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                 {/* 전체 상태 요약 */}
                 <div className={`p-3 rounded-lg mb-4 border ${
                   analysisResult.consistency?.status === 'excellent' ? 'bg-green-900/20 border-green-500/30' :
-                  analysisResult.consistency?.status === 'good' ? 'bg-blue-900/20 border-blue-500/30' :
-                  analysisResult.consistency?.status === 'warning' ? 'bg-yellow-900/20 border-yellow-500/30' :
-                  'bg-red-900/20 border-red-500/30'
+                    analysisResult.consistency?.status === 'good' ? 'bg-blue-900/20 border-blue-500/30' :
+                      analysisResult.consistency?.status === 'warning' ? 'bg-yellow-900/20 border-yellow-500/30' :
+                        'bg-red-900/20 border-red-500/30'
                 }`}>
                   <div className="flex items-center gap-2">
                     <svg className={`w-5 h-5 ${
                       analysisResult.consistency?.status === 'excellent' ? 'text-green-400' :
-                      analysisResult.consistency?.status === 'good' ? 'text-blue-400' :
-                      analysisResult.consistency?.status === 'warning' ? 'text-yellow-400' :
-                      'text-red-400'
+                        analysisResult.consistency?.status === 'good' ? 'text-blue-400' :
+                          analysisResult.consistency?.status === 'warning' ? 'text-yellow-400' :
+                            'text-red-400'
                     }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       {analysisResult.consistency?.status === 'excellent' || analysisResult.consistency?.status === 'good' ? (
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1166,14 +1166,14 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                     </svg>
                     <span className={`font-medium text-sm ${
                       analysisResult.consistency?.status === 'excellent' ? 'text-green-400' :
-                      analysisResult.consistency?.status === 'good' ? 'text-blue-400' :
-                      analysisResult.consistency?.status === 'warning' ? 'text-yellow-400' :
-                      'text-red-400'
+                        analysisResult.consistency?.status === 'good' ? 'text-blue-400' :
+                          analysisResult.consistency?.status === 'warning' ? 'text-yellow-400' :
+                            'text-red-400'
                     }`}>
                       {analysisResult.consistency?.status === 'excellent' ? '완벽한 일치' :
-                       analysisResult.consistency?.status === 'good' ? '양호한 일치' :
-                       analysisResult.consistency?.status === 'warning' ? '부분적 일치' :
-                       '일치하지 않음'}
+                        analysisResult.consistency?.status === 'good' ? '양호한 일치' :
+                          analysisResult.consistency?.status === 'warning' ? '부분적 일치' :
+                            '일치하지 않음'}
                     </span>
                   </div>
                 </div>
