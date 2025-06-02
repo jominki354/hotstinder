@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HotsTinder - 저장소 초기화</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        .container { max-width: 600px; margin: 0 auto; text-align: center; }
+        button { padding: 10px 20px; margin: 10px; background: #3b82f6; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #2563eb; }
+        .success { color: #10b981; margin: 10px 0; }
+        .info { background: #374151; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 HotsTinder 저장소 초기화</h1>
+        
+        <div class="info">
+            <p>JWT 토큰 오류가 발생했을 때 브라우저 저장소를 초기화합니다.</p>
+            <p>이 작업 후 다시 로그인해야 합니다.</p>
+        </div>
+
+        <button onclick="clearAllStorage()">모든 저장소 초기화</button>
+        <button onclick="clearTokenOnly()">토큰만 초기화</button>
+        <button onclick="checkStorage()">현재 저장소 확인</button>
+        
+        <div id="result"></div>
+        
+        <div style="margin-top: 30px;">
+            <a href="/" style="color: #3b82f6;">메인 페이지로 돌아가기</a>
+        </div>
+    </div>
+
+    <script>
+        function clearAllStorage() {
+            try {
+                // localStorage 초기화
+                localStorage.clear();
+                
+                // sessionStorage 초기화
+                sessionStorage.clear();
+                
+                // 쿠키 초기화 (도메인 관련)
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                showResult("✅ 모든 저장소가 초기화되었습니다!", "success");
+                
+                // 3초 후 메인 페이지로 이동
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+                
+            } catch (error) {
+                showResult("❌ 초기화 중 오류: " + error.message, "error");
+            }
+        }
+        
+        function clearTokenOnly() {
+            try {
+                // 토큰 관련 항목만 제거
+                const tokenKeys = [
+                    'token', 'authToken', 'jwt', 'jwtToken',
+                    'user', 'authUser', 'currentUser',
+                    'inQueue', 'matchInProgress', 'currentMatchId', 'lastMatchInfo'
+                ];
+                
+                tokenKeys.forEach(key => {
+                    localStorage.removeItem(key);
+                    sessionStorage.removeItem(key);
+                });
+                
+                showResult("✅ 토큰 관련 데이터가 초기화되었습니다!", "success");
+                
+                // 3초 후 메인 페이지로 이동
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+                
+            } catch (error) {
+                showResult("❌ 토큰 초기화 중 오류: " + error.message, "error");
+            }
+        }
+        
+        function checkStorage() {
+            try {
+                const result = [];
+                
+                // localStorage 확인
+                result.push("<h3>📦 localStorage:</h3>");
+                if (localStorage.length === 0) {
+                    result.push("<p>비어있음</p>");
+                } else {
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        const value = localStorage.getItem(key);
+                        result.push(`<p><strong>${key}:</strong> ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}</p>`);
+                    }
+                }
+                
+                // sessionStorage 확인
+                result.push("<h3>📦 sessionStorage:</h3>");
+                if (sessionStorage.length === 0) {
+                    result.push("<p>비어있음</p>");
+                } else {
+                    for (let i = 0; i < sessionStorage.length; i++) {
+                        const key = sessionStorage.key(i);
+                        const value = sessionStorage.getItem(key);
+                        result.push(`<p><strong>${key}:</strong> ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}</p>`);
+                    }
+                }
+                
+                showResult(result.join(''), "info");
+                
+            } catch (error) {
+                showResult("❌ 저장소 확인 중 오류: " + error.message, "error");
+            }
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="${type}" style="margin-top: 20px; padding: 15px; border-radius: 5px; background: ${type === 'success' ? '#065f46' : type === 'error' ? '#7f1d1d' : '#374151'};">${message}</div>`;
+        }
+    </script>
+</body>
+</html> 

@@ -1309,27 +1309,27 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                     </svg>
                   </div>
 
-                  {/* 상세 통계 툴팁 - 더 크게 */}
-                  <div className="absolute bottom-full right-0 mb-3 w-[500px] bg-slate-900 border border-slate-600 rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <div className="p-5">
+                  {/* 상세 통계 툴팁 - 컴팩트하게 수정 */}
+                  <div className="absolute bottom-full right-0 mb-3 w-[400px] max-h-[70vh] bg-slate-900 border border-slate-600 rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden">
+                    <div className="p-4 max-h-[70vh] overflow-y-auto">
                       {/* 툴팁 헤더 */}
-                      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-700">
-                        <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700">
+                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
-                        <span className="text-white font-bold text-base">리플레이 분석 통계 (개발용)</span>
+                        <span className="text-white font-bold text-sm">리플레이 분석 통계</span>
                       </div>
 
-                      {/* 게임 기본 정보 */}
-                      <div className="mb-4">
-                        <h4 className="text-sm font-bold text-slate-300 mb-3">게임 정보</h4>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
+                      {/* 게임 기본 정보 - 컴팩트 */}
+                      <div className="mb-3">
+                        <h4 className="text-xs font-bold text-slate-300 mb-2">게임 정보</h4>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="flex justify-between p-2 bg-slate-800/50 rounded">
                             <span className="text-slate-400">전장:</span>
-                            <span className="text-white font-medium">{analysisResult.basic?.mapName || analysisResult.metadata?.mapName || 'N/A'}</span>
+                            <span className="text-white font-medium truncate ml-1">{analysisResult.basic?.mapName || analysisResult.metadata?.mapName || 'N/A'}</span>
                           </div>
                           <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                            <span className="text-slate-400">게임 시간:</span>
+                            <span className="text-slate-400">시간:</span>
                             <span className="text-white font-medium">
                               {(analysisResult.basic?.gameLength || analysisResult.metadata?.gameDuration) ?
                                 `${Math.floor((analysisResult.basic?.gameLength || analysisResult.metadata?.gameDuration) / 60)}:${String((analysisResult.basic?.gameLength || analysisResult.metadata?.gameDuration) % 60).padStart(2, '0')}` :
@@ -1338,13 +1338,13 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                             </span>
                           </div>
                           <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                            <span className="text-slate-400">승리팀:</span>
+                            <span className="text-slate-400">승리:</span>
                             <span className={`font-bold ${(analysisResult.basic?.winner || analysisResult.metadata?.winner) === 'blue' ? 'text-blue-400' : 'text-red-400'}`}>
-                              {(analysisResult.basic?.winner || analysisResult.metadata?.winner) === 'blue' ? '블루팀' : '레드팀'}
+                              {(analysisResult.basic?.winner || analysisResult.metadata?.winner) === 'blue' ? '블루' : '레드'}
                             </span>
                           </div>
                           <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                            <span className="text-slate-400">플레이어:</span>
+                            <span className="text-slate-400">인원:</span>
                             <span className="text-white font-medium">
                               {(analysisResult.teams?.blue?.length || 0) + (analysisResult.teams?.red?.length || 0)}명
                             </span>
@@ -1352,117 +1352,77 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                         </div>
                       </div>
 
-                      {/* 전체 통계 요약 - 관리자 페이지와 동일한 방식 */}
+                      {/* 전체 통계 요약 - 컴팩트 */}
                       {analysisResult.statistics && (
-                        <div className="mb-4">
-                          <h4 className="text-sm font-bold text-slate-300 mb-3">전체 통계</h4>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                              <span className="text-slate-400">총 킬:</span>
+                        <div className="mb-3">
+                          <h4 className="text-xs font-bold text-slate-300 mb-2">전체 통계</h4>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div className="flex justify-between p-1.5 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">킬:</span>
                               <span className="text-white font-medium">{analysisResult.statistics.totalKills || 0}</span>
                             </div>
-                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                              <span className="text-slate-400">총 데스:</span>
+                            <div className="flex justify-between p-1.5 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">데스:</span>
                               <span className="text-white font-medium">{analysisResult.statistics.totalDeaths || 0}</span>
                             </div>
-                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                              <span className="text-slate-400">총 어시:</span>
+                            <div className="flex justify-between p-1.5 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">어시:</span>
                               <span className="text-white font-medium">{analysisResult.statistics.totalAssists || 0}</span>
                             </div>
-                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                              <span className="text-slate-400">평균 레벨:</span>
-                              <span className="text-white font-medium">{analysisResult.statistics.averageLevel || 0}</span>
+                            <div className="flex justify-between p-1.5 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">영웅딜:</span>
+                              <span className="text-white font-medium">{Math.round((analysisResult.statistics.totalHeroDamage || 0) / 1000)}k</span>
                             </div>
-                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                              <span className="text-slate-400">총 영웅딜:</span>
-                              <span className="text-white font-medium">{(analysisResult.statistics.totalHeroDamage || 0).toLocaleString()}</span>
+                            <div className="flex justify-between p-1.5 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">공성딜:</span>
+                              <span className="text-white font-medium">{Math.round((analysisResult.statistics.totalSiegeDamage || 0) / 1000)}k</span>
                             </div>
-                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                              <span className="text-slate-400">총 공성딜:</span>
-                              <span className="text-white font-medium">{(analysisResult.statistics.totalSiegeDamage || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
-                              <span className="text-slate-400">총 힐량:</span>
-                              <span className="text-white font-medium">{(analysisResult.statistics.totalHealing || 0).toLocaleString()}</span>
+                            <div className="flex justify-between p-1.5 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">힐량:</span>
+                              <span className="text-white font-medium">{Math.round((analysisResult.statistics.totalHealing || 0) / 1000)}k</span>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* 팀별 상세 통계 - 관리자 페이지와 동일한 방식 */}
-                      <div className="space-y-4">
+                      {/* 팀별 상세 통계 - 간소화 */}
+                      <div className="space-y-3">
                         {/* 블루팀 */}
                         {analysisResult.teams?.blue && analysisResult.teams.blue.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-bold text-blue-400 mb-3 flex items-center gap-2">
-                              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <h4 className="text-xs font-bold text-blue-400 mb-2 flex items-center gap-1">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                               블루팀 ({analysisResult.teams.blue.length}명)
                             </h4>
-                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
                               {analysisResult.teams.blue.map((player, index) => (
-                                <div key={index} className="bg-blue-900/20 rounded-lg p-3 border border-blue-500/20">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-white text-sm font-bold truncate">{player.name}</span>
-                                    <span className="text-blue-400 text-sm font-medium">{player.hero}</span>
+                                <div key={index} className="bg-blue-900/20 rounded p-2 border border-blue-500/20">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="text-white text-xs font-bold truncate max-w-[120px]">{player.name}</span>
+                                    <span className="text-blue-400 text-xs">{player.hero}</span>
                                   </div>
-                                  <div className="grid grid-cols-5 gap-2 text-sm">
+                                  <div className="grid grid-cols-5 gap-1 text-xs">
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">킬</div>
+                                      <div className="text-slate-400 text-[10px]">K</div>
                                       <div className="text-white font-bold">{player.stats?.SoloKill || 0}</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">데스</div>
+                                      <div className="text-slate-400 text-[10px]">D</div>
                                       <div className="text-white font-bold">{player.stats?.Deaths || 0}</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">어시</div>
+                                      <div className="text-slate-400 text-[10px]">A</div>
                                       <div className="text-white font-bold">{player.stats?.Assists || 0}</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">영웅딜</div>
+                                      <div className="text-slate-400 text-[10px]">딜</div>
                                       <div className="text-white font-bold">{Math.round((player.stats?.HeroDamage || 0) / 1000)}k</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">힐량</div>
+                                      <div className="text-slate-400 text-[10px]">힐</div>
                                       <div className="text-white font-bold">{Math.round((player.stats?.Healing || 0) / 1000)}k</div>
                                     </div>
                                   </div>
-                                  {/* 추가 통계 정보 */}
-                                  <div className="grid grid-cols-4 gap-2 text-sm mt-2 pt-2 border-t border-blue-500/20">
-                                    <div className="text-center">
-                                      <div className="text-slate-400 text-xs">공성딜</div>
-                                      <div className="text-blue-300 font-medium">{Math.round((player.stats?.SiegeDamage || 0) / 1000)}k</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-slate-400 text-xs">경험치</div>
-                                      <div className="text-blue-300 font-medium">{Math.round((player.stats?.ExperienceContribution || 0) / 1000)}k</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-slate-400 text-xs">레벨</div>
-                                      <div className="text-blue-300 font-medium">{player.stats?.Level || 20}</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-slate-400 text-xs">CC시간</div>
-                                      <div className="text-blue-300 font-medium">{Math.round((player.stats?.TimeCCdEnemyHeroes || 0) / 1000)}s</div>
-                                    </div>
-                                  </div>
-                                  {/* 고급 통계 정보 */}
-                                  {(player.stats?.MercCampCaptures || player.stats?.RegenGlobes || player.stats?.TimeSpentDead) && (
-                                    <div className="grid grid-cols-3 gap-2 text-sm mt-2 pt-2 border-t border-blue-500/10">
-                                      <div className="text-center">
-                                        <div className="text-slate-400 text-xs">용병</div>
-                                        <div className="text-blue-200 text-xs">{player.stats?.MercCampCaptures || 0}</div>
-                                      </div>
-                                      <div className="text-center">
-                                        <div className="text-slate-400 text-xs">구슬</div>
-                                        <div className="text-blue-200 text-xs">{player.stats?.RegenGlobes || 0}</div>
-                                      </div>
-                                      <div className="text-center">
-                                        <div className="text-slate-400 text-xs">사망시간</div>
-                                        <div className="text-blue-200 text-xs">{Math.round((player.stats?.TimeSpentDead || 0) / 1000)}s</div>
-                                      </div>
-                                    </div>
-                                  )}
                                 </div>
                               ))}
                             </div>
@@ -1472,75 +1432,39 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                         {/* 레드팀 */}
                         {analysisResult.teams?.red && analysisResult.teams.red.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-bold text-red-400 mb-3 flex items-center gap-2">
-                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                            <h4 className="text-xs font-bold text-red-400 mb-2 flex items-center gap-1">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                               레드팀 ({analysisResult.teams.red.length}명)
                             </h4>
-                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
                               {analysisResult.teams.red.map((player, index) => (
-                                <div key={index} className="bg-red-900/20 rounded-lg p-3 border border-red-500/20">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-white text-sm font-bold truncate">{player.name}</span>
-                                    <span className="text-red-400 text-sm font-medium">{player.hero}</span>
+                                <div key={index} className="bg-red-900/20 rounded p-2 border border-red-500/20">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="text-white text-xs font-bold truncate max-w-[120px]">{player.name}</span>
+                                    <span className="text-red-400 text-xs">{player.hero}</span>
                                   </div>
-                                  <div className="grid grid-cols-5 gap-2 text-sm">
+                                  <div className="grid grid-cols-5 gap-1 text-xs">
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">킬</div>
+                                      <div className="text-slate-400 text-[10px]">K</div>
                                       <div className="text-white font-bold">{player.stats?.SoloKill || 0}</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">데스</div>
+                                      <div className="text-slate-400 text-[10px]">D</div>
                                       <div className="text-white font-bold">{player.stats?.Deaths || 0}</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">어시</div>
+                                      <div className="text-slate-400 text-[10px]">A</div>
                                       <div className="text-white font-bold">{player.stats?.Assists || 0}</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">영웅딜</div>
+                                      <div className="text-slate-400 text-[10px]">딜</div>
                                       <div className="text-white font-bold">{Math.round((player.stats?.HeroDamage || 0) / 1000)}k</div>
                                     </div>
                                     <div className="text-center">
-                                      <div className="text-slate-400 text-xs">힐량</div>
+                                      <div className="text-slate-400 text-[10px]">힐</div>
                                       <div className="text-white font-bold">{Math.round((player.stats?.Healing || 0) / 1000)}k</div>
                                     </div>
                                   </div>
-                                  {/* 추가 통계 정보 */}
-                                  <div className="grid grid-cols-4 gap-2 text-sm mt-2 pt-2 border-t border-red-500/20">
-                                    <div className="text-center">
-                                      <div className="text-slate-400 text-xs">공성딜</div>
-                                      <div className="text-red-300 font-medium">{Math.round((player.stats?.SiegeDamage || 0) / 1000)}k</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-slate-400 text-xs">경험치</div>
-                                      <div className="text-red-300 font-medium">{Math.round((player.stats?.ExperienceContribution || 0) / 1000)}k</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-slate-400 text-xs">레벨</div>
-                                      <div className="text-red-300 font-medium">{player.stats?.Level || 20}</div>
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-slate-400 text-xs">CC시간</div>
-                                      <div className="text-red-300 font-medium">{Math.round((player.stats?.TimeCCdEnemyHeroes || 0) / 1000)}s</div>
-                                    </div>
-                                  </div>
-                                  {/* 고급 통계 정보 */}
-                                  {(player.stats?.MercCampCaptures || player.stats?.RegenGlobes || player.stats?.TimeSpentDead) && (
-                                    <div className="grid grid-cols-3 gap-2 text-sm mt-2 pt-2 border-t border-red-500/10">
-                                      <div className="text-center">
-                                        <div className="text-slate-400 text-xs">용병</div>
-                                        <div className="text-red-200 text-xs">{player.stats?.MercCampCaptures || 0}</div>
-                                      </div>
-                                      <div className="text-center">
-                                        <div className="text-slate-400 text-xs">구슬</div>
-                                        <div className="text-red-200 text-xs">{player.stats?.RegenGlobes || 0}</div>
-                                      </div>
-                                      <div className="text-center">
-                                        <div className="text-slate-400 text-xs">사망시간</div>
-                                        <div className="text-red-200 text-xs">{Math.round((player.stats?.TimeSpentDead || 0) / 1000)}s</div>
-                                      </div>
-                                    </div>
-                                  )}
                                 </div>
                               ))}
                             </div>
@@ -1548,23 +1472,10 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                         )}
                       </div>
 
-                      {/* 디버깅 정보 추가 - 관리자 페이지와 동일한 방식 */}
-                      <div className="mt-4 pt-3 border-t border-slate-700">
-                        <h4 className="text-sm font-bold text-yellow-400 mb-2">디버깅 정보</h4>
-                        <div className="text-xs text-slate-400 space-y-1">
-                          <div>분석 결과 구조: {JSON.stringify(Object.keys(analysisResult), null, 2)}</div>
-                          <div>서버 응답 키: {analysisResult.originalServerResponse ? JSON.stringify(Object.keys(analysisResult.originalServerResponse), null, 2) : 'N/A'}</div>
-                          {analysisResult.teams?.blue?.[0] && (
-                            <div>첫 번째 블루팀 플레이어: {JSON.stringify(analysisResult.teams.blue[0], null, 2)}</div>
-                          )}
-                          {analysisResult.statistics && (
-                            <div>전체 통계: {JSON.stringify(analysisResult.statistics, null, 2)}</div>
-                          )}
-                        </div>
+                      {/* 스크롤 힌트 */}
+                      <div className="text-center mt-2 pt-2 border-t border-slate-700">
+                        <span className="text-slate-500 text-[10px]">↕ 스크롤하여 더 보기</span>
                       </div>
-
-                      {/* 툴팁 화살표 */}
-                      <div className="absolute top-full right-6 w-0 h-0 border-l-6 border-r-6 border-t-6 border-transparent border-t-slate-900"></div>
                     </div>
                   </div>
                 </div>

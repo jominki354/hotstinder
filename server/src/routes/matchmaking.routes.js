@@ -9,14 +9,61 @@ const cacheService = require('../services/cacheService');
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    
+    // Authorization 헤더 검증
+    if (!authHeader) {
+      logger.warn('인증 실패: Authorization 헤더 없음', {
+        headers: Object.keys(req.headers),
+        userAgent: req.headers['user-agent']
+      });
       return res.status(401).json({ message: '인증 토큰이 필요합니다' });
     }
 
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!authHeader.startsWith('Bearer ')) {
+      logger.warn('인증 실패: Bearer 형식이 아님', {
+        authHeader: authHeader.substring(0, 20) + '...',
+        userAgent: req.headers['user-agent']
+      });
+      return res.status(401).json({ message: '올바른 토큰 형식이 아닙니다' });
+    }
 
+    const token = authHeader.split(' ')[1];
+    
+    // 토큰 기본 검증
+    if (!token || token.length < 10) {
+      logger.warn('인증 실패: 토큰이 너무 짧거나 없음', {
+        tokenLength: token ? token.length : 0,
+        tokenStart: token ? token.substring(0, 10) : 'null'
+      });
+      return res.status(401).json({ message: '유효하지 않은 토큰입니다' });
+    }
+
+    // JWT 토큰 검증
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      logger.warn('JWT 토큰 검증 실패', {
+        error: jwtError.message,
+        tokenStart: token.substring(0, 20),
+        jwtSecret: process.env.JWT_SECRET ? 'exists' : 'missing'
+      });
+      
+      if (jwtError.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: '토큰이 만료되었습니다' });
+      } else if (jwtError.name === 'JsonWebTokenError') {
+        return res.status(401).json({ message: '잘못된 토큰 형식입니다' });
+      } else {
+        return res.status(401).json({ message: '토큰 검증에 실패했습니다' });
+      }
+    }
+
+    // 데이터베이스 연결 확인
     if (!global.db || !global.db.User) {
+      logger.error('데이터베이스 초기화 오류', {
+        hasGlobalDb: !!global.db,
+        hasUserModel: !!(global.db && global.db.User)
+      });
       return res.status(500).json({ message: '데이터베이스가 초기화되지 않았습니다' });
     }
 
@@ -24,7 +71,7 @@ const authenticate = async (req, res, next) => {
     let user = await global.db.User.findByPk(decoded.id);
 
     // UUID로 찾지 못한 경우 bnetId로 시도 (기존 토큰 호환성)
-    if (!user) {
+    if (!user && decoded.id) {
       user = await global.db.User.findOne({ where: { bnetId: decoded.id } });
       if (user) {
         logger.info('기존 bnetId 기반 토큰 사용됨', {
@@ -36,6 +83,10 @@ const authenticate = async (req, res, next) => {
     }
 
     if (!user) {
+      logger.warn('사용자를 찾을 수 없음', {
+        decodedId: decoded.id,
+        decodedData: decoded
+      });
       return res.status(404).json({ message: '사용자를 찾을 수 없습니다' });
     }
 
