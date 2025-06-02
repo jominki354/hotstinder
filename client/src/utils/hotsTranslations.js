@@ -19,22 +19,44 @@ export const mapTranslations = {
   'Volskaya Foundry': '볼스카야 공장',
   'Alterac Pass': '알터랙 고개',
 
-  // 한글명도 그대로 유지 (이미 한글인 경우)
-  '저주받은 골짜기': '저주받은 골짜기',
-  '용의 둥지': '용의 둥지',
-  '블랙하트 항만': '블랙하트 항만',
-  '공포의 정원': '공포의 정원',
-  '유령 광산': '유령 광산',
-  '하늘 사원': '하늘 사원',
-  '거미 여왕의 무덤': '거미 여왕의 무덤',
-  '영원의 전쟁터': '영원의 전쟁터',
-  '불지옥 신단': '불지옥 신단',
-  '파멸의 탑': '파멸의 탑',
-  '브락시스 항전': '브락시스 항전',
-  '핵탄두 격전지': '핵탄두 격전지',
-  '하나무라 사원': '하나무라 사원',
-  '볼스카야 공장': '볼스카야 공장',
-  '알터랙 고개': '알터랙 고개'
+  // 추가 맵들 (대소문자 변형 포함)
+  'dragonshire': '용의 둥지',
+  'cursedhollow': '저주받은 골짜기',
+  'gardenofterror': '공포의 정원',
+  'skytemple': '하늘사원',
+  'tombofthespiderqueen': '거미 여왕의 무덤',
+  'battlefieldofeternity': '영원의 전쟁터',
+  'infernalshrines': '불지옥 신단',
+  'towersofdoom': '파멸의 탑',
+  'braxisholdout': '브락식스 항전',
+  'volskayafoundry': '볼스카야 공장',
+  'alteracpass': '알터랙 고개',
+
+  // 공백 제거 버전
+  'DragonShire': '용의 둥지',
+  'CursedHollow': '저주받은 골짜기',
+  'GardenofTerror': '공포의 정원',
+  'SkyTemple': '하늘사원',
+  'TomboftheSpiderQueen': '거미 여왕의 무덤',
+  'BattlefieldofEternity': '영원의 전쟁터',
+  'InfernalShrines': '불지옥 신단',
+  'TowersofDoom': '파멸의 탑',
+  'BraxisHoldout': '브락식스 항전',
+  'VolskayaFoundry': '볼스카야 공장',
+  'AlteracPass': '알터랙 고개',
+
+  // 언더스코어 버전
+  'dragon_shire': '용의 둥지',
+  'cursed_hollow': '저주받은 골짜기',
+  'garden_of_terror': '공포의 정원',
+  'sky_temple': '하늘사원',
+  'tomb_of_the_spider_queen': '거미 여왕의 무덤',
+  'battlefield_of_eternity': '영원의 전쟁터',
+  'infernal_shrines': '불지옥 신단',
+  'towers_of_doom': '파멸의 탑',
+  'braxis_holdout': '브락식스 항전',
+  'volskaya_foundry': '볼스카야 공장',
+  'alterac_pass': '알터랙 고개'
 };
 
 // 영웅 이름 매핑 (영문 → 한글)
@@ -132,6 +154,21 @@ export const heroTranslations = {
   'Samuro': '사무로',
   'Xul': '줄',
   'Zagara': '자가라',
+
+  // 누락된 영웅들 추가 (축약형 및 별명 포함)
+  'Barb': '소냐',
+  'Barbarian': '소냐',
+  'Genn': '겐 그레이메인',
+  'Greymane': '겐 그레이메인',
+  'Demo': '발라',
+  'Demon Hunter': '발라',
+  'Thra': '스랄',
+  'STUK': '스투코프',
+  'Garr': '가로쉬',
+  'Luci': '루시우',
+  'Mura': '무라딘',
+  'Maie': '마이에브',
+  'Leor': '레오릭',
 
   // 한글명도 그대로 유지
   '알라라크': '알라라크',
@@ -253,10 +290,48 @@ export const teamTranslations = {
   '1': '레드팀'
 };
 
-// 번역 함수들
-export const translateMap = (mapName) => {
-  if (!mapName) return '알 수 없음';
-  return mapTranslations[mapName] || mapName;
+// 전장 이름 번역 함수 (영어 → 한글)
+export const translateMap = (englishMapName) => {
+  if (!englishMapName) return '알 수 없음';
+
+  // 이미 한글인 경우 그대로 반환
+  const koreanMaps = [
+    '저주받은 골짜기', '용의 둥지', '블랙하트 항만', '공포의 정원',
+    '유령 광산', '하늘 사원', '거미 여왕의 무덤', '영원의 전쟁터',
+    '불지옥 신단', '파멸의 탑', '브락시스 항전', '핵탄두 격전지',
+    '하나무라 사원', '볼스카야 공장', '알터랙 고개', '하늘사원'
+  ];
+
+  if (koreanMaps.includes(englishMapName)) {
+    return englishMapName;
+  }
+
+  // 1. 정확한 일치 확인
+  if (mapTranslations[englishMapName]) {
+    return mapTranslations[englishMapName];
+  }
+
+  // 2. 대소문자 무시 비교
+  const lowerCaseInput = englishMapName.toLowerCase();
+  const normalizedInput = lowerCaseInput.replace(/[\s_-]/g, ''); // 공백, 언더스코어, 하이픈 제거
+
+  for (const [key, value] of Object.entries(mapTranslations)) {
+    const normalizedKey = key.toLowerCase().replace(/[\s_-]/g, '');
+    if (normalizedKey === normalizedInput) {
+      return value;
+    }
+  }
+
+  // 3. 부분 일치 확인
+  for (const [key, value] of Object.entries(mapTranslations)) {
+    const normalizedKey = key.toLowerCase().replace(/[\s_-]/g, '');
+    if (normalizedKey.includes(normalizedInput) || normalizedInput.includes(normalizedKey)) {
+      return value;
+    }
+  }
+
+  // 번역을 찾을 수 없는 경우 원본 반환 (경고 제거)
+  return englishMapName;
 };
 
 export const translateHero = (heroName) => {

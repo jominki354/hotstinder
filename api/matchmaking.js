@@ -184,12 +184,18 @@ const defineMatchParticipant = (sequelize) => {
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       field: 'user_id',
       references: {
         model: 'users',
         key: 'id'
       }
+    },
+    // DB에 없는 사용자를 위한 배틀태그 저장 필드
+    playerBattleTag: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'player_battle_tag'
     },
     team: {
       type: DataTypes.STRING(10),
@@ -227,10 +233,10 @@ const defineMatchParticipant = (sequelize) => {
       type: DataTypes.BIGINT,
       defaultValue: 0
     },
-    experienceContribution: {
+    experience: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      field: 'experience_contribution'
+      field: 'experience'
     },
     mmrBefore: {
       type: DataTypes.INTEGER,
@@ -934,12 +940,25 @@ module.exports = async function handler(req, res) {
 
             return teamPlayers.map(participant => {
               const userInfo = participant.user;
-              const nickname = userInfo?.nickname ||
-                (userInfo?.battleTag ? userInfo.battleTag.split('#')[0] : '알 수 없음');
+
+              // DB 사용자 정보가 있으면 사용, 없으면 playerBattleTag 사용
+              let nickname, battleTag;
+              if (userInfo) {
+                nickname = userInfo.nickname || (userInfo.battleTag ? userInfo.battleTag.split('#')[0] : '알 수 없음');
+                battleTag = userInfo.battleTag;
+              } else if (participant.playerBattleTag) {
+                // DB에 없는 사용자지만 리플레이에서 분석된 정보 사용
+                nickname = participant.playerBattleTag.split('#')[0];
+                battleTag = participant.playerBattleTag;
+              } else {
+                nickname = '알 수 없음';
+                battleTag = null;
+              }
 
               return {
                 id: userInfo?.id || 'unknown',
                 nickname: nickname,
+                battleTag: battleTag,
                 role: participant.role || '알 수 없음',
                 hero: translateHeroName(participant.hero) || '알 수 없음',
                 kills: participant.kills || 0,
@@ -948,10 +967,12 @@ module.exports = async function handler(req, res) {
                 heroDamage: participant.heroDamage || 0,
                 siegeDamage: participant.siegeDamage || 0,
                 healing: participant.healing || 0,
-                experienceContribution: participant.experienceContribution || 0,
+                experience: participant.experience || 0,
                 mmrBefore: participant.mmrBefore || 1500,
                 mmrAfter: participant.mmrAfter || 1500,
-                mmrChange: participant.mmrChange || 0
+                mmrChange: participant.mmrChange || 0,
+                // DB 사용자 여부 표시
+                isDbUser: !!userInfo
               };
             });
           };

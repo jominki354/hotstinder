@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -17,8 +17,8 @@ const Header = () => {
   useEffect(() => {
     console.log('Header - 인증 상태:', isAuthenticated);
     console.log('Header - 사용자 정보:', user);
-    console.log('Header - isAdmin:', user?.isAdmin);
-    console.log('Header - isSuperAdmin:', user?.isSuperAdmin);
+    console.log('Header - isAdmin:', isAdmin);
+    console.log('Header - isSuperAdmin:', isSuperAdmin);
   }, [isAuthenticated, user]);
 
   // localStorage 대기열 상태 확인
@@ -93,22 +93,13 @@ const Header = () => {
     return 'border-blue-400/60 bg-slate-900/60 shadow-2xl shadow-blue-500/20';
   };
 
-  // 배틀태그 가져오기 함수 개선
-  const getBattleTag = () => {
+  // 배틀태그 가져오기 함수 개선 - useMemo로 최적화
+  const battleTag = useMemo(() => {
     if (!user) return '';
-
-    // 디버깅용 로그
-    console.log('Header - getBattleTag 호출됨:', {
-      battletag: user.battletag,
-      battleTag: user.battleTag,
-      battleNetTag: user.battleNetTag,
-      nickname: user.nickname,
-      raw: user
-    });
 
     // null 체크를 포함한 배틀태그 반환 로직 (우선순위 처리)
     return user.battletag || user.battleTag || user.battleNetTag || user.nickname || '';
-  };
+  }, [user]);
 
   // 매치 찾기 버튼 클릭 핸들러
   const handleMatchFindingClick = () => {
@@ -163,7 +154,7 @@ const Header = () => {
                       </svg>
                     </div>
                     <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                      {getBattleTag()}
+                      {battleTag}
                     </span>
                   </div>
                   <div className="bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
@@ -179,7 +170,7 @@ const Header = () => {
                       </svg>
                     </div>
                     <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                      {getBattleTag()}
+                      {battleTag}
                     </span>
                   </div>
                   <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
@@ -194,7 +185,7 @@ const Header = () => {
                     </svg>
                   </div>
                   <span className="text-white font-bold text-lg bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                    {getBattleTag()}
+                    {battleTag}
                   </span>
                 </div>
               )}
@@ -340,7 +331,7 @@ const Header = () => {
                       </svg>
                     </div>
                     <span className="text-white font-bold text-sm bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                      {getBattleTag()}
+                      {battleTag}
                     </span>
                   </div>
                   <div className="bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg animate-pulse">
@@ -356,7 +347,7 @@ const Header = () => {
                       </svg>
                     </div>
                     <span className="text-white font-bold text-sm bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                      {getBattleTag()}
+                      {battleTag}
                     </span>
                   </div>
                   <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
@@ -371,7 +362,7 @@ const Header = () => {
                     </svg>
                   </div>
                   <span className="text-white font-bold text-sm bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                    {getBattleTag()}
+                    {battleTag}
                   </span>
                 </div>
               )}

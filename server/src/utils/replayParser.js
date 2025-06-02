@@ -148,118 +148,37 @@ const translateGameData = (data) => {
  */
 
 /**
- * 팀별 플레이어를 성과 기준으로 정렬합니다.
- * MMR 정보가 없으므로 게임 내 성과 지표를 사용합니다.
- */
-function sortTeamByPerformance(players) {
-    return players.sort((a, b) => {
-        // 1순위: 경험치 기여도
-        if (b.stats.ExperienceContribution !== a.stats.ExperienceContribution) {
-            return b.stats.ExperienceContribution - a.stats.ExperienceContribution;
-        }
-        // 2순위: KDA 점수 (킬 + 어시스트 - 데스)
-        const aScore = a.stats.SoloKill + a.stats.Assists - a.stats.Deaths;
-        const bScore = b.stats.SoloKill + b.stats.Assists - b.stats.Deaths;
-        if (bScore !== aScore) {
-            return bScore - aScore;
-        }
-        // 3순위: 총 피해량
-        const aTotalDamage = a.stats.HeroDamage + a.stats.SiegeDamage;
-        const bTotalDamage = b.stats.HeroDamage + b.stats.SiegeDamage;
-        return bTotalDamage - aTotalDamage;
-    });
-}
-
-/**
- * Score 이벤트에서 플레이어 통계를 추출합니다.
- */
-function extractStatsFromScore(scoreData, players) {
-    if (!scoreData || !scoreData.m_instanceList) {
-        console.log('[DEBUG] Score 데이터가 없거나 형식이 잘못됨');
-        return {};
-    }
-
-    const playerStats = {};
-
-    console.log('[DEBUG] Score 인스턴스 리스트 길이:', scoreData.m_instanceList.length);
-
-    // 각 통계 항목을 처리
-    scoreData.m_instanceList.forEach((statItem, itemIndex) => {
-        const statName = statItem.m_name;
-        const values = statItem.m_values;
-
-        console.log(`[DEBUG] 통계 항목 ${itemIndex}: ${statName}, 값 개수: ${values?.length || 0}`);
-
-        if (!values || !Array.isArray(values)) return;
-
-        // 플레이어별 통계 값 저장
-        values.forEach((valueObj, playerIndex) => {
-            if (valueObj && Array.isArray(valueObj) && valueObj.length > 0 && valueObj[0].m_value !== undefined) {
-                const playerId = playerIndex + 1; // Tracker PlayerID는 1부터 시작
-
-                if (!playerStats[playerId]) {
-                    playerStats[playerId] = {};
-                }
-
-                playerStats[playerId][statName] = valueObj[0].m_value;
-
-                console.log(`[DEBUG] 플레이어 ${playerId} ${statName}: ${valueObj[0].m_value}`);
-            }
-        });
-    });
-
-    console.log('[DEBUG] 추출된 Score 통계 (플레이어별):', Object.keys(playerStats).map(id => ({
-        playerId: id,
-        stats: Object.keys(playerStats[id]).length
-    })));
-
-    return playerStats;
-}
-
-/**
  * hots-parser 결과를 클라이언트가 기대하는 형식으로 변환합니다.
  */
 function formatParserResult(parserResult, filePath, scoreData = null, playerInitData = {}) {
     try {
-    console.log('[DEBUG] Parser result keys:', Object.keys(parserResult || {}));
-    console.log('[DEBUG] Parser result type:', typeof parserResult);
-        console.log('[DEBUG] Parser result:', JSON.stringify(parserResult, null, 2));
+        console.log('[DEBUG] Parser result keys:', Object.keys(parserResult || {}));
+        console.log('[DEBUG] Parser result type:', typeof parserResult);
 
-    // parserResult가 null이거나 undefined인 경우
-    if (!parserResult) {
-      return {
-        success: false,
-        error: '리플레이 파싱 실패: 파서 결과가 null 또는 undefined입니다.'
-      };
-    }
+        // parserResult가 null이거나 undefined인 경우
+        if (!parserResult) {
+            return {
+                success: false,
+                error: '리플레이 파싱 실패: 파서 결과가 null 또는 undefined입니다.'
+            };
+        }
 
-    const { status, match, players } = parserResult;
+        const { status, match, players } = parserResult;
 
-    console.log('[DEBUG] Extracted values:', {
-      status: status,
-      statusType: typeof status,
-      match: match ? 'exists' : 'null/undefined',
-      matchKeys: match ? Object.keys(match) : 'N/A',
-      players: players ? 'exists' : 'null/undefined',
-      playersKeys: players ? Object.keys(players) : 'N/A',
-      playersCount: players ? Object.keys(players).length : 0
-    });
+        console.log('[DEBUG] Extracted values:', {
+            status: status,
+            statusType: typeof status,
+            match: match ? 'exists' : 'null/undefined',
+            matchKeys: match ? Object.keys(match) : 'N/A',
+            players: players ? 'exists' : 'null/undefined',
+            playersKeys: players ? Object.keys(players) : 'N/A',
+            playersCount: players ? Object.keys(players).length : 0
+        });
 
-    // 파싱 실패 체크 - status가 undefined이거나 OK가 아닌 경우
-    if (status === undefined || status === null) {
-      console.log('[DEBUG] Status is undefined or null');
-      // status가 없어도 match와 players가 있으면 성공으로 간주
-            if (!match || !players) {
-        console.log('[DEBUG] Match or players missing - match:', !!match, 'players:', !!players);
-                return {
-                    success: false,
-                    error: '리플레이 파싱 실패: 결과 데이터가 없습니다.'
-                };
-            }
-    } else if (status !== Parser.ReplayStatus.OK) {
-      console.log('[DEBUG] Parser status:', status);
-      console.log('[DEBUG] Parser.ReplayStatus.OK:', Parser.ReplayStatus.OK);
-      const statusString = Parser.StatusString[status] || `Unknown status: ${status}`;
+        // 파싱 실패 체크
+        if (status !== undefined && status !== Parser.ReplayStatus.OK) {
+            console.log('[DEBUG] Parser status:', status);
+            const statusString = Parser.StatusString[status] || `Unknown status: ${status}`;
             return {
                 success: false,
                 error: `리플레이 파싱 실패: ${statusString}`
@@ -268,7 +187,7 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
 
         // 기본 데이터 확인
         if (!match || !players) {
-      console.log('[DEBUG] Final check failed - match:', !!match, 'players:', !!players);
+            console.log('[DEBUG] Final check failed - match:', !!match, 'players:', !!players);
             return {
                 success: false,
                 error: '리플레이 파싱 실패: 필수 데이터가 누락되었습니다.'
@@ -278,133 +197,152 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
         console.log('[DEBUG] Match data:', match);
         console.log('[DEBUG] Players count:', Object.keys(players).length);
 
-        // Score 데이터에서 통계 추출
-        const scoreStats = scoreData ? extractStatsFromScore(scoreData, players) : {};
-
-        // 플레이어 데이터 변환
+        // 플레이어 데이터를 간단하게 변환
         const formattedPlayers = [];
-
-        console.log('[DEBUG] 플레이어 변환 시작, 총 플레이어 수:', Object.keys(players).length);
-        console.log('[DEBUG] 사용 가능한 Score 통계 플레이어 ID:', Object.keys(scoreStats));
 
         Object.keys(players).forEach((toonHandle, index) => {
             const player = players[toonHandle];
-            const stats = player.stats || {};
+
+            // gameStats에서 모든 통계 데이터 추출 (최우선)
+            let stats = {
+                SoloKill: 0,
+                Deaths: 0,
+                Assists: 0,
+                HeroDamage: 0,
+                SiegeDamage: 0,
+                Healing: 0,
+                ExperienceContribution: 0,
+                Level: 20
+            };
+
+            // 🎯 gameStats 필드에서 완전한 통계 추출
+            if (player.gameStats) {
+                console.log(`[DEBUG] Player ${index + 1} gameStats 발견! 완전한 통계 추출 중...`);
+
+                const gs = player.gameStats;
+                stats = {
+                    // 기본 KDA
+                    SoloKill: gs.SoloKill || gs.Takedowns || 0,
+                    Deaths: gs.Deaths || 0,
+                    Assists: gs.Assists || 0,
+
+                    // 딜량 관련
+                    HeroDamage: gs.HeroDamage || 0,
+                    SiegeDamage: gs.SiegeDamage || gs.StructureDamage || 0,
+                    StructureDamage: gs.StructureDamage || 0,
+                    MinionDamage: gs.MinionDamage || 0,
+                    CreepDamage: gs.CreepDamage || 0,
+                    PhysicalDamage: gs.PhysicalDamage || 0,
+                    SpellDamage: gs.SpellDamage || 0,
+                    TeamfightHeroDamage: gs.TeamfightHeroDamage || 0,
+
+                    // 힐량 관련
+                    Healing: gs.Healing || 0,
+                    SelfHealing: gs.SelfHealing || 0,
+                    TeamfightHealingDone: gs.TeamfightHealingDone || 0,
+
+                    // 방어 관련
+                    DamageTaken: gs.DamageTaken || 0,
+                    DamageSoaked: gs.DamageSoaked || 0,
+                    TeamfightDamageTaken: gs.TeamfightDamageTaken || 0,
+
+                    // 경험치 및 레벨
+                    ExperienceContribution: gs.ExperienceContribution || 0,
+                    MetaExperience: gs.MetaExperience || 0,
+                    Level: gs.Level || player.heroLevel || 20,
+
+                    // 오브젝트 관련
+                    MercCampCaptures: gs.MercCampCaptures || 0,
+                    WatchTowerCaptures: gs.WatchTowerCaptures || 0,
+                    TownKills: gs.TownKills || 0,
+                    RegenGlobes: gs.RegenGlobes || 0,
+
+                    // CC 및 특수 통계
+                    TimeCCdEnemyHeroes: gs.TimeCCdEnemyHeroes || 0,
+                    TimeStunningEnemyHeroes: gs.TimeStunningEnemyHeroes || 0,
+                    TimeRootingEnemyHeroes: gs.TimeRootingEnemyHeroes || 0,
+                    TimeSilencingEnemyHeroes: gs.TimeSilencingEnemyHeroes || 0,
+                    TimeSpentDead: gs.TimeSpentDead || 0,
+
+                    // 고급 통계
+                    KDA: gs.KDA || 0,
+                    DPM: gs.DPM || 0,
+                    HPM: gs.HPM || 0,
+                    XPM: gs.XPM || 0,
+                    KillParticipation: gs.KillParticipation || 0,
+                    Multikill: gs.Multikill || 0,
+                    HighestKillStreak: gs.HighestKillStreak || 0,
+
+                    // 클러치 플레이
+                    ClutchHealsPerformed: gs.ClutchHealsPerformed || 0,
+                    EscapesPerformed: gs.EscapesPerformed || 0,
+                    TeamfightEscapesPerformed: gs.TeamfightEscapesPerformed || 0
+                };
+
+                console.log(`[DEBUG] Player ${index + 1} 완전한 통계:`, {
+                    name: player.name,
+                    hero: player.hero,
+                    kda: `${stats.SoloKill}/${stats.Deaths}/${stats.Assists}`,
+                    heroDamage: stats.HeroDamage,
+                    healing: stats.Healing,
+                    siegeDamage: stats.SiegeDamage,
+                    experience: stats.ExperienceContribution
+                });
+            } else {
+                // gameStats가 없는 경우 기존 방식으로 폴백
+                console.log(`[DEBUG] Player ${index + 1} gameStats 없음, 기존 방식 사용`);
+
+                // 배열 형태의 데이터를 숫자로 변환
+                const takedownsCount = Array.isArray(player.takedowns) ? player.takedowns.length : (player.takedowns || 0);
+                const deathsCount = Array.isArray(player.deaths) ? player.deaths.length : (player.deaths || 0);
+                const assistsCount = Array.isArray(player.assists) ? player.assists.length : (player.assists || 0);
+
+                stats = {
+                    SoloKill: takedownsCount,
+                    Deaths: deathsCount,
+                    Assists: assistsCount,
+                    HeroDamage: player.heroDamage || player.damageDone || 0,
+                    SiegeDamage: player.siegeDamage || player.structureDamage || 0,
+                    Healing: player.healing || player.healingDone || 0,
+                    ExperienceContribution: player.experienceContribution || player.experience || 0,
+                    Level: player.heroLevel || player.level || 20
+                };
+            }
 
             console.log(`[DEBUG] Player ${index + 1}:`, {
                 name: player.name,
                 hero: player.hero,
                 team: player.team,
-                toonHandle: toonHandle,
-                stats: stats
-            });
-
-            // PlayerInit 데이터에서 정확한 Tracker PlayerID 가져오기
-            let trackerPlayerId = playerInitData[toonHandle];
-            let playerScoreStats = trackerPlayerId ? scoreStats[trackerPlayerId] || {} : {};
-
-            // PlayerInit 매핑이 실패한 경우 순서 기반 매핑 시도
-            if (!trackerPlayerId || Object.keys(playerScoreStats).length === 0) {
-                console.log(`[DEBUG] PlayerInit 매핑 실패, 순서 기반 매핑 시도: ${index + 1}`);
-                trackerPlayerId = index + 1;
-                playerScoreStats = scoreStats[trackerPlayerId] || {};
-            }
-
-            console.log(`[DEBUG] Player ${player.name} - TrackerID: ${trackerPlayerId}, ScoreStats 키 개수: ${Object.keys(playerScoreStats).length}`);
-            console.log(`[DEBUG] Player ${player.name} - ScoreStats:`, playerScoreStats);
-
-            // KDA 계산 (Score 데이터 우선 사용)
-            const kills = playerScoreStats.SoloKill || stats.SoloKill || 0;
-            const deaths = playerScoreStats.Deaths || stats.Deaths || 0;
-            const assists = playerScoreStats.Assists || stats.Assists || 0;
-            const kda = deaths > 0 ? parseFloat(((kills + assists) / deaths).toFixed(2)) : kills + assists;
-
-            console.log(`[DEBUG] Player ${player.name} - 최종 통계:`, {
-                kills: kills,
-                deaths: deaths,
-                assists: assists,
-                kda: kda,
-                level: playerScoreStats.Level || player.heroLevel || 20,
-                heroDamage: playerScoreStats.HeroDamage || stats.HeroDamage || 0,
-                siegeDamage: playerScoreStats.SiegeDamage || stats.SiegeDamage || 0,
-                healing: playerScoreStats.Healing || stats.Healing || 0
+                finalStats: stats,
+                hasGameStats: !!player.gameStats
             });
 
             const formattedPlayer = {
-                index: index,
                 name: player.name || `Player${index + 1}`,
-                hero: player.hero || 'Unknown',
-                battleTag: player.battletag || `${player.name || `Player${index + 1}`}#Unknown`,
+                hero: translateHeroName(player.hero) || 'Unknown',
+                battleTag: player.battletag || player.battleTag || player.name || `Player${index + 1}`,
                 team: player.team || 0,
-                color: player.color || {},
-                control: player.control || 2,
-                handicap: player.handicap || 100,
-                observe: player.observe || 0,
-                result: player.result || (player.team === match.winner ? 1 : 2),
-                workingSetSlotId: player.workingSetSlotId || index,
-                toonHandle: {
-                    m_id: toonHandle.split('-')[3] || 'Unknown',
-                    m_programId: 'Hero',
-                    m_realm: 1,
-                    m_region: 3
-                },
-                stats: {
-                    SoloKill: kills,
-                    Deaths: deaths,
-                    Assists: assists,
-                    HeroDamage: playerScoreStats.HeroDamage || stats.HeroDamage || 0,
-                    SiegeDamage: playerScoreStats.SiegeDamage || stats.SiegeDamage || 0,
-                    StructureDamage: playerScoreStats.StructureDamage || stats.StructureDamage || 0,
-                    MinionDamage: playerScoreStats.MinionDamage || stats.MinionDamage || 0,
-                    CreepDamage: playerScoreStats.CreepDamage || stats.CreepDamage || 0,
-                    SummonDamage: playerScoreStats.SummonDamage || stats.SummonDamage || 0,
-                    Healing: playerScoreStats.Healing || stats.Healing || 0,
-                    SelfHealing: playerScoreStats.SelfHealing || stats.SelfHealing || 0,
-                    DamageTaken: playerScoreStats.DamageTaken || stats.DamageTaken || 0,
-                    ExperienceContribution: playerScoreStats.ExperienceContribution || stats.ExperienceContribution || 0,
-                    TimeSpentDead: playerScoreStats.TimeSpentDead || stats.TimeSpentDead || 0,
-                    MercCampCaptures: playerScoreStats.MercCampCaptures || stats.MercCampCaptures || 0,
-                    WatchTowerCaptures: playerScoreStats.WatchTowerCaptures || stats.WatchTowerCaptures || 0,
-                    Level: playerScoreStats.Level || player.heroLevel || 20,
-                    TeamLevel: playerScoreStats.TeamLevel || stats.TeamLevel || 20,
-                    GameScore: playerScoreStats.GameScore || stats.GameScore || 0,
-                    KDA: kda
-                },
-                heroLevel: player.heroLevel || 20
+                stats: stats,
+                heroLevel: stats.Level
             };
 
             formattedPlayers.push(formattedPlayer);
         });
 
-        // 팀별 분류 및 정렬
-        const blueTeam = sortTeamByPerformance(formattedPlayers.filter(p => p.team === 0));
-        const redTeam = sortTeamByPerformance(formattedPlayers.filter(p => p.team === 1));
+        // 팀별 분류
+        const blueTeam = formattedPlayers.filter(p => p.team === 0);
+        const redTeam = formattedPlayers.filter(p => p.team === 1);
 
         console.log('[DEBUG] Blue team:', blueTeam.length, 'Red team:', redTeam.length);
-
-        // 전체 통계 계산
-        const totalKills = formattedPlayers.reduce((sum, p) => sum + p.stats.SoloKill, 0);
-        const totalDeaths = formattedPlayers.reduce((sum, p) => sum + p.stats.Deaths, 0);
-        const totalAssists = formattedPlayers.reduce((sum, p) => sum + p.stats.Assists, 0);
-        const totalHeroDamage = formattedPlayers.reduce((sum, p) => sum + p.stats.HeroDamage, 0);
-        const totalSiegeDamage = formattedPlayers.reduce((sum, p) => sum + p.stats.SiegeDamage, 0);
-        const totalHealing = formattedPlayers.reduce((sum, p) => sum + p.stats.Healing, 0);
-
-        const validKdas = formattedPlayers.filter(p => p.stats.KDA > 0).map(p => p.stats.KDA);
-        const averageKda = validKdas.length > 0 ?
-            parseFloat((validKdas.reduce((sum, kda) => sum + kda, 0) / validKdas.length).toFixed(2)) : 0;
 
         // 파일 정보
         const fileStats = fs.statSync(filePath);
 
-        // 평균 레벨 계산
-        const averageLevel = formattedPlayers.length > 0 ?
-            Math.round(formattedPlayers.reduce((sum, p) => sum + p.stats.Level, 0) / formattedPlayers.length) : 0;
-
+        // 관리자 페이지와 호환되는 구조로 반환
         return {
             success: true,
             metadata: {
-                mapName: match.map || 'Unknown Map',
+                mapName: translateMapName(match.map) || 'Unknown Map',
                 gameMode: match.mode || 'Unknown',
                 gameDuration: match.length || 0,
                 date: match.date || new Date().toISOString(),
@@ -412,36 +350,29 @@ function formatParserResult(parserResult, filePath, scoreData = null, playerInit
                 gameVersion: match.version || 'Unknown',
                 region: match.region || 'Unknown',
                 fileSize: fileStats.size,
-                analysisDate: new Date().toISOString(),
-                parserVersion: 'hots-parser',
-                parserStatus: status || 'OK'
+                analysisDate: new Date().toISOString()
             },
             teams: {
                 blue: blueTeam,
                 red: redTeam
             },
-            players: {
-                blue: blueTeam,
-                red: redTeam,
-                all: formattedPlayers
-            },
             statistics: {
-                totalKills,
-                totalDeaths,
-                totalAssists,
-                totalHeroDamage,
-                totalSiegeDamage,
-                totalHealing,
-                averageKDA: averageKda,
-                averageLevel,
+                totalKills: formattedPlayers.reduce((sum, p) => sum + p.stats.SoloKill, 0),
+                totalDeaths: formattedPlayers.reduce((sum, p) => sum + p.stats.Deaths, 0),
+                totalAssists: formattedPlayers.reduce((sum, p) => sum + p.stats.Assists, 0),
+                totalHeroDamage: formattedPlayers.reduce((sum, p) => sum + p.stats.HeroDamage, 0),
+                totalSiegeDamage: formattedPlayers.reduce((sum, p) => sum + p.stats.SiegeDamage, 0),
+                totalHealing: formattedPlayers.reduce((sum, p) => sum + p.stats.Healing, 0),
+                averageLevel: formattedPlayers.length > 0 ?
+                    Math.round(formattedPlayers.reduce((sum, p) => sum + p.stats.Level, 0) / formattedPlayers.length) : 0,
                 playerCount: formattedPlayers.length
             }
         };
 
     } catch (error) {
         console.error('결과 변환 중 오류:', error);
-      return {
-        success: false,
+        return {
+            success: false,
             error: `결과 변환 실패: ${error.message}`
         };
     }
@@ -509,245 +440,78 @@ async function analyzeReplay(filePath) {
     }
 
         // hots-parser로 리플레이 처리
-    console.log('[DEBUG] hots-parser 호출 시작');
-    console.log('[DEBUG] Parser.processReplay 함수 존재 여부:', typeof Parser.processReplay);
-    console.log('[DEBUG] Parser.ReplayStatus 존재 여부:', typeof Parser.ReplayStatus);
+        console.log('[DEBUG] hots-parser 호출 시작');
 
-    let parserResult;
-    try {
-      // 첫 번째 시도: 기본 설정
-      parserResult = Parser.processReplay(filePath, {
-            getBMData: false, // 성능 향상을 위해 BM 데이터 스킵
-            useAttributeName: false, // 영웅 이름 해석 사용
-            overrideVerifiedBuild: true, // 새 빌드 지원
-            legacyTalentKeys: false // 새로운 탤런트 키 형식 사용
-        });
-
-      // Internal Exception이 발생한 경우 더 관대한 설정으로 재시도
-      if (parserResult && parserResult.status === Parser.ReplayStatus.Failure) {
-        console.log('[WARN] 첫 번째 파싱 실패, 관대한 설정으로 재시도...');
-
-        parserResult = Parser.processReplay(filePath, {
-          getBMData: false,
-          useAttributeName: true, // 영웅 이름 해석 활성화
-          overrideVerifiedBuild: true,
-          legacyTalentKeys: true, // 레거시 탤런트 키 사용
-          ignoreErrors: true // 에러 무시 (있다면)
-        });
-      }
-
-    } catch (parseError) {
-      console.error('[ERROR] processReplay 호출 중 예외 발생:', parseError);
-
-      // 예외가 발생해도 더 관대한 설정으로 한 번 더 시도
-      try {
-        console.log('[WARN] 예외 발생, 최대한 관대한 설정으로 재시도...');
-        parserResult = Parser.processReplay(filePath, {
-          getBMData: false,
-          useAttributeName: true,
-          overrideVerifiedBuild: true,
-          legacyTalentKeys: true
-        });
-      } catch (secondError) {
-        console.error('[ERROR] 두 번째 파싱 시도도 실패:', secondError);
-        return {
-          success: false,
-          error: `리플레이 파싱 중 예외 발생: ${parseError.message}`
-        };
-      }
-    }
-
-    console.log(`[INFO] hots-parser 호출 완료`);
-    console.log(`[DEBUG] parserResult 타입:`, typeof parserResult);
-    console.log(`[DEBUG] parserResult null 여부:`, parserResult === null);
-    console.log(`[DEBUG] parserResult undefined 여부:`, parserResult === undefined);
-
-    if (parserResult && typeof parserResult === 'object') {
-      console.log(`[DEBUG] parserResult 키들:`, Object.keys(parserResult));
-      console.log(`[INFO] hots-parser 결과 상태: ${parserResult.status}`);
-
-      // 상태 코드별 상세 처리
-      if (parserResult.status !== undefined && parserResult.status !== Parser.ReplayStatus.OK) {
-        const statusCode = parserResult.status;
-        const statusString = Parser.StatusString[statusCode] || `Unknown status: ${statusCode}`;
-
-        console.log(`[ERROR] 파싱 실패 - 상태 코드: ${statusCode}, 메시지: ${statusString}`);
-
-        // 구체적인 에러 메시지 제공
-        let errorMessage = `리플레이 파싱 실패: ${statusString}`;
-
-        switch (statusCode) {
-          case Parser.ReplayStatus.Failure: // -2 (Internal Exception)
-            // 로그에서 맵 이름 관련 에러 확인
-            if (headerInfo && headerInfo.map === undefined) {
-              errorMessage = '새로운 맵이거나 지원되지 않는 맵입니다. 파서 업데이트가 필요할 수 있습니다.';
-            } else {
-              errorMessage = '리플레이 파일 내부 구조에 문제가 있습니다. 파일이 손상되었거나 지원되지 않는 형식일 수 있습니다.';
-            }
-            break;
-          case Parser.ReplayStatus.Unverified: // -7
-            errorMessage = '지원되지 않는 게임 버전입니다. 최신 버전의 Heroes of the Storm 리플레이만 지원됩니다.';
-            break;
-          case Parser.ReplayStatus.TooOld: // -6
-            errorMessage = '너무 오래된 리플레이 파일입니다. 최신 버전의 리플레이를 사용해주세요.';
-            break;
-          case Parser.ReplayStatus.ComputerPlayerFound: // -4
-            errorMessage = 'AI 플레이어가 포함된 게임은 분석할 수 없습니다.';
-            break;
-          case Parser.ReplayStatus.UnsupportedMap: // -3
-            errorMessage = '지원되지 않는 맵입니다.';
-            break;
-          case Parser.ReplayStatus.Incomplete: // -5
-            errorMessage = '불완전한 리플레이 파일입니다. 게임이 정상적으로 끝나지 않았을 수 있습니다.';
-            break;
-          case Parser.ReplayStatus.Unsupported: // 0
-            errorMessage = '지원되지 않는 리플레이 형식입니다.';
-            break;
-          case Parser.ReplayStatus.Duplicate: // -1
-            errorMessage = '중복된 리플레이 파일입니다.';
-            break;
-        }
-
-        // 대안적 파싱 시도 전에 에러 정보 저장
-        const errorDetails = {
-          statusCode: statusCode,
-          statusString: statusString,
-          fileSize: fileStats.size,
-          headerInfo: headerInfo,
-          originalError: errorMessage
-        };
-
-        console.log('[WARN] processReplay 실패, parse 함수로 대안 시도...');
-
-        // 대안적 파싱 시도
+        let parserResult;
         try {
-          const rawData = Parser.parse(filePath, ['details', 'initdata'], {});
+            // 통계 데이터 추출을 위한 설정으로 파싱 시도
+            parserResult = Parser.processReplay(filePath, {
+                getBMData: true,  // 통계 데이터 추출 활성화
+                useAttributeName: true,
+                overrideVerifiedBuild: true,
+                legacyTalentKeys: false,
+                withoutRecovery: false,  // 복구 모드 활성화
+                ignoreErrors: true  // 오류 무시하고 계속 진행
+            });
 
-          if (rawData && rawData.details && rawData.initdata) {
-            console.log('[INFO] parse 함수로 기본 데이터 추출 성공');
+            console.log('[DEBUG] 첫 번째 파싱 결과 상태:', parserResult?.status);
+            console.log('[DEBUG] 첫 번째 파싱 결과 키:', parserResult ? Object.keys(parserResult) : 'null');
 
-            // 기본 매치 정보 구성
-            const basicMatch = {
-              map: rawData.details.m_title || 'IndustrialDistrict', // 알려진 맵 이름 사용
-              mode: 'Unknown',
-              length: rawData.details.m_timeUTC || 0,
-              date: new Date().toISOString(),
-              winner: 0,
-              version: 'Unknown',
-              region: 'Unknown'
-            };
-
-            // 기본 플레이어 정보 구성
-            const basicPlayers = {};
-            if (rawData.initdata && rawData.initdata.m_syncLobbyState && rawData.initdata.m_syncLobbyState.m_lobbyState) {
-              const lobbyState = rawData.initdata.m_syncLobbyState.m_lobbyState;
-              if (lobbyState.m_slots) {
-                lobbyState.m_slots.forEach((slot, index) => {
-                  if (slot && slot.m_toonHandle) {
-                    const toonHandle = slot.m_toonHandle;
-                    const handleString = `${toonHandle.m_region}-${toonHandle.m_programId}-${toonHandle.m_realm}-${toonHandle.m_id}`;
-
-                    basicPlayers[handleString] = {
-                      name: slot.m_name || `Player${index + 1}`,
-                      hero: 'Unknown',
-                      team: slot.m_teamId || 0,
-                      battletag: slot.m_name || `Player${index + 1}#Unknown`,
-                      stats: {}
-                    };
-                  }
+            // 실패한 경우 더 관대한 설정으로 재시도
+            if (parserResult && parserResult.status !== Parser.ReplayStatus.OK) {
+                console.log('[WARN] 첫 번째 파싱 실패, 관대한 설정으로 재시도...');
+                parserResult = Parser.processReplay(filePath, {
+                    getBMData: true,  // 통계 데이터 추출 활성화
+                    useAttributeName: true,
+                    overrideVerifiedBuild: true,
+                    legacyTalentKeys: true,
+                    withoutRecovery: false,
+                    ignoreErrors: true
                 });
-              }
+                console.log('[DEBUG] 두 번째 파싱 결과 상태:', parserResult?.status);
             }
 
-            // 기본 결과 반환
-            const basicResult = {
-              status: Parser.ReplayStatus.OK,
-              match: basicMatch,
-              players: basicPlayers
-            };
+            // 통계 데이터가 없는 경우 다른 방법으로 시도
+            if (parserResult && (!parserResult.players || Object.values(parserResult.players).every(p => !p.stats || Object.keys(p.stats).length === 0))) {
+                console.log('[WARN] 통계 데이터가 없음, 다른 설정으로 재시도...');
 
-            console.log('[INFO] 기본 데이터로 파싱 결과 구성 완료');
-            parserResult = basicResult;
-          } else {
-            console.log('[WARN] parse 함수로도 충분한 데이터를 추출할 수 없음');
-            return {
-              success: false,
-              error: errorMessage,
-              details: errorDetails
-            };
-          }
+                // 더 상세한 데이터 추출을 위한 설정
+                parserResult = Parser.processReplay(filePath, {
+                    getBMData: true,
+                    useAttributeName: true,
+                    overrideVerifiedBuild: true,
+                    legacyTalentKeys: true,
+                    withoutRecovery: true,  // 복구 모드 비활성화
+                    ignoreErrors: true,
+                    detailed: true  // 상세 정보 추출
+                });
+                console.log('[DEBUG] 세 번째 파싱 결과 상태:', parserResult?.status);
+            }
+
         } catch (parseError) {
-          console.log('[WARN] parse 함수도 실패:', parseError.message);
-          return {
-            success: false,
-            error: errorMessage,
-            details: errorDetails
-          };
+            console.error('[ERROR] processReplay 호출 중 예외 발생:', parseError);
+            return {
+                success: false,
+                error: `리플레이 파싱 중 예외 발생: ${parseError.message}`
+            };
         }
-      }
-    } else {
-      console.log(`[ERROR] parserResult가 예상된 객체가 아님:`, parserResult);
-      return {
-        success: false,
-        error: '리플레이 파서가 예상치 못한 결과를 반환했습니다.'
-      };
-    }
 
-        // 추가로 trackerevents에서 Score 데이터 추출
-        let scoreData = null;
-        let playerInitData = {};
-        try {
-            const rawData = Parser.parse(filePath, ['trackerevents'], {});
-            if (rawData.trackerevents) {
-                console.log('[DEBUG] 총 tracker 이벤트 수:', rawData.trackerevents.length);
+        console.log(`[INFO] hots-parser 호출 완료`);
 
-                // PlayerInit 이벤트 찾기 (eventid = 10)
-                const playerInitEvents = rawData.trackerevents.filter(event => event._eventid === 10);
-                console.log('[DEBUG] PlayerInit 이벤트 수:', playerInitEvents.length);
-
-                // PlayerInit 데이터로 ToonHandle과 Tracker PlayerID 매핑
-                playerInitEvents.forEach((event, index) => {
-                    console.log(`[DEBUG] PlayerInit 이벤트 ${index}:`, event);
-
-                    if (event.m_intData && event.m_stringData) {
-                        // Tracker PlayerID는 첫 번째 int 데이터
-                        const trackerPlayerId = event.m_intData[0]?.m_value;
-                        // ToonHandle은 두 번째 string 데이터
-                        const toonHandle = event.m_stringData[1]?.m_value;
-
-                        console.log(`[DEBUG] 매핑 시도: TrackerID=${trackerPlayerId}, ToonHandle=${toonHandle}`);
-
-                        if (trackerPlayerId !== undefined && toonHandle) {
-                            playerInitData[toonHandle] = trackerPlayerId;
-                            console.log(`[DEBUG] 매핑 성공: ${toonHandle} -> ${trackerPlayerId}`);
-                        }
-                    }
-                });
-
-                console.log('[DEBUG] 최종 PlayerInit 매핑:', playerInitData);
-
-                // Score 이벤트 찾기 (eventid = 11)
-                const scoreEvents = rawData.trackerevents.filter(event => event._eventid === 11);
-                console.log('[DEBUG] Score 이벤트 수:', scoreEvents.length);
-
-                if (scoreEvents.length > 0) {
-                    scoreData = scoreEvents[0]; // 첫 번째 Score 이벤트 사용
-                    console.log('[DEBUG] Score 이벤트 발견, 인스턴스 수:', scoreData.m_instanceList?.length || 0);
-                }
-            }
-        } catch (scoreError) {
-            console.log('[WARN] Score 데이터 추출 실패:', scoreError.message);
+        if (!parserResult || typeof parserResult !== 'object') {
+            console.log(`[ERROR] parserResult가 예상된 객체가 아님:`, parserResult);
+            return {
+                success: false,
+                error: '리플레이 파서가 예상치 못한 결과를 반환했습니다.'
+            };
         }
 
         // 결과를 클라이언트 형식으로 변환
-        const formattedResult = formatParserResult(parserResult, filePath, scoreData, playerInitData);
+        const formattedResult = formatParserResult(parserResult, filePath);
 
         console.log(`[INFO] 리플레이 분석 완료: ${formattedResult.success ? '성공' : '실패'}`);
 
-    // 파싱 결과에 번역 적용
-    const translatedResult = applyTranslations(formattedResult);
-
-    return translatedResult;
+        return formattedResult;
 
     } catch (error) {
         console.error('[ERROR] 리플레이 분석 중 오류:', error);
@@ -808,47 +572,6 @@ async function getReplayHeader(filePath) {
             error: `헤더 정보 추출 실패: ${error.message}`
         };
     }
-}
-
-// 파싱 결과에 번역 적용
-function applyTranslations(result) {
-  if (!result) return result;
-
-  try {
-    // 기본 매치 정보 번역
-    if (result.match) {
-      if (result.match.map) {
-        result.match.map = translateMapName(result.match.map);
-      }
-    }
-
-    // 플레이어 영웅 이름 번역
-    if (result.players) {
-      Object.keys(result.players).forEach(playerId => {
-        const player = result.players[playerId];
-        if (player && player.hero) {
-          player.hero = translateHeroName(player.hero);
-        }
-      });
-    }
-
-    // 팀별 플레이어 번역 (teams 구조가 있는 경우)
-    if (result.teams) {
-      ['blue', 'red'].forEach(team => {
-        if (result.teams[team] && Array.isArray(result.teams[team])) {
-          result.teams[team] = result.teams[team].map(player => ({
-            ...player,
-            hero: translateHeroName(player.hero)
-          }));
-        }
-      });
-    }
-
-    return result;
-  } catch (error) {
-    console.error('[ERROR] 번역 적용 중 오류:', error);
-    return result; // 번역 실패 시 원본 반환
-  }
 }
 
 module.exports = {

@@ -214,7 +214,14 @@ const AdminPage = () => {
       const formData = new FormData();
       formData.append('replayFile', replayFile);
 
-      const response = await axios.post('/api/replay/analyze', formData, {
+      // 서버 API 사용 (Vercel API 대신)
+      const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const fullURL = `${baseURL}/api/replay/analyze`;
+
+      console.log('[관리자 페이지] 리플레이 분석 요청 URL:', fullURL);
+      console.log('[관리자 페이지] 환경변수 REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+
+      const response = await axios.post(fullURL, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
@@ -227,10 +234,27 @@ const AdminPage = () => {
       toast.success('리플레이 분석이 완료되었습니다!');
 
       // 디버깅을 위한 콘솔 출력
-      console.log('🎮 리플레이 분석 결과:', response.data.analysisResult);
-      console.log('📊 메타데이터:', response.data.analysisResult?.metadata);
-      console.log('👥 팀 데이터:', response.data.analysisResult?.teams);
-      console.log('📈 통계:', response.data.analysisResult?.statistics);
+      console.log('🎮 [관리자 페이지] 리플레이 분석 결과:', response.data.analysisResult);
+      console.log('📊 [관리자 페이지] 메타데이터:', response.data.analysisResult?.metadata);
+      console.log('👥 [관리자 페이지] 팀 데이터:', response.data.analysisResult?.teams);
+      console.log('📈 [관리자 페이지] 통계:', response.data.analysisResult?.statistics);
+
+      // 플레이어 통계 상세 로그
+      if (response.data.analysisResult?.teams?.blue?.[0]) {
+        console.log('🔵 [관리자 페이지] 블루팀 첫 번째 플레이어:', {
+          name: response.data.analysisResult.teams.blue[0].name,
+          hero: response.data.analysisResult.teams.blue[0].hero,
+          stats: response.data.analysisResult.teams.blue[0].stats
+        });
+      }
+
+      if (response.data.analysisResult?.teams?.red?.[0]) {
+        console.log('🔴 [관리자 페이지] 레드팀 첫 번째 플레이어:', {
+          name: response.data.analysisResult.teams.red[0].name,
+          hero: response.data.analysisResult.teams.red[0].hero,
+          stats: response.data.analysisResult.teams.red[0].stats
+        });
+      }
 
     } catch (err) {
       console.error('리플레이 분석 오류:', err);

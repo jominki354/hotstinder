@@ -451,4 +451,270 @@ router.post('/:id/leave', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * @route   POST /api/matches/:id/complete
+ * @desc    매치 완료
+ * @access  Private
+ */
+router.post('/:id/complete', authenticate, async (req, res) => {
+  try {
+    const matchId = req.params.id;
+    const { replayData, winningTeam, gameLength, playerStats, isSimulation } = req.body;
+
+    logger.info('[매치 완료] 요청 수신:', {
+      matchId,
+      winningTeam,
+      gameLength,
+      playerStatsCount: playerStats?.length || 0,
+      isSimulation
+    });
+
+    // 받은 플레이어 통계 상세 로깅
+    if (playerStats && Array.isArray(playerStats)) {
+      logger.info('[매치 완료] 받은 플레이어 통계 상세:', {
+        totalPlayers: playerStats.length,
+        blueTeamCount: playerStats.filter(p => p.team === 'blue').length,
+        redTeamCount: playerStats.filter(p => p.team === 'red').length,
+        playersWithStats: playerStats.map(p => ({
+          battletag: p.battletag,
+          team: p.team,
+          hero: p.hero,
+          kills: p.kills,
+          deaths: p.deaths,
+          assists: p.assists,
+          heroDamage: p.heroDamage,
+          siegeDamage: p.siegeDamage,
+          healing: p.healing,
+          experience: p.experienceContribution,
+          hasNonZeroStats: (p.kills > 0 || p.deaths > 0 || p.assists > 0 || p.heroDamage > 0 || p.siegeDamage > 0 || p.healing > 0)
+        }))
+      });
+
+      // 실제 통계가 있는지 확인
+      const playersWithRealStats = playerStats.filter(p =>
+        p.kills > 0 || p.deaths > 0 || p.assists > 0 ||
+        p.heroDamage > 0 || p.siegeDamage > 0 || p.healing > 0
+      );
+
+      logger.info('[매치 완료] 실제 통계 분석:', {
+        totalPlayers: playerStats.length,
+        playersWithRealStats: playersWithRealStats.length,
+        hasRealStats: playersWithRealStats.length > 0,
+        statsBreakdown: {
+          totalKills: playerStats.reduce((sum, p) => sum + (p.kills || 0), 0),
+          totalDeaths: playerStats.reduce((sum, p) => sum + (p.deaths || 0), 0),
+          totalAssists: playerStats.reduce((sum, p) => sum + (p.assists || 0), 0),
+          totalHeroDamage: playerStats.reduce((sum, p) => sum + (p.heroDamage || 0), 0),
+          totalSiegeDamage: playerStats.reduce((sum, p) => sum + (p.siegeDamage || 0), 0),
+          totalHealing: playerStats.reduce((sum, p) => sum + (p.healing || 0), 0)
+        }
+      });
+    } else {
+      logger.warn('[매치 완료] 플레이어 통계가 없거나 배열이 아님:', typeof playerStats);
+    }
+
+    // 시뮬레이션 매치 여부 확인 (ID 패턴으로 판단)
+    const isSimulationMatch = isSimulation || matchId.includes('dev_') || matchId.includes('sim_');
+
+    let match;
+
+    if (isSimulationMatch) {
+      // 시뮬레이션 매치인 경우 새로 생성하여 저장
+      logger.info('[매치 완료] 시뮬레이션 매치 생성 및 저장');
+
+      // 리플레이 데이터에서 맵 이름 추출
+      const mapName = replayData?.basic?.mapName || '알 수 없음';
+
+      match = await global.db.Match.create({
+        gameMode: '시뮬레이션',
+        mapName: mapName,
+        maxPlayers: 10,
+        currentPlayers: 10,
+        createdBy: req.user.id,
+        status: 'completed',
+        winner: winningTeam,
+        gameDuration: Math.round(gameLength || 0),
+        startedAt: new Date(),
+        endedAt: new Date(),
+        notes: `시뮬레이션 매치 (원본 ID: ${matchId})`
+      });
+
+      logger.info('[매치 완료] 시뮬레이션 매치 DB 저장 완료:', match.id);
+    } else {
+      // 실제 매치인 경우 데이터베이스에서 조회
+      match = await global.db.Match.findByPk(matchId);
+      if (!match) {
+        logger.error('[매치 완료] 매치를 찾을 수 없음:', matchId);
+        return res.status(404).json({ success: false, error: '매치를 찾을 수 없습니다' });
+      }
+
+      // 매치 완료 처리
+      const updateData = {
+        status: 'completed',
+        winner: winningTeam,
+        gameDuration: Math.round(gameLength || 0),
+        endedAt: new Date()
+      };
+
+      if (!match.startedAt) {
+        updateData.startedAt = new Date();
+      }
+
+      await match.update(updateData);
+      logger.info('[매치 완료] 실제 매치 상태 업데이트 완료');
+    }
+
+    // 플레이어 통계 저장 (모든 매치)
+    if (playerStats && Array.isArray(playerStats)) {
+      logger.info('[매치 완료] 플레이어 통계 저장 시작:', {
+        playerStatsCount: playerStats.length,
+        samplePlayerStat: playerStats[0]
+      });
+
+      for (const playerStat of playerStats) {
+        try {
+          logger.info(`[매치 완료] 플레이어 처리 중: ${playerStat.battletag} (팀: ${playerStat.team})`);
+          logger.info(`[매치 완료] 플레이어 통계 상세: K:${playerStat.kills} D:${playerStat.deaths} A:${playerStat.assists} HD:${playerStat.heroDamage} SD:${playerStat.siegeDamage} H:${playerStat.healing}`);
+
+          // 사용자 조회 개선 (배틀태그와 플레이어 이름으로 모두 시도)
+          let user = null;
+          if (playerStat.battletag && !playerStat.battletag.startsWith('blue_') && !playerStat.battletag.startsWith('red_')) {
+            // 1. 정확한 배틀태그로 먼저 시도
+            user = await global.db.User.findOne({
+              where: {
+                battleTag: playerStat.battletag
+              }
+            });
+
+            // 2. 배틀태그로 찾지 못한 경우, 배틀태그의 이름 부분만으로 시도
+            if (!user && playerStat.battletag.includes('#')) {
+              const playerName = playerStat.battletag.split('#')[0];
+              user = await global.db.User.findOne({
+                where: {
+                  battleTag: {
+                    [Op.like]: `${playerName}#%`
+                  }
+                }
+              });
+            }
+
+            // 3. 여전히 찾지 못한 경우, 플레이어 이름으로 시도 (닉네임 포함)
+            if (!user) {
+              const playerName = playerStat.battletag.includes('#')
+                ? playerStat.battletag.split('#')[0]
+                : playerStat.battletag;
+
+              user = await global.db.User.findOne({
+                where: {
+                  [Op.or]: [
+                    { nickname: playerName },
+                    { battleTag: { [Op.like]: `${playerName}#%` } }
+                  ]
+                }
+              });
+            }
+
+            if (user) {
+              logger.info(`[매치 완료] 사용자 매칭 성공: ${playerStat.battletag} → ${user.battleTag} (${user.id})`);
+            } else {
+              logger.warn(`[매치 완료] 사용자 매칭 실패: ${playerStat.battletag}`);
+            }
+          }
+
+          // MatchParticipant 생성 데이터 준비
+          const participantData = {
+            matchId: match.id,
+            userId: user?.id || null,
+            playerBattleTag: playerStat.battletag, // DB에 없는 사용자를 위한 배틀태그 저장
+            team: playerStat.team,
+            hero: playerStat.hero,
+            kills: playerStat.kills || 0,
+            deaths: playerStat.deaths || 0,
+            assists: playerStat.assists || 0,
+            heroDamage: playerStat.heroDamage || 0,
+            siegeDamage: playerStat.siegeDamage || 0,
+            healing: playerStat.healing || 0,
+            experience: playerStat.experienceContribution || 0,
+            mmrChange: 0
+          };
+
+          logger.info(`[매치 완료] MatchParticipant 생성 데이터:`, participantData);
+
+          // MatchParticipant 생성 (모든 매치에 대해)
+          const participant = await global.db.MatchParticipant.create(participantData);
+
+          logger.info(`[매치 완료] MatchParticipant 생성 성공: ID ${participant.id}`);
+
+          // 사용자 승/패 기록 업데이트 (실제 매치만)
+          if (user && !isSimulationMatch) {
+            const isWinner = playerStat.team === winningTeam;
+            const updateUserData = {};
+
+            if (isWinner) {
+              updateUserData.wins = (user.wins || 0) + 1;
+            } else {
+              updateUserData.losses = (user.losses || 0) + 1;
+            }
+
+            await user.update(updateUserData);
+            logger.info(`[매치 완료] 사용자 ${user.battleTag} 통계 업데이트: ${isWinner ? '승리' : '패배'}`);
+          } else if (user && isSimulationMatch) {
+            logger.info(`[매치 완료] 시뮬레이션 매치 - 사용자 ${user.battleTag} 개인 통계 업데이트 생략`);
+          }
+
+        } catch (playerError) {
+          logger.error('[매치 완료] 플레이어 통계 저장 오류:', {
+            playerStat,
+            error: playerError.message,
+            stack: playerError.stack
+          });
+          // 개별 플레이어 오류는 전체 프로세스를 중단하지 않음
+        }
+      }
+
+      logger.info('[매치 완료] 플레이어 통계 저장 완료');
+    } else {
+      logger.info('[매치 완료] 플레이어 통계 없음');
+    }
+
+    // 로그 기록 (모든 매치)
+    try {
+      if (global.db && global.db.UserLog) {
+        await global.db.UserLog.create({
+          userId: req.user.id,
+          action: 'match_completed',
+          details: {
+            matchId: match.id,
+            originalMatchId: isSimulationMatch ? matchId : match.id,
+            winner: winningTeam,
+            gameDuration: Math.round(gameLength || 0),
+            isSimulation: isSimulationMatch
+          },
+          ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+          userAgent: req.headers['user-agent']
+        });
+      }
+    } catch (logErr) {
+      logger.error('매치 완료 로그 기록 오류:', logErr);
+    }
+
+    res.json({
+      success: true,
+      message: isSimulationMatch ? '시뮬레이션 매치가 완료되고 기록되었습니다' : '매치가 완료되었습니다',
+      data: {
+        matchId: match.id,
+        originalMatchId: isSimulationMatch ? matchId : match.id,
+        status: 'completed',
+        winner: winningTeam,
+        gameDuration: Math.round(gameLength || 0),
+        isSimulation: isSimulationMatch
+      }
+    });
+
+  } catch (error) {
+    logger.error('[매치 완료] 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

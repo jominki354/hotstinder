@@ -163,12 +163,18 @@ const defineMatchParticipant = (sequelize) => {
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       field: 'user_id',
       references: {
         model: 'users',
         key: 'id'
       }
+    },
+    // DB에 없는 사용자를 위한 배틀태그 저장 필드
+    playerBattleTag: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'player_battle_tag'
     },
     team: {
       type: DataTypes.STRING(10),
@@ -206,10 +212,10 @@ const defineMatchParticipant = (sequelize) => {
       type: DataTypes.BIGINT,
       defaultValue: 0
     },
-    experienceContribution: {
+    experience: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      field: 'experience_contribution'
+      field: 'experience'
     },
     mmrBefore: {
       type: DataTypes.INTEGER,
@@ -344,12 +350,25 @@ module.exports = async function handler(req, res) {
         await match.update(updateData);
         console.log('[매치 완료] 매치 상태 업데이트 완료');
 
-        // 플레이어 통계 저장 (실제 매치만)
-        if (!isSimulation && playerStats && Array.isArray(playerStats)) {
+        // 플레이어 통계 저장 (시뮬레이션 매치도 포함하되 개인 통계는 업데이트하지 않음)
+        if (playerStats && Array.isArray(playerStats)) {
           console.log('[매치 완료] 플레이어 통계 저장 시작');
 
           for (const playerStat of playerStats) {
             try {
+              console.log('[매치 완료] 플레이어 통계 처리:', {
+                battletag: playerStat.battletag,
+                team: playerStat.team,
+                hero: playerStat.hero,
+                kills: playerStat.kills,
+                deaths: playerStat.deaths,
+                assists: playerStat.assists,
+                heroDamage: playerStat.heroDamage,
+                siegeDamage: playerStat.siegeDamage,
+                healing: playerStat.healing,
+                experience: playerStat.experience
+              });
+
               // 사용자 조회 (배틀태그로)
               let user = null;
               if (playerStat.battletag && !playerStat.battletag.startsWith('blue_') && !playerStat.battletag.startsWith('red_')) {
@@ -358,12 +377,19 @@ module.exports = async function handler(req, res) {
                     battleTag: playerStat.battletag
                   }
                 });
+
+                if (user) {
+                  console.log(`[매치 완료] DB 사용자 매칭 성공: ${user.battleTag}`);
+                } else {
+                  console.log(`[매치 완료] DB에 없는 사용자: ${playerStat.battletag} - 리플레이 통계만 저장`);
+                }
               }
 
-              // MatchParticipant 생성
-              await MatchParticipant.create({
+              // MatchParticipant 생성 (DB에 없는 사용자라도 통계 저장)
+              const participantData = {
                 matchId: match.id,
                 userId: user?.id || null,
+                playerBattleTag: playerStat.battletag, // 배틀태그 항상 저장
                 team: playerStat.team,
                 hero: playerStat.hero,
                 kills: playerStat.kills || 0,
@@ -372,14 +398,17 @@ module.exports = async function handler(req, res) {
                 heroDamage: playerStat.heroDamage || 0,
                 siegeDamage: playerStat.siegeDamage || 0,
                 healing: playerStat.healing || 0,
-                experienceContribution: playerStat.experienceContribution || 0,
+                experience: playerStat.experience || 0,
                 mmrBefore: user?.mmr || 1500,
                 mmrAfter: user?.mmr || 1500,
                 mmrChange: 0
-              });
+              };
 
-              // 사용자 승/패 기록 업데이트 (실제 사용자만)
-              if (user) {
+              const participant = await MatchParticipant.create(participantData);
+              console.log(`[매치 완료] 플레이어 통계 저장 완료: ${playerStat.battletag} (ID: ${participant.id})`);
+
+              // 사용자 승/패 기록 업데이트 (실제 매치만)
+              if (user && !isSimulation) {
                 const isWinner = playerStat.team === winningTeam;
                 const updateUserData = {};
 
@@ -399,7 +428,7 @@ module.exports = async function handler(req, res) {
             }
           }
         } else {
-          console.log('[매치 완료] 시뮬레이션 매치 - 플레이어 통계 저장 생략');
+          console.log('[매치 완료] 플레이어 통계 없음 - 저장 생략');
         }
 
         clearTimeout(timeoutId);

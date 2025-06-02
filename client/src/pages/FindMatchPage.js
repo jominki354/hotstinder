@@ -955,14 +955,14 @@ const FindMatchPage = () => {
       localStorage.setItem('recentQueueJoinTime', joinTimestamp.toString());
       console.log('개발용 시뮬레이션 - 타이밍 보호용 타임스탬프 설정:', joinTimestamp);
 
-    toast.info('🔧 개발용 매치 시뮬레이션을 시작합니다!');
+      toast.info('🔧 개발용 매치 시뮬레이션을 시작합니다!');
 
-    setIsSearching(true);
-    setSearchStartTime(Date.now());
-    setElapsedTime(0);
-    setMatchProgress(0);
-    setSearchPhase('searching');
-    setPlayersFound(1);
+      setIsSearching(true);
+      setSearchStartTime(Date.now());
+      setElapsedTime(0);
+      setMatchProgress(0);
+      setSearchPhase('searching');
+      setPlayersFound(1);
 
       // 전역 상태 업데이트 (시뮬레이션도 대기열 상태로 처리)
       setQueueStatus(true);
@@ -979,30 +979,31 @@ const FindMatchPage = () => {
       if (response.data.success && response.data.isSimulation) {
         console.log('[FindMatchPage] 개발용 시뮬레이션 매치 생성 성공:', response.data);
 
-      // 빠른 시뮬레이션 (3-8초)
-      const quickMatchTime = Math.random() * 5000 + 3000;
+        // 빠른 시뮬레이션 (2초 고정)
+        const quickMatchTime = 2000; // 2초로 고정
 
-      // 플레이어 수 빠른 증가 애니메이션
-      const playerInterval = setInterval(() => {
-        setPlayersFound(prev => {
-          const newCount = prev + 1;
-          if (newCount >= 10) {
-            clearInterval(playerInterval);
-            return 10;
-          }
-          return newCount;
-        });
-      }, 300);
+        // 플레이어 수 빠른 증가 애니메이션 (2초 동안 10명까지)
+        const playerInterval = setInterval(() => {
+          setPlayersFound(prev => {
+            const newCount = prev + 1;
+            if (newCount >= 10) {
+              clearInterval(playerInterval);
+              return 10;
+            }
+            return newCount;
+          });
+        }, 200); // 200ms마다 1명씩 증가 (2초에 10명)
 
-      setTimeout(() => {
-        clearInterval(playerInterval);
-        setPlayersFound(10);
+        // 2초 후 매치 완료
+        setTimeout(() => {
+          clearInterval(playerInterval);
+          setPlayersFound(10);
           handleDevMatchFound(response.data.matchInfo);
         }, quickMatchTime);
 
-    } else {
+      } else {
         throw new Error(response.data.message || '개발용 시뮬레이션 생성에 실패했습니다');
-        }
+      }
 
     } catch (error) {
       console.error('개발용 매치 시뮬레이션 오류:', error);
@@ -1054,7 +1055,7 @@ const FindMatchPage = () => {
     localStorage.setItem('matchInProgress', 'true');
     localStorage.setItem('currentMatchId', matchInfo.matchId);
 
-    // 매치 상세 정보 표시
+    // 매치 상세 정보 표시 후 즉시 이동 (1초로 단축)
     setTimeout(() => {
       resetSearchState();
 
@@ -1063,8 +1064,8 @@ const FindMatchPage = () => {
         autoClose: 2000
       });
 
-    navigate('/match-details', { state: { matchInfo } });
-    }, 2000);
+      navigate('/match-details', { state: { matchInfo } });
+    }, 1000); // 2초에서 1초로 단축
   };
 
   // 실제 매치용 사용자 데이터 가져오기 (분리된 함수)
@@ -1514,7 +1515,7 @@ const FindMatchPage = () => {
                       </svg>
                     ) : (
                       <svg className="w-12 h-12 text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     )}
             </div>
@@ -1695,7 +1696,7 @@ const FindMatchPage = () => {
             <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6 text-center hover:border-blue-400/50 transition-all duration-300 group">
               <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
                 <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 0 5 15.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                     </div>
               <div className="text-3xl font-bold text-blue-400 mb-2 tabular-nums">

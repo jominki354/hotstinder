@@ -195,7 +195,7 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
         }
       }
     } catch (err) {
-      console.error('[매치 일치성] 매치 정보 파싱 오류:', err);
+      console.error('매치 정보 파싱 오류:', err);
     }
 
     if (isMapMatch) {
@@ -326,7 +326,7 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
     };
   };
 
-  // 리플레이 분석만 수행 (미리보기용)
+  // 리플레이 분석만 수행 (미리보기용) - 관리자 페이지와 완전히 동일한 방식 사용
   const handleAnalyzeReplay = async () => {
     if (!file) {
       setError('업로드할 리플레이 파일을 선택해주세요.');
@@ -354,10 +354,17 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
       const formData = new FormData();
       formData.append('replayFile', file);
 
-      console.log('[리플레이 분석] API 요청 전송 중...');
+      console.log('[리플레이 분석] 서버 API 요청 전송 중...');
 
-      // 리플레이 파일 분석
-      const analysisResponse = await axios.post('/api/replay/analyze', formData, {
+      // 관리자 페이지와 완전히 동일한 서버 엔드포인트 사용 (Vercel API 대신 서버 API)
+      const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const fullURL = `${baseURL}/api/replay/analyze`;
+
+      console.log('[리플레이 분석] 요청 URL:', fullURL);
+      console.log('[리플레이 분석] 환경변수 REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+      console.log('[리플레이 분석] 최종 baseURL:', baseURL);
+
+      const analysisResponse = await axios.post(fullURL, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -371,19 +378,72 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
       });
 
       setUploadProgress(100);
-      console.log('[리플레이 분석] API 응답 수신:', analysisResponse.data);
+      console.log('[리플레이 분석] 서버 응답 수신 - 상태코드:', analysisResponse.status);
+      console.log('[리플레이 분석] 서버 응답 헤더:', analysisResponse.headers);
+      console.log('[리플레이 분석] 서버 응답 데이터 전체:', JSON.stringify(analysisResponse.data, null, 2));
 
       if (analysisResponse.data.success && analysisResponse.data.analysisResult) {
         const serverResult = analysisResponse.data.analysisResult;
 
-        console.log('[리플레이 분석] 서버 응답 구조 검증 중...', {
+        // 🎮 관리자 페이지와 완전히 동일한 로깅 방식 적용
+        console.log('🎮 [업로드 모달] 리플레이 분석 결과:', serverResult);
+        console.log('📊 [업로드 모달] 메타데이터:', serverResult?.metadata);
+        console.log('👥 [업로드 모달] 팀 데이터:', serverResult?.teams);
+        console.log('📈 [업로드 모달] 통계:', serverResult?.statistics);
+
+        // 플레이어 통계 상세 로그 (관리자 페이지와 동일)
+        if (serverResult?.teams?.blue?.[0]) {
+          console.log('🔵 [업로드 모달] 블루팀 첫 번째 플레이어:', {
+            name: serverResult.teams.blue[0].name,
+            hero: serverResult.teams.blue[0].hero,
+            stats: serverResult.teams.blue[0].stats
+          });
+        }
+
+        if (serverResult?.teams?.red?.[0]) {
+          console.log('🔴 [업로드 모달] 레드팀 첫 번째 플레이어:', {
+            name: serverResult.teams.red[0].name,
+            hero: serverResult.teams.red[0].hero,
+            stats: serverResult.teams.red[0].stats
+          });
+        }
+
+        console.log('[리플레이 분석] 서버 응답 구조 상세 검증:', {
           hasMetadata: !!serverResult.metadata,
+          metadataKeys: serverResult.metadata ? Object.keys(serverResult.metadata) : null,
           hasTeams: !!serverResult.teams,
+          teamsKeys: serverResult.teams ? Object.keys(serverResult.teams) : null,
+          hasStatistics: !!serverResult.statistics,
+          statisticsKeys: serverResult.statistics ? Object.keys(serverResult.statistics) : null,
           hasBlueTeam: !!serverResult.teams?.blue,
           hasRedTeam: !!serverResult.teams?.red,
           blueCount: serverResult.teams?.blue?.length || 0,
-          redCount: serverResult.teams?.red?.length || 0
+          redCount: serverResult.teams?.red?.length || 0,
+          totalKills: serverResult.statistics?.totalKills || 0,
+          totalDeaths: serverResult.statistics?.totalDeaths || 0
         });
+
+        // 블루팀 첫 번째 플레이어 상세 로그
+        if (serverResult.teams?.blue?.[0]) {
+          console.log('[리플레이 분석] 블루팀 첫 번째 플레이어 상세:', {
+            name: serverResult.teams.blue[0].name,
+            hero: serverResult.teams.blue[0].hero,
+            hasStats: !!serverResult.teams.blue[0].stats,
+            statsKeys: serverResult.teams.blue[0].stats ? Object.keys(serverResult.teams.blue[0].stats) : null,
+            statsValues: serverResult.teams.blue[0].stats || null
+          });
+        }
+
+        // 레드팀 첫 번째 플레이어 상세 로그
+        if (serverResult.teams?.red?.[0]) {
+          console.log('[리플레이 분석] 레드팀 첫 번째 플레이어 상세:', {
+            name: serverResult.teams.red[0].name,
+            hero: serverResult.teams.red[0].hero,
+            hasStats: !!serverResult.teams.red[0].stats,
+            statsKeys: serverResult.teams.red[0].stats ? Object.keys(serverResult.teams.red[0].stats) : null,
+            statsValues: serverResult.teams.red[0].stats || null
+          });
+        }
 
         // 서버 응답 구조 검증
         if (!serverResult.metadata || !serverResult.teams || !serverResult.teams.blue || !serverResult.teams.red) {
@@ -396,7 +456,7 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
           throw new Error('리플레이에서 플레이어 정보를 찾을 수 없습니다.');
         }
 
-        // 서버 응답을 클라이언트가 기대하는 구조로 변환
+        // 관리자 페이지와 완전히 동일한 구조로 결과 처리 (서버 응답을 그대로 사용)
         const result = {
           success: true,
           basic: {
@@ -404,41 +464,44 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
             fileSize: serverResult.metadata.fileSize || file.size,
             gameLength: serverResult.metadata.gameDuration || 0,
             gameDate: serverResult.metadata.date || new Date().toISOString(),
-            gameVersion: formatGameVersion(serverResult.metadata.gameVersion),
+            gameVersion: serverResult.metadata.gameVersion || 'Unknown',
             mapName: serverResult.metadata.mapName || '알 수 없음',
             gameMode: serverResult.metadata.gameMode || 'Storm League',
             winner: serverResult.metadata.winner || 'blue',
             winningTeam: serverResult.metadata.winner === 'blue' ? 0 : 1
           },
+          // 서버 응답의 teams 구조를 그대로 사용 (관리자 페이지와 동일)
           teams: {
             blue: serverResult.teams.blue.map(player => ({
               name: player.name || player.battleTag || 'Unknown',
               hero: player.hero || 'Unknown',
-              stats: {
-                SoloKill: player.stats?.SoloKill || 0,
-                Deaths: player.stats?.Deaths || 0,
-                Assists: player.stats?.Assists || 0,
-                HeroDamage: player.stats?.HeroDamage || 0,
-                SiegeDamage: player.stats?.SiegeDamage || 0,
-                Healing: player.stats?.Healing || 0,
-                ExperienceContribution: player.stats?.ExperienceContribution || 0
-              }
+              // 서버에서 제공하는 stats 구조를 그대로 사용 (관리자 페이지와 동일)
+              stats: player.stats || {}
             })),
             red: serverResult.teams.red.map(player => ({
               name: player.name || player.battleTag || 'Unknown',
               hero: player.hero || 'Unknown',
-              stats: {
-                SoloKill: player.stats?.SoloKill || 0,
-                Deaths: player.stats?.Deaths || 0,
-                Assists: player.stats?.Assists || 0,
-                HeroDamage: player.stats?.HeroDamage || 0,
-                SiegeDamage: player.stats?.SiegeDamage || 0,
-                Healing: player.stats?.Healing || 0,
-                ExperienceContribution: player.stats?.ExperienceContribution || 0
-              }
+              // 서버에서 제공하는 stats 구조를 그대로 사용 (관리자 페이지와 동일)
+              stats: player.stats || {}
             }))
-          }
+          },
+          // 서버에서 제공하는 statistics를 그대로 사용 (관리자 페이지와 동일)
+          statistics: serverResult.statistics || {},
+          // 원본 서버 응답도 포함 (디버깅용)
+          originalServerResponse: serverResult
         };
+
+        console.log('[리플레이 분석] 최종 결과 구조:', {
+          hasBasic: !!result.basic,
+          hasTeams: !!result.teams,
+          hasStatistics: !!result.statistics,
+          blueTeamCount: result.teams.blue.length,
+          redTeamCount: result.teams.red.length,
+          totalKills: result.statistics.totalKills || 0,
+          totalDeaths: result.statistics.totalDeaths || 0,
+          sampleBluePlayer: result.teams.blue[0] || null,
+          sampleRedPlayer: result.teams.red[0] || null
+        });
 
         // 매치 일치성 검사
         console.log('[리플레이 분석] 매치 일치성 검사 중...');
@@ -473,7 +536,7 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
       } else if (err.response?.status === 413) {
         errorMessage = '파일이 너무 큽니다. 50MB 이하의 파일을 업로드해주세요.';
       } else if (err.response?.status === 400) {
-        errorMessage = err.response.data?.error || '잘못된 요청입니다.';
+        errorMessage = err.response.data?.error || err.response.data?.message || '잘못된 요청입니다.';
       } else if (err.response?.status === 401) {
         errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
       } else if (err.response?.status === 500) {
@@ -522,49 +585,162 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
         redTeamCount: matchPlayerInfo.redTeam.length
       });
 
+      // 리플레이 분석 결과 상세 로깅
+      console.log('[매치 완료] 리플레이 분석 결과 전체 구조:', {
+        hasTeams: !!analysisResult.teams,
+        hasBlueTeam: !!analysisResult.teams?.blue,
+        hasRedTeam: !!analysisResult.teams?.red,
+        blueTeamLength: analysisResult.teams?.blue?.length || 0,
+        redTeamLength: analysisResult.teams?.red?.length || 0,
+        analysisResultKeys: Object.keys(analysisResult),
+        teamsKeys: analysisResult.teams ? Object.keys(analysisResult.teams) : null
+      });
+
+      if (analysisResult.teams?.blue) {
+        console.log('[매치 완료] 블루팀 플레이어 상세:', analysisResult.teams.blue.map((player, index) => ({
+          index,
+          name: player.name,
+          hero: player.hero,
+          hasStats: !!player.stats,
+          statsKeys: player.stats ? Object.keys(player.stats) : null,
+          kills: player.stats?.SoloKill || player.kills || 0,
+          deaths: player.stats?.Deaths || player.deaths || 0,
+          assists: player.stats?.Assists || player.assists || 0,
+          heroDamage: player.stats?.HeroDamage || player.heroDamage || 0,
+          siegeDamage: player.stats?.SiegeDamage || player.siegeDamage || 0,
+          healing: player.stats?.Healing || player.healing || 0,
+          experience: player.stats?.ExperienceContribution || player.experience || 0
+        })));
+      }
+
+      if (analysisResult.teams?.red) {
+        console.log('[매치 완료] 레드팀 플레이어 상세:', analysisResult.teams.red.map((player, index) => ({
+          index,
+          name: player.name,
+          hero: player.hero,
+          hasStats: !!player.stats,
+          statsKeys: player.stats ? Object.keys(player.stats) : null,
+          kills: player.stats?.SoloKill || player.kills || 0,
+          deaths: player.stats?.Deaths || player.deaths || 0,
+          assists: player.stats?.Assists || player.assists || 0,
+          heroDamage: player.stats?.HeroDamage || player.heroDamage || 0,
+          siegeDamage: player.stats?.SiegeDamage || player.siegeDamage || 0,
+          healing: player.stats?.Healing || player.healing || 0,
+          experience: player.stats?.ExperienceContribution || player.experience || 0
+        })));
+      }
+
       // 승리 팀 결정
       const winningTeam = analysisResult.basic.winner ||
                          (analysisResult.basic.winningTeam === 0 ? 'blue' : 'red');
 
-      // 플레이어 통계 생성
+      // 플레이어 통계 생성 - 관리자 페이지와 동일한 방식
       const playerStats = [];
 
       // 블루팀 플레이어 추가
       if (analysisResult.teams && analysisResult.teams.blue) {
-        analysisResult.teams.blue.forEach(player => {
+        analysisResult.teams.blue.forEach((player, index) => {
+          // 관리자 페이지와 동일한 방식으로 통계 추출
+          const stats = player.stats || {};
+
+          console.log(`[매치 완료] 블루팀 ${player.name} 통계 추출:`, {
+            originalStats: stats,
+            kills: stats.SoloKill || 0,
+            deaths: stats.Deaths || 0,
+            assists: stats.Assists || 0,
+            heroDamage: stats.HeroDamage || 0,
+            siegeDamage: stats.SiegeDamage || 0,
+            healing: stats.Healing || 0,
+            experience: stats.ExperienceContribution || 0
+          });
+
           playerStats.push({
             userId: `blue_${player.name}`,
             battletag: player.name || 'Unknown',
+            playerBattleTag: player.name || 'Unknown', // 리플레이에서 추출된 배틀태그
             team: 'blue',
             hero: player.hero || 'Unknown',
-            kills: player.stats?.SoloKill || 0,
-            deaths: player.stats?.Deaths || 0,
-            assists: player.stats?.Assists || 0,
-            heroDamage: player.stats?.HeroDamage || 0,
-            siegeDamage: player.stats?.SiegeDamage || 0,
-            healing: player.stats?.Healing || 0,
-            experienceContribution: player.stats?.ExperienceContribution || 0
+            kills: stats.SoloKill || 0,
+            deaths: stats.Deaths || 0,
+            assists: stats.Assists || 0,
+            heroDamage: stats.HeroDamage || 0,
+            siegeDamage: stats.SiegeDamage || 0,
+            healing: stats.Healing || 0,
+            experienceContribution: stats.ExperienceContribution || 0
           });
         });
       }
 
       // 레드팀 플레이어 추가
       if (analysisResult.teams && analysisResult.teams.red) {
-        analysisResult.teams.red.forEach(player => {
+        analysisResult.teams.red.forEach((player, index) => {
+          // 관리자 페이지와 동일한 방식으로 통계 추출
+          const stats = player.stats || {};
+
+          console.log(`[매치 완료] 레드팀 ${player.name} 통계 추출:`, {
+            originalStats: stats,
+            kills: stats.SoloKill || 0,
+            deaths: stats.Deaths || 0,
+            assists: stats.Assists || 0,
+            heroDamage: stats.HeroDamage || 0,
+            siegeDamage: stats.SiegeDamage || 0,
+            healing: stats.Healing || 0,
+            experience: stats.ExperienceContribution || 0
+          });
+
           playerStats.push({
             userId: `red_${player.name}`,
             battletag: player.name || 'Unknown',
+            playerBattleTag: player.name || 'Unknown', // 리플레이에서 추출된 배틀태그
             team: 'red',
             hero: player.hero || 'Unknown',
-            kills: player.stats?.SoloKill || 0,
-            deaths: player.stats?.Deaths || 0,
-            assists: player.stats?.Assists || 0,
-            heroDamage: player.stats?.HeroDamage || 0,
-            siegeDamage: player.stats?.SiegeDamage || 0,
-            healing: player.stats?.Healing || 0,
-            experienceContribution: player.stats?.ExperienceContribution || 0
+            kills: stats.SoloKill || 0,
+            deaths: stats.Deaths || 0,
+            assists: stats.Assists || 0,
+            heroDamage: stats.HeroDamage || 0,
+            siegeDamage: stats.SiegeDamage || 0,
+            healing: stats.Healing || 0,
+            experienceContribution: stats.ExperienceContribution || 0
           });
         });
+      }
+
+      console.log('[매치 완료] 최종 플레이어 통계 생성 완료:', {
+        totalPlayers: playerStats.length,
+        blueTeamPlayers: playerStats.filter(p => p.team === 'blue').length,
+        redTeamPlayers: playerStats.filter(p => p.team === 'red').length,
+        playerStatsDetail: playerStats.map(p => ({
+          battletag: p.battletag,
+          team: p.team,
+          hero: p.hero,
+          kills: p.kills,
+          deaths: p.deaths,
+          assists: p.assists,
+          heroDamage: p.heroDamage,
+          siegeDamage: p.siegeDamage,
+          healing: p.healing,
+          experience: p.experienceContribution
+        }))
+      });
+
+      // 실제 통계가 있는지 확인 (모든 값이 0이 아닌 플레이어가 있는지)
+      const hasRealStats = playerStats.some(p =>
+        p.kills > 0 || p.deaths > 0 || p.assists > 0 ||
+        p.heroDamage > 0 || p.siegeDamage > 0 || p.healing > 0
+      );
+
+      console.log('[매치 완료] 실제 통계 존재 여부:', hasRealStats);
+
+      // 플레이어 통계가 비어있거나 모든 값이 0일 경우에만 더미 데이터 생성
+      if (playerStats.length === 0 || !hasRealStats) {
+        console.log('[매치 완료] 실제 통계가 없음 - 더미 데이터 생성 건너뛰기');
+        console.log('[매치 완료] 실제 리플레이 데이터를 그대로 사용합니다.');
+
+        // 더미 데이터 생성하지 않고 실제 데이터 사용
+        if (playerStats.length === 0) {
+          console.error('[매치 완료] 플레이어 통계가 완전히 비어있음 - 리플레이 분석 실패');
+          throw new Error('리플레이에서 플레이어 정보를 추출할 수 없습니다.');
+        }
       }
 
       // 매치 완료 API 호출
@@ -957,8 +1133,9 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
                     </div>
                     <span className="text-slate-300 text-sm flex-1">플레이어 일치율</span>
                     <span className={`text-xs ${
-                      analysisResult.consistency?.percentage >= 80 ? 'text-green-400' :
-                      analysisResult.consistency?.percentage >= 50 ? 'text-yellow-400' :
+                      analysisResult.consistency?.status === 'excellent' ? 'text-green-400' :
+                      analysisResult.consistency?.status === 'good' ? 'text-blue-400' :
+                      analysisResult.consistency?.status === 'warning' ? 'text-yellow-400' :
                       'text-red-400'
                     }`}>
                       {analysisResult.consistency?.percentage >= 80 ? '✓' :
@@ -1101,26 +1278,298 @@ const ReplayUploadModal = ({ isOpen, onClose, onComplete, matchId }) => {
               )}
             </button>
           ) : (
-            <button
-              onClick={handleCompleteMatch}
-              className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
-                loading
-                  ? 'bg-green-600/50 text-white/70 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
-              }`}
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  <span>매치 완료 중...</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleCompleteMatch}
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 ${
+                  loading
+                    ? 'bg-green-600/50 text-white/70 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
+                }`}
+                disabled={loading}
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>매치 완료 중...</span>
+                  </div>
+                ) : (
+                  '매치 완료'
+                )}
+              </button>
+
+              {/* 개발용 통계 정보 아이콘 - 오른쪽에 더 크게 */}
+              {analysisResult && (
+                <div className="relative group">
+                  <div className="w-12 h-12 bg-yellow-500/20 hover:bg-yellow-500/30 border-2 border-yellow-500/50 rounded-full flex items-center justify-center cursor-help transition-colors">
+                    <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+
+                  {/* 상세 통계 툴팁 - 더 크게 */}
+                  <div className="absolute bottom-full right-0 mb-3 w-[500px] bg-slate-900 border border-slate-600 rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                    <div className="p-5">
+                      {/* 툴팁 헤더 */}
+                      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-700">
+                        <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <span className="text-white font-bold text-base">리플레이 분석 통계 (개발용)</span>
+                      </div>
+
+                      {/* 게임 기본 정보 */}
+                      <div className="mb-4">
+                        <h4 className="text-sm font-bold text-slate-300 mb-3">게임 정보</h4>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                            <span className="text-slate-400">전장:</span>
+                            <span className="text-white font-medium">{analysisResult.basic?.mapName || analysisResult.metadata?.mapName || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                            <span className="text-slate-400">게임 시간:</span>
+                            <span className="text-white font-medium">
+                              {(analysisResult.basic?.gameLength || analysisResult.metadata?.gameDuration) ?
+                                `${Math.floor((analysisResult.basic?.gameLength || analysisResult.metadata?.gameDuration) / 60)}:${String((analysisResult.basic?.gameLength || analysisResult.metadata?.gameDuration) % 60).padStart(2, '0')}` :
+                                'N/A'
+                              }
+                            </span>
+                          </div>
+                          <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                            <span className="text-slate-400">승리팀:</span>
+                            <span className={`font-bold ${(analysisResult.basic?.winner || analysisResult.metadata?.winner) === 'blue' ? 'text-blue-400' : 'text-red-400'}`}>
+                              {(analysisResult.basic?.winner || analysisResult.metadata?.winner) === 'blue' ? '블루팀' : '레드팀'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                            <span className="text-slate-400">플레이어:</span>
+                            <span className="text-white font-medium">
+                              {(analysisResult.teams?.blue?.length || 0) + (analysisResult.teams?.red?.length || 0)}명
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 전체 통계 요약 - 관리자 페이지와 동일한 방식 */}
+                      {analysisResult.statistics && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-bold text-slate-300 mb-3">전체 통계</h4>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">총 킬:</span>
+                              <span className="text-white font-medium">{analysisResult.statistics.totalKills || 0}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">총 데스:</span>
+                              <span className="text-white font-medium">{analysisResult.statistics.totalDeaths || 0}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">총 어시:</span>
+                              <span className="text-white font-medium">{analysisResult.statistics.totalAssists || 0}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">평균 레벨:</span>
+                              <span className="text-white font-medium">{analysisResult.statistics.averageLevel || 0}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">총 영웅딜:</span>
+                              <span className="text-white font-medium">{(analysisResult.statistics.totalHeroDamage || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">총 공성딜:</span>
+                              <span className="text-white font-medium">{(analysisResult.statistics.totalSiegeDamage || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between p-2 bg-slate-800/50 rounded">
+                              <span className="text-slate-400">총 힐량:</span>
+                              <span className="text-white font-medium">{(analysisResult.statistics.totalHealing || 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 팀별 상세 통계 - 관리자 페이지와 동일한 방식 */}
+                      <div className="space-y-4">
+                        {/* 블루팀 */}
+                        {analysisResult.teams?.blue && analysisResult.teams.blue.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-bold text-blue-400 mb-3 flex items-center gap-2">
+                              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                              블루팀 ({analysisResult.teams.blue.length}명)
+                            </h4>
+                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                              {analysisResult.teams.blue.map((player, index) => (
+                                <div key={index} className="bg-blue-900/20 rounded-lg p-3 border border-blue-500/20">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-white text-sm font-bold truncate">{player.name}</span>
+                                    <span className="text-blue-400 text-sm font-medium">{player.hero}</span>
+                                  </div>
+                                  <div className="grid grid-cols-5 gap-2 text-sm">
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">킬</div>
+                                      <div className="text-white font-bold">{player.stats?.SoloKill || 0}</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">데스</div>
+                                      <div className="text-white font-bold">{player.stats?.Deaths || 0}</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">어시</div>
+                                      <div className="text-white font-bold">{player.stats?.Assists || 0}</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">영웅딜</div>
+                                      <div className="text-white font-bold">{Math.round((player.stats?.HeroDamage || 0) / 1000)}k</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">힐량</div>
+                                      <div className="text-white font-bold">{Math.round((player.stats?.Healing || 0) / 1000)}k</div>
+                                    </div>
+                                  </div>
+                                  {/* 추가 통계 정보 */}
+                                  <div className="grid grid-cols-4 gap-2 text-sm mt-2 pt-2 border-t border-blue-500/20">
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">공성딜</div>
+                                      <div className="text-blue-300 font-medium">{Math.round((player.stats?.SiegeDamage || 0) / 1000)}k</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">경험치</div>
+                                      <div className="text-blue-300 font-medium">{Math.round((player.stats?.ExperienceContribution || 0) / 1000)}k</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">레벨</div>
+                                      <div className="text-blue-300 font-medium">{player.stats?.Level || 20}</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">CC시간</div>
+                                      <div className="text-blue-300 font-medium">{Math.round((player.stats?.TimeCCdEnemyHeroes || 0) / 1000)}s</div>
+                                    </div>
+                                  </div>
+                                  {/* 고급 통계 정보 */}
+                                  {(player.stats?.MercCampCaptures || player.stats?.RegenGlobes || player.stats?.TimeSpentDead) && (
+                                    <div className="grid grid-cols-3 gap-2 text-sm mt-2 pt-2 border-t border-blue-500/10">
+                                      <div className="text-center">
+                                        <div className="text-slate-400 text-xs">용병</div>
+                                        <div className="text-blue-200 text-xs">{player.stats?.MercCampCaptures || 0}</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-slate-400 text-xs">구슬</div>
+                                        <div className="text-blue-200 text-xs">{player.stats?.RegenGlobes || 0}</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-slate-400 text-xs">사망시간</div>
+                                        <div className="text-blue-200 text-xs">{Math.round((player.stats?.TimeSpentDead || 0) / 1000)}s</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 레드팀 */}
+                        {analysisResult.teams?.red && analysisResult.teams.red.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-bold text-red-400 mb-3 flex items-center gap-2">
+                              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                              레드팀 ({analysisResult.teams.red.length}명)
+                            </h4>
+                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                              {analysisResult.teams.red.map((player, index) => (
+                                <div key={index} className="bg-red-900/20 rounded-lg p-3 border border-red-500/20">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-white text-sm font-bold truncate">{player.name}</span>
+                                    <span className="text-red-400 text-sm font-medium">{player.hero}</span>
+                                  </div>
+                                  <div className="grid grid-cols-5 gap-2 text-sm">
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">킬</div>
+                                      <div className="text-white font-bold">{player.stats?.SoloKill || 0}</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">데스</div>
+                                      <div className="text-white font-bold">{player.stats?.Deaths || 0}</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">어시</div>
+                                      <div className="text-white font-bold">{player.stats?.Assists || 0}</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">영웅딜</div>
+                                      <div className="text-white font-bold">{Math.round((player.stats?.HeroDamage || 0) / 1000)}k</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">힐량</div>
+                                      <div className="text-white font-bold">{Math.round((player.stats?.Healing || 0) / 1000)}k</div>
+                                    </div>
+                                  </div>
+                                  {/* 추가 통계 정보 */}
+                                  <div className="grid grid-cols-4 gap-2 text-sm mt-2 pt-2 border-t border-red-500/20">
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">공성딜</div>
+                                      <div className="text-red-300 font-medium">{Math.round((player.stats?.SiegeDamage || 0) / 1000)}k</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">경험치</div>
+                                      <div className="text-red-300 font-medium">{Math.round((player.stats?.ExperienceContribution || 0) / 1000)}k</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">레벨</div>
+                                      <div className="text-red-300 font-medium">{player.stats?.Level || 20}</div>
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-slate-400 text-xs">CC시간</div>
+                                      <div className="text-red-300 font-medium">{Math.round((player.stats?.TimeCCdEnemyHeroes || 0) / 1000)}s</div>
+                                    </div>
+                                  </div>
+                                  {/* 고급 통계 정보 */}
+                                  {(player.stats?.MercCampCaptures || player.stats?.RegenGlobes || player.stats?.TimeSpentDead) && (
+                                    <div className="grid grid-cols-3 gap-2 text-sm mt-2 pt-2 border-t border-red-500/10">
+                                      <div className="text-center">
+                                        <div className="text-slate-400 text-xs">용병</div>
+                                        <div className="text-red-200 text-xs">{player.stats?.MercCampCaptures || 0}</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-slate-400 text-xs">구슬</div>
+                                        <div className="text-red-200 text-xs">{player.stats?.RegenGlobes || 0}</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className="text-slate-400 text-xs">사망시간</div>
+                                        <div className="text-red-200 text-xs">{Math.round((player.stats?.TimeSpentDead || 0) / 1000)}s</div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 디버깅 정보 추가 - 관리자 페이지와 동일한 방식 */}
+                      <div className="mt-4 pt-3 border-t border-slate-700">
+                        <h4 className="text-sm font-bold text-yellow-400 mb-2">디버깅 정보</h4>
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <div>분석 결과 구조: {JSON.stringify(Object.keys(analysisResult), null, 2)}</div>
+                          <div>서버 응답 키: {analysisResult.originalServerResponse ? JSON.stringify(Object.keys(analysisResult.originalServerResponse), null, 2) : 'N/A'}</div>
+                          {analysisResult.teams?.blue?.[0] && (
+                            <div>첫 번째 블루팀 플레이어: {JSON.stringify(analysisResult.teams.blue[0], null, 2)}</div>
+                          )}
+                          {analysisResult.statistics && (
+                            <div>전체 통계: {JSON.stringify(analysisResult.statistics, null, 2)}</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 툴팁 화살표 */}
+                      <div className="absolute top-full right-6 w-0 h-0 border-l-6 border-r-6 border-t-6 border-transparent border-t-slate-900"></div>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                '매치 완료'
               )}
-            </button>
+            </div>
           )}
         </div>
       </div>

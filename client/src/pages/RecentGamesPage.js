@@ -79,68 +79,20 @@ const RecentGamesPage = () => {
 
         // 데이터 구조 정규화 (PostgreSQL과 MongoDB 응답 모두 처리)
         const normalizedGames = validGames.map(game => {
-          // PostgreSQL 서버 응답 구조 (redTeam, blueTeam이 직접 배열)
-          if (Array.isArray(game.redTeam) && Array.isArray(game.blueTeam)) {
-            // 레드팀 MMR 평균 계산
-            const redTeamMmrs = game.redTeam
-              .map(player => player.mmrAfter || player.mmrBefore || 1500)
-              .filter(mmr => mmr > 0);
-            const redAvgMmr = redTeamMmrs.length > 0
-              ? Math.round(redTeamMmrs.reduce((sum, mmr) => sum + mmr, 0) / redTeamMmrs.length)
-              : 1500;
+          // 서버에서 이미 정규화된 구조로 보내므로 그대로 사용
+          // PostgreSQL 서버는 { redTeam: { name, avgMmr, players }, blueTeam: { name, avgMmr, players } } 형태로 보냄
 
-            // 블루팀 MMR 평균 계산
-            const blueTeamMmrs = game.blueTeam
-              .map(player => player.mmrAfter || player.mmrBefore || 1500)
-              .filter(mmr => mmr > 0);
-            const blueAvgMmr = blueTeamMmrs.length > 0
-              ? Math.round(blueTeamMmrs.reduce((sum, mmr) => sum + mmr, 0) / blueTeamMmrs.length)
-              : 1500;
+          console.log('[DEBUG] 게임 데이터 정규화 중:', {
+            id: game.id,
+            redTeamType: typeof game.redTeam,
+            blueTeamType: typeof game.blueTeam,
+            redTeamIsArray: Array.isArray(game.redTeam),
+            blueTeamIsArray: Array.isArray(game.blueTeam),
+            redTeamHasPlayers: game.redTeam?.players ? true : false,
+            blueTeamHasPlayers: game.blueTeam?.players ? true : false
+          });
 
-            return {
-              ...game,
-              redTeam: {
-                name: '레드팀',
-                avgMmr: redAvgMmr,
-                players: game.redTeam.map(player => ({
-                  id: player.id,
-                  nickname: player.nickname || player.battletag || '알 수 없음',
-                  hero: player.hero || '알 수 없음',
-                  role: player.role || '알 수 없음',
-                  kills: player.kills || 0,
-                  deaths: player.deaths || 0,
-                  assists: player.assists || 0,
-                  heroDamage: player.heroDamage || 0,
-                  siegeDamage: player.siegeDamage || 0,
-                  healing: player.healing || 0,
-                  mmrAfter: player.mmrAfter || 1500,
-                  mmrBefore: player.mmrBefore || 1500,
-                  mmrChange: player.mmrChange || 0
-                }))
-              },
-              blueTeam: {
-                name: '블루팀',
-                avgMmr: blueAvgMmr,
-                players: game.blueTeam.map(player => ({
-                  id: player.id,
-                  nickname: player.nickname || player.battletag || '알 수 없음',
-                  hero: player.hero || '알 수 없음',
-                  role: player.role || '알 수 없음',
-                  kills: player.kills || 0,
-                  deaths: player.deaths || 0,
-                  assists: player.assists || 0,
-                  heroDamage: player.heroDamage || 0,
-                  siegeDamage: player.siegeDamage || 0,
-                  healing: player.healing || 0,
-                  mmrAfter: player.mmrAfter || 1500,
-                  mmrBefore: player.mmrBefore || 1500,
-                  mmrChange: player.mmrChange || 0
-                }))
-              }
-            };
-          }
-
-          // MongoDB API 응답 구조 (이미 정규화된 구조) 또는 이미 정규화된 PostgreSQL 응답
+          // 서버에서 이미 올바른 구조로 보내므로 그대로 반환
           return game;
         });
 
@@ -166,6 +118,22 @@ const RecentGamesPage = () => {
 
         if (response.data && response.data.games) {
           console.log('[DEBUG] 최근 게임 데이터:', response.data.games.slice(0, 3)); // 처음 3개 게임만 로그
+
+          // 첫 번째 게임의 상세 구조 확인
+          if (response.data.games.length > 0) {
+            const firstGame = response.data.games[0];
+            console.log('[DEBUG] 첫 번째 게임 상세 구조:', {
+              id: firstGame.id,
+              redTeam: firstGame.redTeam,
+              blueTeam: firstGame.blueTeam,
+              redTeamType: typeof firstGame.redTeam,
+              blueTeamType: typeof firstGame.blueTeam,
+              redTeamIsArray: Array.isArray(firstGame.redTeam),
+              blueTeamIsArray: Array.isArray(firstGame.blueTeam),
+              redTeamPlayers: firstGame.redTeam?.players?.length || 'no players property',
+              blueTeamPlayers: firstGame.blueTeam?.players?.length || 'no players property'
+            });
+          }
 
           // 특정 매치 ID 디버깅
           const targetMatch = response.data.games.find(game => game.id === '4223fae8-cedf-409f-92ee-18920a35c867');
@@ -450,7 +418,9 @@ const RecentGamesPage = () => {
                                         {index + 1}
                                       </div>
                                       <div className="min-w-0">
-                                        <div className="font-bold text-white text-sm truncate">{player.nickname}</div>
+                                        <div className="font-bold text-white text-sm truncate">
+                                          {player.nickname}
+                                        </div>
                                         <div className="text-xs text-gray-400 truncate">{translateHero(player.hero) || player.hero || '알 수 없음'}</div>
                                       </div>
                                     </div>
@@ -477,7 +447,7 @@ const RecentGamesPage = () => {
                                     <span className="text-green-400 font-bold text-sm">{(player.healing || 0).toLocaleString()}</span>
                                   </td>
                                   <td className="text-center px-2 py-3">
-                                    <span className="text-cyan-400 font-bold text-sm">{(player.experienceContribution || 0).toLocaleString()}</span>
+                                    <span className="text-cyan-400 font-bold text-sm">{(player.experience || 0).toLocaleString()}</span>
                                   </td>
                                   <td className="text-center px-2 py-3">
                                     <div className="text-xs">
@@ -535,7 +505,9 @@ const RecentGamesPage = () => {
                                         {index + 1}
                                       </div>
                                       <div className="min-w-0">
-                                        <div className="font-bold text-white text-sm truncate">{player.nickname}</div>
+                                        <div className="font-bold text-white text-sm truncate">
+                                          {player.nickname}
+                                        </div>
                                         <div className="text-xs text-gray-400 truncate">{translateHero(player.hero) || player.hero || '알 수 없음'}</div>
                                       </div>
                                     </div>
@@ -562,7 +534,7 @@ const RecentGamesPage = () => {
                                     <span className="text-green-400 font-bold text-sm">{(player.healing || 0).toLocaleString()}</span>
                                   </td>
                                   <td className="text-center px-2 py-3">
-                                    <span className="text-cyan-400 font-bold text-sm">{(player.experienceContribution || 0).toLocaleString()}</span>
+                                    <span className="text-cyan-400 font-bold text-sm">{(player.experience || 0).toLocaleString()}</span>
                                   </td>
                                   <td className="text-center px-2 py-3">
                                     <div className="text-xs">

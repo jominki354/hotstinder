@@ -740,12 +740,22 @@ router.get('/recent-games', async (req, res) => {
       const redTeam = [];
       const blueTeam = [];
 
+      console.log(`[DEBUG] 매치 ${match.id} - 총 참가자: ${participants.length}명`);
+
       participants.forEach(participant => {
+        // DB 사용자 정보가 있는 경우와 없는 경우 모두 처리
+        const isDbUser = !!participant.user;
+        const battleTag = participant.user?.battleTag || participant.playerBattleTag || 'Unknown';
+        const nickname = participant.user?.nickname ||
+                        participant.user?.battleTag?.split('#')[0] ||
+                        participant.playerBattleTag?.split('#')[0] ||
+                        '알 수 없음';
+
         const playerData = {
           id: participant.id,
           userId: participant.userId,
-          battletag: participant.user?.battleTag || 'Unknown',
-          nickname: participant.user?.nickname || participant.user?.battleTag?.split('#')[0] || '알 수 없음',
+          battletag: battleTag,
+          nickname: nickname,
           hero: participant.hero || '알 수 없음',
           role: participant.role || '알 수 없음',
           kills: participant.kills || 0,
@@ -754,18 +764,34 @@ router.get('/recent-games', async (req, res) => {
           heroDamage: participant.heroDamage || 0,
           siegeDamage: participant.siegeDamage || 0,
           healing: participant.healing || 0,
-          experience: participant.experience || 0,
+          experience: participant.experienceContribution || 0,
           mmrBefore: participant.mmrBefore || 1500,
           mmrAfter: participant.mmrAfter || 1500,
-          mmrChange: participant.mmrChange || 0
+          mmrChange: participant.mmrChange || 0,
+          isDbUser: isDbUser, // DB 등록 사용자 여부
+          battleTag: participant.playerBattleTag // 리플레이에서 추출된 배틀태그
         };
 
-        if (participant.team === 1) {
+        console.log(`[DEBUG] 플레이어 ${playerData.nickname} (${playerData.battletag}) - 팀: "${participant.team}" (타입: ${typeof participant.team}), DB사용자: ${isDbUser}`);
+
+        // 팀 분류 로직 개선 - 모든 가능한 형태 처리
+        const teamValue = String(participant.team).toLowerCase();
+
+        if (teamValue === 'red' || teamValue === '1') {
           redTeam.push(playerData);
-        } else if (participant.team === 0) {
+          console.log(`[DEBUG] ${playerData.nickname} → 레드팀 추가 (팀값: "${participant.team}")`);
+        } else if (teamValue === 'blue' || teamValue === '0') {
           blueTeam.push(playerData);
+          console.log(`[DEBUG] ${playerData.nickname} → 블루팀 추가 (팀값: "${participant.team}")`);
+        } else {
+          console.log(`[DEBUG] ${playerData.nickname} → 팀 분류 실패 (팀값: "${participant.team}", 변환값: "${teamValue}")`);
+          // 기본적으로 블루팀에 추가
+          blueTeam.push(playerData);
+          console.log(`[DEBUG] ${playerData.nickname} → 기본값으로 블루팀에 추가`);
         }
       });
+
+      console.log(`[DEBUG] 매치 ${match.id} - 최종 팀 구성: 블루팀 ${blueTeam.length}명, 레드팀 ${redTeam.length}명`);
 
       // 팀 평균 MMR 계산
       const calculateAvgMmr = (team) => {
@@ -814,6 +840,18 @@ router.get('/recent-games', async (req, res) => {
       page,
       totalPages: Math.ceil(count / limit)
     });
+
+    // 첫 번째 게임의 구조 디버깅
+    if (recentGames.length > 0) {
+      const firstGame = recentGames[0];
+      console.log('[DEBUG] 서버에서 보내는 첫 번째 게임 구조:', {
+        id: firstGame.id,
+        redTeamPlayersCount: firstGame.redTeam?.players?.length || 0,
+        blueTeamPlayersCount: firstGame.blueTeam?.players?.length || 0,
+        redTeamSample: firstGame.redTeam?.players?.[0] || 'no players',
+        blueTeamSample: firstGame.blueTeam?.players?.[0] || 'no players'
+      });
+    }
 
     res.json({
       games: recentGames,

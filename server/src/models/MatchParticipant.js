@@ -18,15 +18,21 @@ module.exports = (sequelize) => {
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       field: 'user_id',
       references: {
         model: 'users',
         key: 'id'
       }
     },
+    playerBattleTag: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'player_battle_tag'
+    },
     team: {
-      type: DataTypes.INTEGER
+      type: DataTypes.STRING(10),
+      allowNull: false
     },
     hero: {
       type: DataTypes.STRING(255)
