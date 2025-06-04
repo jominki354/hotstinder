@@ -100,7 +100,7 @@ const defineUser = (sequelize) => {
   });
 };
 
-// Match 모델 정의
+// Match 모델 정의 (실제 DB 스키마에 맞춰 수정)
 const defineMatch = (sequelize) => {
   return sequelize.define('Match', {
     id: {
@@ -120,48 +120,28 @@ const defineMatch = (sequelize) => {
       type: DataTypes.STRING(255),
       field: 'map_name'
     },
-    maxPlayers: {
-      type: DataTypes.INTEGER,
-      defaultValue: 10,
-      field: 'max_players'
-    },
-    currentPlayers: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      field: 'current_players'
-    },
-    averageMmr: {
-      type: DataTypes.INTEGER,
-      field: 'average_mmr'
-    },
-    createdBy: {
-      type: DataTypes.UUID,
-      field: 'created_by',
-      references: {
-        model: 'users',
-        key: 'id'
-      }
-    },
-    startedAt: {
-      type: DataTypes.DATE,
-      field: 'started_at'
-    },
-    endedAt: {
-      type: DataTypes.DATE,
-      field: 'ended_at'
-    },
     winner: {
-      type: DataTypes.STRING(10)
+      type: DataTypes.STRING(10),
+      allowNull: true
     },
-    gameDuration: {
-      type: DataTypes.INTEGER,
-      field: 'game_duration'
+    isSimulation: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'is_simulation'
     },
-    notes: {
-      type: DataTypes.TEXT
+    createdAt: {
+      type: DataTypes.DATE,
+      field: 'created_at'
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      field: 'updated_at'
     }
   }, {
-    tableName: 'matches'
+    tableName: 'matches',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
   });
 };
 
@@ -233,10 +213,10 @@ const defineMatchParticipant = (sequelize) => {
       type: DataTypes.BIGINT,
       defaultValue: 0
     },
-    experience: {
+    experienceContribution: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      field: 'experience'
+      field: 'experience_contribution'
     },
     mmrBefore: {
       type: DataTypes.INTEGER,
@@ -967,7 +947,7 @@ module.exports = async function handler(req, res) {
                 heroDamage: participant.heroDamage || 0,
                 siegeDamage: participant.siegeDamage || 0,
                 healing: participant.healing || 0,
-                experience: participant.experience || 0,
+                experience: participant.experienceContribution || 0,
                 mmrBefore: participant.mmrBefore || 1500,
                 mmrAfter: participant.mmrAfter || 1500,
                 mmrChange: participant.mmrChange || 0,

@@ -119,48 +119,28 @@ const defineMatch = (sequelize) => {
       type: DataTypes.STRING(255),
       field: 'map_name'
     },
-    maxPlayers: {
-      type: DataTypes.INTEGER,
-      defaultValue: 10,
-      field: 'max_players'
-    },
-    currentPlayers: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      field: 'current_players'
-    },
-    averageMmr: {
-      type: DataTypes.INTEGER,
-      field: 'average_mmr'
-    },
-    createdBy: {
-      type: DataTypes.UUID,
-      field: 'created_by',
-      references: {
-        model: 'users',
-        key: 'id'
-      }
-    },
-    startedAt: {
-      type: DataTypes.DATE,
-      field: 'started_at'
-    },
-    endedAt: {
-      type: DataTypes.DATE,
-      field: 'ended_at'
-    },
     winner: {
-      type: DataTypes.STRING(10)
+      type: DataTypes.STRING(10),
+      allowNull: true
     },
-    gameDuration: {
-      type: DataTypes.INTEGER,
-      field: 'game_duration'
+    isSimulation: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'is_simulation'
     },
-    notes: {
-      type: DataTypes.TEXT
+    createdAt: {
+      type: DataTypes.DATE,
+      field: 'created_at'
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      field: 'updated_at'
     }
   }, {
-    tableName: 'matches'
+    tableName: 'matches',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
   });
 };
 

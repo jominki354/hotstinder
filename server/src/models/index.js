@@ -30,15 +30,13 @@ const initializeModels = () => {
 const setupAssociations = () => {
   const { User, Match, MatchParticipant, Replay, MatchmakingQueue, UserLog } = models;
 
-  // User 관계
-  User.hasMany(Match, { foreignKey: 'createdBy', as: 'createdMatches' });
+  // User 관계 (createdBy 관계 제거)
   User.hasMany(MatchParticipant, { foreignKey: 'userId', as: 'participations' });
   User.hasMany(Replay, { foreignKey: 'uploaderId', as: 'uploadedReplays' });
   User.hasOne(MatchmakingQueue, { foreignKey: 'userId', as: 'queueEntry' });
   User.hasMany(UserLog, { foreignKey: 'userId', as: 'logs' });
 
-  // Match 관계
-  Match.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+  // Match 관계 (creator 관계 제거)
   Match.hasMany(MatchParticipant, { foreignKey: 'matchId', as: 'participants' });
   Match.hasMany(Replay, { foreignKey: 'matchId', as: 'replays' });
 

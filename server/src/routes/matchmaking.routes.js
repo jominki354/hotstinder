@@ -9,7 +9,7 @@ const cacheService = require('../services/cacheService');
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     // Authorization 헤더 검증
     if (!authHeader) {
       logger.warn('인증 실패: Authorization 헤더 없음', {
@@ -28,7 +28,7 @@ const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    
+
     // 토큰 기본 검증
     if (!token || token.length < 10) {
       logger.warn('인증 실패: 토큰이 너무 짧거나 없음', {
@@ -48,7 +48,7 @@ const authenticate = async (req, res, next) => {
         tokenStart: token.substring(0, 20),
         jwtSecret: process.env.JWT_SECRET ? 'exists' : 'missing'
       });
-      
+
       if (jwtError.name === 'TokenExpiredError') {
         return res.status(401).json({ message: '토큰이 만료되었습니다' });
       } else if (jwtError.name === 'JsonWebTokenError') {
@@ -798,9 +798,9 @@ router.get('/recent-games', async (req, res) => {
         const isDbUser = !!participant.user;
         const battleTag = participant.user?.battleTag || participant.playerBattleTag || 'Unknown';
         const nickname = participant.user?.nickname ||
-                        participant.user?.battleTag?.split('#')[0] ||
-                        participant.playerBattleTag?.split('#')[0] ||
-                        '알 수 없음';
+          participant.user?.battleTag?.split('#')[0] ||
+          participant.playerBattleTag?.split('#')[0] ||
+          '알 수 없음';
 
         const playerData = {
           id: participant.id,
@@ -866,7 +866,7 @@ router.get('/recent-games', async (req, res) => {
         map: match.mapName || '알 수 없는 맵',
         gameMode: match.gameMode || 'Storm League',
         winner: winner,
-        gameDuration: match.gameDuration || 0,
+        gameDuration: 0, // 실제 DB에 game_duration 컬럼이 없으므로 기본값 사용
         status: match.status,
         createdAt: match.createdAt,
         date: match.createdAt ? new Date(match.createdAt).toLocaleDateString('ko-KR') : '알 수 없음',
@@ -986,15 +986,12 @@ async function tryBatchMatchmaking() {
  */
 async function createMatchFromGroup(selectedGroup) {
   try {
-    // 새 매치 생성
+    // 새 매치 생성 (실제 DB 스키마에 맞춰 수정)
     const match = await global.db.Match.create({
       gameMode: selectedGroup[0].gameMode,
       mapName: getRandomMap(),
-      maxPlayers: 10,
-      currentPlayers: 10,
-      createdBy: selectedGroup[0].userId,
       status: 'ready',
-      averageMmr: Math.round(selectedGroup.reduce((sum, entry) => sum + entry.user.mmr, 0) / 10)
+      isSimulation: false
     });
 
     // 팀 분배
@@ -1005,8 +1002,7 @@ async function createMatchFromGroup(selectedGroup) {
       matchId: match.id,
       userId: entry.userId,
       role: entry.preferredRole,
-      team: teams.team1.includes(entry) ? 0 : 1,
-      joinedAt: new Date()
+      team: teams.team1.includes(entry) ? '0' : '1' // 문자열로 저장
     }));
 
     await global.db.MatchParticipant.bulkCreate(participants);
@@ -1029,10 +1025,12 @@ async function createMatchFromGroup(selectedGroup) {
     const statsKey = cacheService.getMatchmakingStatsKey(selectedGroup[0].gameMode);
     await cacheService.del(statsKey);
 
+    const avgMmr = Math.round(selectedGroup.reduce((sum, entry) => sum + entry.user.mmr, 0) / 10);
+
     logger.info('배치 매치 생성 완료:', {
       matchId: match.id,
       participants: userIds.length,
-      averageMmr: match.averageMmr,
+      averageMmr: avgMmr,
       team1Mmr: Math.round(teams.team1.reduce((sum, e) => sum + e.user.mmr, 0) / 5),
       team2Mmr: Math.round(teams.team2.reduce((sum, e) => sum + e.user.mmr, 0) / 5)
     });

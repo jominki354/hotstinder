@@ -25,25 +25,12 @@ module.exports = (sequelize) => {
         key: 'id'
       }
     },
-    playerBattleTag: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-      field: 'player_battle_tag'
-    },
     team: {
       type: DataTypes.STRING(10),
       allowNull: false
     },
     hero: {
       type: DataTypes.STRING(255)
-    },
-    role: {
-      type: DataTypes.STRING(50)
-    },
-    joinedAt: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
-      field: 'joined_at'
     },
     kills: {
       type: DataTypes.INTEGER,
@@ -71,14 +58,31 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       defaultValue: 0
     },
-    experience: {
+    experienceContribution: {
       type: DataTypes.INTEGER,
-      defaultValue: 0
+      defaultValue: 0,
+      field: 'experience_contribution'
     },
     mmrChange: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
       field: 'mmr_change'
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      field: 'created_at'
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      field: 'updated_at'
+    },
+    playerBattleTag: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'player_battle_tag'
+    },
+    role: {
+      type: DataTypes.STRING(50)
     },
     mmrBefore: {
       type: DataTypes.INTEGER,
@@ -89,14 +93,6 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       defaultValue: 1500,
       field: 'mmr_after'
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      field: 'created_at'
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      field: 'updated_at'
     }
   }, {
     tableName: 'match_participants',

@@ -79,7 +79,7 @@ const defineUser = (sequelize) => {
   });
 };
 
-// Match 모델 정의
+// Match 모델 정의 (실제 DB 스키마에 맞춰 수정)
 const defineMatch = (sequelize) => {
   return sequelize.define('Match', {
     id: {
@@ -99,48 +99,28 @@ const defineMatch = (sequelize) => {
       type: DataTypes.STRING(255),
       field: 'map_name'
     },
-    maxPlayers: {
-      type: DataTypes.INTEGER,
-      defaultValue: 10,
-      field: 'max_players'
-    },
-    currentPlayers: {
-      type: DataTypes.INTEGER,
-      defaultValue: 0,
-      field: 'current_players'
-    },
-    averageMmr: {
-      type: DataTypes.INTEGER,
-      field: 'average_mmr'
-    },
-    createdBy: {
-      type: DataTypes.UUID,
-      field: 'created_by',
-      references: {
-        model: 'users',
-        key: 'id'
-      }
-    },
-    startedAt: {
-      type: DataTypes.DATE,
-      field: 'started_at'
-    },
-    endedAt: {
-      type: DataTypes.DATE,
-      field: 'ended_at'
-    },
     winner: {
-      type: DataTypes.STRING(10)
+      type: DataTypes.STRING(10),
+      allowNull: true
     },
-    gameDuration: {
-      type: DataTypes.INTEGER,
-      field: 'game_duration'
+    isSimulation: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'is_simulation'
     },
-    notes: {
-      type: DataTypes.TEXT
+    createdAt: {
+      type: DataTypes.DATE,
+      field: 'created_at'
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      field: 'updated_at'
     }
   }, {
-    tableName: 'matches'
+    tableName: 'matches',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
   });
 };
 
@@ -212,10 +192,10 @@ const defineMatchParticipant = (sequelize) => {
       type: DataTypes.BIGINT,
       defaultValue: 0
     },
-    experience: {
+    experienceContribution: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      field: 'experience'
+      field: 'experience_contribution'
     },
     mmrBefore: {
       type: DataTypes.INTEGER,
@@ -274,8 +254,7 @@ module.exports = async function handler(req, res) {
     const Match = defineMatch(sequelize);
     const MatchParticipant = defineMatchParticipant(sequelize);
 
-    // 관계 설정
-    Match.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+    // 관계 설정 (created_by 필드 제거)
     MatchParticipant.belongsTo(Match, { foreignKey: 'match_id', as: 'match' });
     MatchParticipant.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
     Match.hasMany(MatchParticipant, { foreignKey: 'match_id', as: 'participants' });
@@ -307,7 +286,7 @@ module.exports = async function handler(req, res) {
 
     // POST /api/matches/:id/complete - 매치 완료 (우선 체크)
     if (req.method === 'POST' && pathParts.length >= 4 &&
-        pathParts[1] === 'matches' && pathParts[3] === 'complete') {
+      pathParts[1] === 'matches' && pathParts[3] === 'complete') {
       console.log('[매치 완료] 엔드포인트 매칭 성공:', {
         method: req.method,
         pathParts,
@@ -398,7 +377,7 @@ module.exports = async function handler(req, res) {
                 heroDamage: playerStat.heroDamage || 0,
                 siegeDamage: playerStat.siegeDamage || 0,
                 healing: playerStat.healing || 0,
-                experience: playerStat.experience || 0,
+                experienceContribution: playerStat.experience || 0,
                 mmrBefore: user?.mmr || 1500,
                 mmrAfter: user?.mmr || 1500,
                 mmrChange: 0
@@ -517,11 +496,6 @@ module.exports = async function handler(req, res) {
           where: { id: matchId },
           include: [
             {
-              model: User,
-              as: 'creator',
-              attributes: ['id', 'battleTag', 'nickname']
-            },
-            {
               model: MatchParticipant,
               as: 'participants',
               include: [
@@ -566,14 +540,12 @@ module.exports = async function handler(req, res) {
           return res.status(404).json({ success: false, error: '사용자를 찾을 수 없습니다' });
         }
 
-        // 새 매치 생성
+        // 새 매치 생성 (createdBy 필드 제거)
         const newMatch = await Match.create({
           gameMode: gameMode || '일반 게임',
           mapName: mapName || '랜덤',
-          maxPlayers: maxPlayers || 10,
-          currentPlayers: 0,
-          createdBy: user.id,
-          status: 'waiting'
+          status: 'waiting',
+          isSimulation: false
         });
 
         clearTimeout(timeoutId);
@@ -602,11 +574,11 @@ module.exports = async function handler(req, res) {
           return res.status(404).json({ success: false, error: '매치를 찾을 수 없습니다' });
         }
 
-        // 매치 생성자 또는 관리자만 수정 가능
+        // 관리자만 수정 가능 (createdBy 필드 제거로 인한 수정)
         const user = await User.findOne({ where: { bnetId: decoded.id } });
-        if (!user || (match.createdBy !== user.id && decoded.role !== 'admin')) {
+        if (!user || decoded.role !== 'admin') {
           clearTimeout(timeoutId);
-          return res.status(403).json({ success: false, error: '권한이 없습니다' });
+          return res.status(403).json({ success: false, error: '관리자 권한이 필요합니다' });
         }
 
         const { status, winner, gameDuration, notes } = req.body;
@@ -653,11 +625,11 @@ module.exports = async function handler(req, res) {
           return res.status(404).json({ success: false, error: '매치를 찾을 수 없습니다' });
         }
 
-        // 매치 생성자 또는 관리자만 삭제 가능
+        // 관리자만 삭제 가능 (createdBy 필드 제거로 인한 수정)
         const user = await User.findOne({ where: { bnetId: decoded.id } });
-        if (!user || (match.createdBy !== user.id && decoded.role !== 'admin')) {
+        if (!user || decoded.role !== 'admin') {
           clearTimeout(timeoutId);
-          return res.status(403).json({ success: false, error: '권한이 없습니다' });
+          return res.status(403).json({ success: false, error: '관리자 권한이 필요합니다' });
         }
 
         // 관련 참가자 데이터도 함께 삭제
